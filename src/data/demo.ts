@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+﻿import type { LucideIcon } from 'lucide-react'
 import { Brush, Scissors, Sparkles } from 'lucide-react'
 
 export type Service = {
@@ -10,9 +10,9 @@ export type Service = {
 }
 
 export const demoServices: Service[] = [
-  { id: 'corte', name: 'Corte clásico', duration: 30, price: 8500, icon: Scissors },
-  { id: 'barba', name: 'Corte + barba', duration: 60, price: 14000, icon: Brush },
-  { id: 'premium', name: 'Experiencia premium', duration: 75, price: 19000, icon: Sparkles },
+  { id: 'corte', name: 'Servicio A', duration: 30, price: 8500, icon: Scissors },
+  { id: 'barba', name: 'Servicio B', duration: 60, price: 14000, icon: Brush },
+  { id: 'premium', name: 'Servicio C', duration: 75, price: 19000, icon: Sparkles },
 ]
 
 export const formatPrice = (price: number) =>
