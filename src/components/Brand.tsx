@@ -1,5 +1,3 @@
-import { CalendarClock } from 'lucide-react'
-
 type BrandProps = { compact?: boolean; inverse?: boolean }
 
 export function Brand({ compact = false, inverse = false }: BrandProps) {
