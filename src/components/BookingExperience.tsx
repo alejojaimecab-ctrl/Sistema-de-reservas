@@ -32,7 +32,7 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
       <motion.div className="success-orbit" animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}><span /></motion.div>
       <span className="success-icon"><Check size={34} strokeWidth={2.5} /></span>
       <p className="eyebrow">Reserva confirmada</p><h1>Todo listo, Lucía.</h1>
-      <p className="success-copy">Tu turno en Original Style quedó reservado para el <strong>{date.label}</strong> a las <strong>{time}</strong>.</p>
+      <p className="success-copy">Tu turno en Tu Negocio quedó reservado para el <strong>{date.label}</strong> a las <strong>{time}</strong>.</p>
       <div className="booking-receipt"><span>{service.name}</span><strong>{formatPrice(service.price)}</strong><span>{service.duration} minutos</span><span>Confirmada</span></div>
       <p className="success-note"><Mail size={15} /> Te enviamos la confirmación a tu correo.</p>
       <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
@@ -40,9 +40,9 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
   </section>
 
   return <section className="booking-shell">
-    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button><span className="booking-business">Original Style <i /> Buenos Aires</span></div>
+    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button><span className="booking-business">Tu Negocio <i /> Córdoba</span></div>
     <div className="booking-layout">
-      <aside className="booking-intro"><span className="mini-logo">OS</span><p className="eyebrow">Reserva online</p><h1>Un momento para vos.</h1><p>Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.</p><div className="booking-side-info"><Clock3 size={17} /><span>Sin esperas. Sin llamadas.</span></div></aside>
+      <aside className="booking-intro"><span className="mini-logo">TN</span><p className="eyebrow">Reserva online</p><h1>Un momento para vos.</h1><p>Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.</p><div className="booking-side-info"><Clock3 size={17} /><span>Sin esperas. Sin llamadas.</span></div></aside>
       <div className="booking-card">
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) => <span className={n <= step ? 'is-active' : ''} key={n}>{n}</span>)}</div>
         <AnimatePresence mode="wait">

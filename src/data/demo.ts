@@ -1,4 +1,4 @@
-﻿import type { LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Brush, Scissors, Sparkles } from 'lucide-react'
 
 export type Service = {
