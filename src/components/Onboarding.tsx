@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { ArrowRight, Check, Clock3, Mail, Store, Sparkles } from 'lucide-react'
 import { Brand } from './Brand'
+import { useAuth } from '../lib/auth'
+import { supabase } from '../lib/supabase'
+import { createBusinessWithSetup } from '../lib/db'
 
 export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
+  const { signUp, session } = useAuth()
   const [step, setStep] = useState(1)
+  const [ownerName, setOwnerName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [businessName, setBusinessName] = useState('')
   const [slug, setSlug] = useState('')
   const [services, setServices] = useState<Array<{name: string; duration: number; price: number}>>([])
@@ -26,12 +35,58 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     {id: 'domingo', name: 'Domingo'}
   ]
   const hours = Array.from({length: 24}, (_, i) => i)
+
+  async function finish() {
+    setError(null)
+    if (!ownerName.trim() || !businessName.trim() || !slug.trim()) {
+      setError('Completá tu nombre, el nombre del negocio y el enlace (paso 1).')
+      return
+    }
+    if (!email.trim() || password.length < 6) {
+      setError('Ingresá un email válido y una contraseña de al menos 6 caracteres.')
+      return
+    }
+    setBusy(true)
+    const signUpError = await signUp(email.trim(), password, ownerName.trim())
+    if (signUpError) {
+      setBusy(false)
+      setError(signUpError.includes('already registered') ? 'Ese email ya tiene una cuenta. Iniciá sesión.' : signUpError)
+      return
+    }
+    // signUp inicia sesión automáticamente si la confirmación por email está desactivada
+    const userId = session?.user.id ?? (await supabase.auth.getSession()).data.session?.user.id
+    if (!userId) {
+      setBusy(false)
+      setError('Cuenta creada. Revisá tu email para confirmarla y después iniciá sesión.')
+      return
+    }
+    const setupError = await createBusinessWithSetup(userId, {
+      name: businessName.trim(),
+      slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+      services,
+      availability,
+    })
+    setBusy(false)
+    if (setupError) {
+      setError(setupError.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : setupError)
+      return
+    }
+    onFinish()
+  }
+
   return <main className="onboarding"><header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header><div className="onboarding-progress"><span style={{ width: (step * 25) + '%' }} /></div>
     <section className="onboarding-card"><p className="eyebrow">Configuración inicial · {step}/4</p>
       {step === 1 && (<>
         <span className="onboarding-icon"><Store size={25} /></span>
         <h1>Empecemos por tu negocio.</h1>
         <p>Este nombre va a aparecer en tu página de reservas.</p>
+        <label className="onboarding-field">Tu nombre
+          <input
+            placeholder="Ej: Nicolás"
+            value={ownerName}
+            onChange={e => setOwnerName(e.target.value)}
+          />
+        </label>
         <label className="onboarding-field">Nombre del negocio
           <input
             placeholder="Ej: Peluquería López"
@@ -151,9 +206,21 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
           <Check size={20} />
           <span><strong>Notificaciones por email</strong><small>Podrás conectar WhatsApp Business cuando quieras.</small></span>
         </div>
+        <label className="onboarding-field">Email de tu cuenta
+          <input type="email" placeholder="tu@email.com" value={email}
+            onChange={e => setEmail(e.target.value)} />
+        </label>
+        <label className="onboarding-field">Contraseña
+          <input type="password" placeholder="Mínimo 6 caracteres" value={password}
+            onChange={e => setPassword(e.target.value)} />
+        </label>
+        {error && <p className="form-error">{error}</p>}
       </>)}
-      <button className="button button--primary button--full" onClick={() => step === 4 ? onFinish() : setStep(step + 1)}>
-        {step === 4 ? 'Ir a mi panel' : 'Continuar'} <ArrowRight size={18} />
+      <button className="button button--primary button--full" disabled={busy} onClick={() => {
+        if (step < 4) { setStep(step + 1); return }
+        void finish()
+      }}>
+        {busy ? 'Creando tu cuenta…' : step === 4 ? 'Ir a mi panel' : 'Continuar'} <ArrowRight size={18} />
       </button>
     </section>
   </main>

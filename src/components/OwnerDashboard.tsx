@@ -1,32 +1,218 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Bell, CalendarDays, CheckCircle2, Clock3, Ellipsis, LayoutDashboard, LogOut, Plus, Settings2, Sparkles, UsersRound } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
+import { useAuth } from '../lib/auth'
+import {
+  createService, deleteService, getAvailability, getDashboardStats,
+  listReservations, listServices, setAvailability, updateBusiness, updateService,
+  type DashboardStats, type Reservation, type Service,
+} from '../lib/db'
 
 type OwnerDashboardProps = { onExit: () => void }
 
-const reservations = [
-  { time: '09:30', client: 'Lucía Fernández', service: 'Servicio 1', price: 8500, initials: 'LF', color: 'blue' },
-  { time: '10:30', client: 'Bruno Acosta', service: 'Servicio 2', price: 14000, initials: 'BA', color: 'violet' },
-  { time: '14:00', client: 'Malena Ruiz', service: 'Servicio 3', price: 19000, initials: 'MR', color: 'orange' },
+const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Configuración']
+const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, Settings2]
+
+const days = [
+  { id: 1, name: 'Lunes' }, { id: 2, name: 'Martes' }, { id: 3, name: 'Miércoles' },
+  { id: 4, name: 'Jueves' }, { id: 5, name: 'Viernes' }, { id: 6, name: 'Sábado' }, { id: 0, name: 'Domingo' },
 ]
+const hours = Array.from({ length: 24 }, (_, i) => i)
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buen día'
+  if (h < 20) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+function todayLabel() {
+  return new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+function initials(name: string) {
+  return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+}
 
 export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
+  const { profile, business, signOut, refreshBusiness } = useAuth()
   const [active, setActive] = useState('Resumen')
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [reservations, setReservations] = useState<Reservation[]>([])
+
+  useEffect(() => {
+    if (!business) return
+    getDashboardStats(business.id).then(setStats)
+    listReservations(business.id).then(setReservations)
+  }, [business])
+
+  if (!business) {
+    return <main className="onboarding"><section className="onboarding-card">
+      <h1>Tu cuenta no tiene un negocio configurado.</h1>
+      <p>Completá la configuración inicial para empezar.</p>
+      <button className="button button--secondary" onClick={signOut}>Cerrar sesión</button>
+    </section></main>
+  }
+
   return <div className="dashboard">
-    <aside className="dashboard-sidebar"><Brand /><div className="business-switch"><span className="mini-logo">TN</span><span><strong>Tu Negocio</strong><small>Córdoba</small></span><Ellipsis size={18} /></div>
-      <nav>{['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Configuración'].map((item, index) => { const Icon = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, Settings2][index]; return <button className={active === item ? 'is-active' : ''} key={item} onClick={() => setActive(item)}><Icon size={18} />{item}</button> })}</nav>
-      <button className="sidebar-exit" onClick={onExit}><LogOut size={17} /> Salir de la demo</button>
+    <aside className="dashboard-sidebar"><Brand />
+      <div className="business-switch">
+        <span className="mini-logo">{initials(business.name)}</span>
+        <span><strong>{business.name}</strong><small>reser.com.ar/{business.slug}</small></span>
+        <Ellipsis size={18} />
+      </div>
+      <nav>{sections.map((item, index) => { const Icon = sectionIcons[index]; return <button className={active === item ? 'is-active' : ''} key={item} onClick={() => setActive(item)}><Icon size={18} />{item}</button> })}</nav>
+      <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
-    <main className="dashboard-main"><header className="dashboard-header"><div><p className="eyebrow">Martes, 15 de abril</p><h1>Buen día, Nicolás <span>✦</span></h1></div><div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button><button className="button button--primary"><Plus size={17} /> Nueva reserva</button></div></header>
-      <section className="dashboard-stats"><Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value="8" detail="3 pendientes"/><Metric icon={<UsersRound size={19} />} label="Clientes este mes" value="124" detail="+18% vs. marzo"/><Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value="96%" detail="En los últimos 30 días"/></section>
-      <section className="dashboard-grid"><div className="agenda-card"><div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Agenda')}>Ver agenda completa</button></div><div className="agenda-list">{reservations.map((reservation, index) => <motion.div className="reservation-row" key={reservation.client} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.1 }}><time>{reservation.time}</time><span className={`avatar avatar--${reservation.color}`}>{reservation.initials}</span><span className="reservation-info"><strong>{reservation.client}</strong><small>{reservation.service}</small></span><b>{formatPrice(reservation.price)}</b><button aria-label={`Acciones para ${reservation.client}`}><Ellipsis size={19} /></button></motion.div>)}</div></div>
-        <div className="insight-card"><span className="insight-icon"><Clock3 size={22} /></span><p className="eyebrow">Próximo turno</p><h2>En 34 minutos</h2><p>Lucía Fernández · Servicio 1</p><div className="insight-line"><span /><i /></div><button className="button button--secondary">Ver detalle</button></div>
-      </section>
-      <section className="activity-card"><div><p className="eyebrow">Actividad</p><h2>RESER trabaja por vos</h2></div><div className="activity-event"><span><CheckCircle2 size={17} /></span><p><strong>Recordatorio enviado</strong><small>Lucía recibirá su aviso una hora antes del turno.</small></p><time>Ahora</time></div></section>
+    <main className="dashboard-main">
+      <header className="dashboard-header">
+        <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
+        <div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button><button className="button button--primary" onClick={() => setActive('Reservas')}><Plus size={17} /> Nueva reserva</button></div>
+      </header>
+
+      {active === 'Resumen' && <>
+        <section className="dashboard-stats">
+          <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
+          <Metric icon={<UsersRound size={19} />} label="Clientes este mes" value={String(stats?.monthClients ?? 0)} detail="Clientes únicos con turno" />
+          <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={stats?.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Turnos no cancelados" />
+        </section>
+        <section className="dashboard-grid"><div className="agenda-card">
+          <div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
+          <ReservationList reservations={reservations} />
+        </div></section>
+      </>}
+
+      {(active === 'Agenda' || active === 'Reservas') && (
+        <section className="agenda-card">
+          <div className="card-heading"><div><p className="eyebrow">{active}</p><h2>Próximas reservas</h2></div></div>
+          <ReservationList reservations={reservations} />
+        </section>
+      )}
+
+      {active === 'Servicios' && <ServicesSection businessId={business.id} />}
+      {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
     </main>
   </div>
+}
+
+function ReservationList({ reservations }: { reservations: Reservation[] }) {
+  if (reservations.length === 0) {
+    return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Cuando tus clientes reserven desde tu enlace, van a aparecer acá.</p>
+  }
+  const colors = ['blue', 'violet', 'orange']
+  return <div className="agenda-list">{reservations.map((r, index) => {
+    const date = new Date(r.starts_at)
+    const clientName = r.clients?.name ?? 'Cliente'
+    return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
+      <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+      <span className={`avatar avatar--${colors[index % colors.length]}`}>{initials(clientName)}</span>
+      <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}</small></span>
+      <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
+      <button aria-label={`Acciones para ${clientName}`}><Ellipsis size={19} /></button>
+    </motion.div>
+  })}</div>
+}
+
+function ServicesSection({ businessId }: { businessId: string }) {
+  const [services, setServices] = useState<Service[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  async function reload() { setServices(await listServices(businessId)) }
+  useEffect(() => { void reload() }, [businessId])
+
+  function updateLocal(id: string, patch: Partial<Service>) {
+    setServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
+  }
+
+  function persist(svc: Service) {
+    void updateService(svc.id, { name: svc.name, duration_min: svc.duration_min, price: svc.price })
+      .then(err => { if (err) setError(err) })
+  }
+
+  return <section className="agenda-card">
+    <div className="card-heading"><div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div></div>
+    <div className="setup-services">
+      {services.map(svc => (
+        <div key={svc.id} className="service-row">
+          <input value={svc.name} onChange={e => updateLocal(svc.id, { name: e.target.value })} onBlur={() => persist(svc)} />
+          <input type="number" min={5} step={5} value={svc.duration_min}
+            onChange={e => updateLocal(svc.id, { duration_min: parseInt(e.target.value) || 0 })} onBlur={() => persist(svc)} />
+          <input type="number" min={0} step={100} value={svc.price}
+            onChange={e => updateLocal(svc.id, { price: parseInt(e.target.value) || 0 })} onBlur={() => persist(svc)} />
+          <button className="service-remove" onClick={() => void deleteService(svc.id).then(err => { if (err) setError(err); else void reload() })}>Eliminar</button>
+        </div>
+      ))}
+      <div className="add-service">
+        <button onClick={() => void createService(businessId, { name: 'Nuevo servicio', duration_min: 30, price: 0 }).then(err => { if (err) setError(err); else void reload() })}>+ Agregar servicio</button>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+    </div>
+  </section>
+}
+
+function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: () => Promise<void> }) {
+  const { business } = useAuth()
+  const [name, setName] = useState(business?.name ?? '')
+  const [slug, setSlug] = useState(business?.slug ?? '')
+  const [slots, setSlots] = useState<Set<string>>(new Set())
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => { getAvailability(businessId).then(setSlots) }, [businessId])
+
+  function toggle(day: number, hour: number) {
+    const key = `${day}-${hour}`
+    setSlots(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
+
+  async function save() {
+    setBusy(true)
+    setMessage(null)
+    const bizError = await updateBusiness(businessId, { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') })
+    const avError = bizError ?? await setAvailability(businessId, slots)
+    setBusy(false)
+    if (avError) { setMessage(avError.includes('duplicate') ? 'Ese enlace ya está en uso.' : avError); return }
+    await onSaved()
+    setMessage('Cambios guardados ✓')
+  }
+
+  return <section className="agenda-card">
+    <div className="card-heading"><div><p className="eyebrow">Configuración</p><h2>Tu negocio</h2></div></div>
+    <label className="onboarding-field">Nombre del negocio
+      <input value={name} onChange={e => setName(e.target.value)} />
+    </label>
+    <label className="onboarding-field">Tu enlace de RESER
+      <div className="url-field"><span>reser.com.ar/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
+    </label>
+    <p className="eyebrow" style={{ marginTop: 20 }}>Disponibilidad</p>
+    <div className="availability-table">
+      <table>
+        <thead><tr><th></th>{hours.map(h => <th key={h}>{h.toString().padStart(2, '0')}:00</th>)}</tr></thead>
+        <tbody>
+          {days.map(day => (
+            <tr key={day.id}>
+              <th>{day.name}</th>
+              {hours.map(hour => (
+                <td key={hour}>
+                  <input type="checkbox" checked={slots.has(`${day.id}-${hour}`)} onChange={() => toggle(day.id, hour)} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {message && <p className="form-note">{message}</p>}
+    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
+      {busy ? 'Guardando…' : 'Guardar cambios'}
+    </button>
+  </section>
 }
 
 function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {

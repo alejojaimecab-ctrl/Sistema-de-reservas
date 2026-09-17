@@ -7,3 +7,18 @@
 @media (max-width: 500px) { .hero h1 { font-size: 47px; }.hero-actions { align-items: stretch; flex-direction: column; }.hero-actions .button { width: 100%; }.showcase-window { width: calc(100% - 12px); }.floating-card--calendar { right: -2px; }.floating-card--reminder { bottom: 0; }.hero-visual { min-height: 305px; }.field-grid { grid-template-columns: 1fr; }.booking-card { padding: 25px 19px; }.date-picker { grid-template-columns: 25px repeat(5, 1fr) 25px; }.date-picker button { min-height: 48px; }.date-picker strong { font-size: 11px; }.time-grid { grid-template-columns: repeat(3, 1fr); }.booking-topbar { padding: 0 3px; }.booking-business { font-size: 9px; }.dashboard-header { align-items: start; gap: 14px; flex-direction: column; }.header-actions { width: 100%; }.header-actions .button { flex: 1; }.metric { min-height: 95px; }.reservation-row { grid-template-columns: 38px 30px 1fr auto; }.reservation-row button, .reservation-row b { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 
+/* Formularios funcionales (login, onboarding, servicios, configuración) */
+.form-error { color: #ff9b9b; font-size: 11px; margin: 4px 0 12px; }
+.service-row input { flex: 1; min-width: 0; height: 38px; color: #dcecf1; background: #0f1d25; border: 1px solid #28414c; border-radius: 7px; padding: 0 10px; font-size: 11px; outline: none; }
+.service-row input[type="number"] { max-width: 90px; }
+.service-remove { color: #ff9b9b; background: transparent; border: 1px solid #4b2f34; border-radius: 7px; padding: 7px 10px; font-size: 10px; font-weight: 700; }
+.service-remove:hover { background: #2a1a1d; }
+.add-service button { width: 100%; padding: 11px; color: #79ddf8; background: transparent; border: 1px dashed #2c4c59; border-radius: 9px; font-size: 11px; font-weight: 700; }
+.add-service button:hover { background: #12242c; }
+.availability-table { overflow-x: auto; margin-bottom: 10px; }
+.availability-table table { border-collapse: collapse; }
+.availability-table th { color: #8ba4af; font-size: 9px; font-weight: 700; padding: 4px 6px; white-space: nowrap; text-align: left; }
+.availability-table thead th { text-align: center; }
+.availability-table td { padding: 2px; text-align: center; }
+.availability-table input[type="checkbox"] { width: 15px; height: 15px; accent-color: #55d0f2; cursor: pointer; }
+
