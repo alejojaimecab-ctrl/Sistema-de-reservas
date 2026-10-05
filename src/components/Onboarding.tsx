@@ -13,6 +13,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const [businessName, setBusinessName] = useState('')
   const [slug, setSlug] = useState('')
   const [services, setServices] = useState<Array<{name: string; duration: number; price: number}>>([])
@@ -53,11 +54,23 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       setError(signUpError.includes('already registered') ? 'Ese email ya tiene una cuenta. Iniciá sesión.' : signUpError)
       return
     }
-    // signUp inicia sesión automáticamente si la confirmación por email está desactivada
+    // signUp inicia sesión automáticamente si la confirmación por email está desactivada;
+    // si está activada, mostramos la pantalla de "revisá tu correo" y al confirmar
+    // el email Supabase redirige a la app y la sesión se inicia sola.
     const userId = session?.user.id ?? (await supabase.auth.getSession()).data.session?.user.id
     if (!userId) {
+      // Sin sesión (confirmación de email activada): guardamos lo cargado para
+      // crearlo todo automáticamente cuando el usuario vuelva con la cuenta confirmada.
+      try {
+        localStorage.setItem('reser-pending-setup', JSON.stringify({
+          name: businessName.trim(),
+          slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+          services,
+          availability,
+        }))
+      } catch { /* si falla el storage, el usuario lo carga de nuevo en el panel */ }
       setBusy(false)
-      setError('Cuenta creada. Revisá tu email para confirmarla y después iniciá sesión.')
+      setAwaitingConfirmation(true)
       return
     }
     const setupError = await createBusinessWithSetup(userId, {
@@ -71,7 +84,19 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       setError(setupError.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : setupError)
       return
     }
+    try { localStorage.removeItem('reser-pending-setup') } catch { /* noop */ }
     onFinish()
+  }
+
+  if (awaitingConfirmation) {
+    return <main className="onboarding"><header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
+      <section className="onboarding-card">
+        <span className="onboarding-icon"><Mail size={25} /></span>
+        <h1>Revisá tu correo.</h1>
+        <p>Te enviamos un email a <strong>{email}</strong> con un enlace para confirmar tu cuenta. Al hacer clic, vas a entrar directamente a tu panel, sin tener que iniciar sesión.</p>
+        <p style={{ color: '#7a919c', fontSize: 13 }}>¿No llegó? Revisá la carpeta de spam o correo no deseado.</p>
+      </section>
+    </main>
   }
 
   return <main className="onboarding"><header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header><div className="onboarding-progress"><span style={{ width: (step * 25) + '%' }} /></div>

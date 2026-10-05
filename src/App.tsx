@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowRight, BellRing, CalendarCheck2, CirclePlay, Clock3, Layers3, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react'
 import { Brand } from './components/Brand'
@@ -24,6 +24,17 @@ export default function App() {
 function Root() {
   const [view, setView] = useState<View>('home')
   const { session, loading } = useAuth()
+  const prevSession = useRef<typeof session | undefined>(undefined)
+
+  // Cuando aparece una sesión nueva (login, o al volver del email de confirmación),
+  // llevar al usuario directo al dashboard.
+  useEffect(() => {
+    if (loading) return
+    if (prevSession.current === null && session) {
+      setView(v => (v === 'home' || v === 'login' || v === 'onboarding') ? 'dashboard' : v)
+    }
+    prevSession.current = session
+  }, [session, loading])
 
   if (loading) return null
   if (view === 'booking') return <BookingExperience onBack={() => setView('home')} />

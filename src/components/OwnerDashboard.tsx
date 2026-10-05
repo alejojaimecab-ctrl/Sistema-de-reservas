@@ -5,7 +5,7 @@ import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import {
-  createService, deleteService, getAvailability, getDashboardStats,
+  createBusiness, createBusinessWithSetup, createService, deleteService, getAvailability, getDashboardStats,
   listReservations, listServices, setAvailability, updateBusiness, updateService,
   type DashboardStats, type Reservation, type Service,
 } from '../lib/db'
@@ -49,11 +49,21 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   }, [business])
 
   if (!business) {
-    return <main className="onboarding"><section className="onboarding-card">
-      <h1>Tu cuenta no tiene un negocio configurado.</h1>
-      <p>Completá la configuración inicial para empezar.</p>
-      <button className="button button--secondary" onClick={signOut}>Cerrar sesión</button>
-    </section></main>
+    return <div className="dashboard">
+      <aside className="dashboard-sidebar"><Brand />
+        <div className="business-switch">
+          <span className="mini-logo">{profile ? initials(profile.full_name) : '…'}</span>
+          <span><strong>{profile?.full_name ?? 'Mi cuenta'}</strong><small>Sin negocio todavía</small></span>
+        </div>
+        <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
+      </aside>
+      <main className="dashboard-main">
+        <header className="dashboard-header">
+          <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
+        </header>
+        <CreateBusinessCard />
+      </main>
+    </div>
   }
 
   return <div className="dashboard">
@@ -95,6 +105,64 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
     </main>
   </div>
+}
+
+type PendingSetup = {
+  name: string
+  slug: string
+  services: Array<{ name: string; duration: number; price: number }>
+  availability: Record<string, boolean[]>
+}
+
+function readPendingSetup(): PendingSetup | null {
+  try {
+    const raw = localStorage.getItem('reser-pending-setup')
+    return raw ? JSON.parse(raw) as PendingSetup : null
+  } catch { return null }
+}
+
+function CreateBusinessCard() {
+  const { session, refreshBusiness } = useAuth()
+  const [pending] = useState<PendingSetup | null>(() => readPendingSetup())
+  const [name, setName] = useState(pending?.name ?? '')
+  const [slug, setSlug] = useState(pending?.slug ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function create() {
+    setError(null)
+    if (!name.trim() || !slug.trim()) { setError('Completá el nombre y el enlace de tu negocio.'); return }
+    if (!session) { setError('Tu sesión expiró. Volvé a iniciar sesión.'); return }
+    setBusy(true)
+    const input = { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') }
+    // Si venimos del onboarding con servicios/horarios cargados, los creamos todos juntos.
+    const err = pending
+      ? await createBusinessWithSetup(session.user.id, { ...input, services: pending.services, availability: pending.availability })
+      : await createBusiness(session.user.id, input)
+    setBusy(false)
+    if (err) { setError(err.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : err); return }
+    try { localStorage.removeItem('reser-pending-setup') } catch { /* noop */ }
+    await refreshBusiness()
+  }
+
+  return <section className="agenda-card" style={{ maxWidth: 520 }}>
+    <div className="card-heading"><div><p className="eyebrow">Primer paso</p><h2>Creá tu negocio</h2></div></div>
+    <p style={{ color: '#7a919c', fontSize: 14, margin: '0 0 16px' }}>
+      {pending
+        ? 'Recuperamos los servicios y horarios que cargaste al registrarte. Confirmá el nombre y el enlace para dejar todo listo.'
+        : 'Solo necesitás el nombre y tu enlace. Los servicios y horarios los cargás después desde las secciones del panel.'}
+    </p>
+    <label className="onboarding-field">Nombre del negocio
+      <input placeholder="Ej: Peluquería López" value={name} onChange={e => setName(e.target.value)} />
+    </label>
+    <label className="onboarding-field">Tu enlace de RESER
+      <div className="url-field"><span>reser.com.ar/</span><input placeholder="tu-negocio" value={slug} onChange={e => setSlug(e.target.value)} /></div>
+    </label>
+    {error && <p className="form-error">{error}</p>}
+    <button className="button button--primary" style={{ marginTop: 8 }} disabled={busy} onClick={() => void create()}>
+      {busy ? 'Creando…' : 'Crear mi negocio'}
+    </button>
+  </section>
 }
 
 function ReservationList({ reservations }: { reservations: Reservation[] }) {
