@@ -12,6 +12,9 @@ create table businesses (
   owner_id uuid not null references profiles(id) on delete cascade,
   name text not null,
   slug text not null unique,
+  -- Zona horaria IANA del negocio: availability.hour se interpreta en esta
+  -- zona (ver migración 007). Default: mercado objetivo.
+  timezone text not null default 'America/Argentina/Buenos_Aires',
   created_at timestamptz not null default now()
 );
 
@@ -104,3 +107,4 @@ create policy "own clients" on clients
 create policy "own reservations" on reservations
   for all using (business_id in (select id from businesses where owner_id = auth.uid()))
   with check (business_id in (select id from businesses where owner_id = auth.uid()));
+1
