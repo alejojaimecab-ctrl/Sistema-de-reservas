@@ -1,0 +1,6 @@
+project_id = "lhmpmzxvpkqlfnwvwglu"
+
+# send-reminders la dispara pg_cron desde la base (sin JWT de usuario):
+# se autentica con el header x-reminder-secret.
+[functions.send-reminders]
+verify_jwt = false
