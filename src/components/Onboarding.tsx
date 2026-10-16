@@ -1,252 +1,504 @@
-import { useState } from 'react'
-import { ArrowRight, Check, Clock3, Mail, Store, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles } from 'lucide-react'
+import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from './AvailabilityEditor'
 import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { createBusinessWithSetup } from '../lib/db'
 
+type SetupService = { name: string; duration: number; price: number }
+type OnboardingDraft = {
+  step: number
+  ownerName: string
+  businessName: string
+  slug: string
+  email: string
+  services: SetupService[]
+  availability: AvailabilityMap
+}
+
+const draftKey = 'reser-onboarding-draft'
+const days: AvailabilityDay[] = [
+  { id: 'lunes', name: 'Lunes' },
+  { id: 'martes', name: 'Martes' },
+  { id: 'miercoles', name: 'Miércoles' },
+  { id: 'jueves', name: 'Jueves' },
+  { id: 'viernes', name: 'Viernes' },
+  { id: 'sabado', name: 'Sábado' },
+  { id: 'domingo', name: 'Domingo' },
+]
+
+function emptyAvailability(): AvailabilityMap {
+  return Object.fromEntries(days.map(day => [day.id, Array.from({ length: 24 }, () => false)]))
+}
+
+function isAvailabilityMap(value: unknown): value is AvailabilityMap {
+  if (!value || typeof value !== 'object') return false
+  return days.every(day => {
+    const hours = (value as Record<string, unknown>)[day.id]
+    return Array.isArray(hours) && hours.length === 24 && hours.every(hour => typeof hour === 'boolean')
+  })
+}
+
+function isSetupService(value: unknown): value is SetupService {
+  if (!value || typeof value !== 'object') return false
+  const service = value as Record<string, unknown>
+  return typeof service.name === 'string'
+    && typeof service.duration === 'number'
+    && typeof service.price === 'number'
+}
+
+function readOnboardingDraft(): { draft: OnboardingDraft | null; error: string | null } {
+  try {
+    const raw = localStorage.getItem(draftKey)
+    if (!raw) return { draft: null, error: null }
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') {
+      return { draft: null, error: 'El borrador guardado no tiene un formato válido.' }
+    }
+    const value = parsed as Record<string, unknown>
+    if (
+      typeof value.step !== 'number'
+      || !Number.isInteger(value.step)
+      || value.step < 1
+      || value.step > 4
+      || typeof value.ownerName !== 'string'
+      || typeof value.businessName !== 'string'
+      || typeof value.slug !== 'string'
+      || typeof value.email !== 'string'
+      || !Array.isArray(value.services)
+      || !value.services.every(isSetupService)
+      || !isAvailabilityMap(value.availability)
+    ) {
+      return { draft: null, error: 'El borrador guardado está incompleto o dañado.' }
+    }
+
+    return { draft: value as unknown as OnboardingDraft, error: null }
+  } catch (error) {
+    console.warn('No se pudo recuperar el borrador de onboarding:', error)
+    return {
+      draft: null,
+      error: error instanceof SyntaxError
+        ? 'El borrador guardado no tiene un formato válido.'
+        : 'No se pudo acceder al borrador guardado en este dispositivo.',
+    }
+  }
+}
+
+function availabilityIsSet(availability: AvailabilityMap) {
+  return Object.values(availability).some(hours => hours.some(Boolean))
+}
+
+function removeLocalDraft() {
+  try {
+    localStorage.removeItem(draftKey)
+    return null
+  } catch (error) {
+    return error instanceof Error ? error.message : 'No se pudo borrar el borrador local.'
+  }
+}
+
 export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
   const { signUp, session } = useAuth()
-  const [step, setStep] = useState(1)
-  const [ownerName, setOwnerName] = useState('')
-  const [email, setEmail] = useState('')
+  const [draftRead, setDraftRead] = useState(readOnboardingDraft)
+  const restored = draftRead.draft
+  const [step, setStep] = useState(restored?.step ?? 1)
+  const [ownerName, setOwnerName] = useState(restored?.ownerName ?? '')
+  const [email, setEmail] = useState(restored?.email ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [draftStatus, setDraftStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
-  const [businessName, setBusinessName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [services, setServices] = useState<Array<{name: string; duration: number; price: number}>>([])
-  const [availability, setAvailability] = useState<Record<string, boolean[]>>({
-    lunes: Array(24).fill(false),
-    martes: Array(24).fill(false),
-    miercoles: Array(24).fill(false),
-    jueves: Array(24).fill(false),
-    viernes: Array(24).fill(false),
-    sabado: Array(24).fill(false),
-    domingo: Array(24).fill(false)
-  })
-  const days = [
-    {id: 'lunes', name: 'Lunes'},
-    {id: 'martes', name: 'Martes'},
-    {id: 'miercoles', name: 'Miércoles'},
-    {id: 'jueves', name: 'Jueves'},
-    {id: 'viernes', name: 'Viernes'},
-    {id: 'sabado', name: 'Sábado'},
-    {id: 'domingo', name: 'Domingo'}
-  ]
-  const hours = Array.from({length: 24}, (_, i) => i)
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null)
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previousStepRef = useRef(step)
+  const errorRef = useRef<HTMLParagraphElement>(null)
+  const [businessName, setBusinessName] = useState(restored?.businessName ?? '')
+  const [slug, setSlug] = useState(restored?.slug ?? '')
+  const [services, setServices] = useState<SetupService[]>(
+    restored?.services ?? [{ name: '', duration: 30, price: 0 }],
+  )
+  const [availability, setAvailability] = useState<AvailabilityMap>(
+    restored?.availability ?? emptyAvailability(),
+  )
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return
+    stepHeadingRef.current?.focus()
+    previousStepRef.current = step
+  }, [step])
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus()
+  }, [error])
+
+  useEffect(() => {
+    if (draftRead.error) return
+
+    const hasProgress = step > 1
+      || ownerName.trim() !== ''
+      || businessName.trim() !== ''
+      || slug.trim() !== ''
+      || email.trim() !== ''
+      || services.some(service => service.name.trim() !== '')
+      || availabilityIsSet(availability)
+
+    if (!hasProgress) return
+
+    setDraftStatus('Guardando avance…')
+    const timeout = window.setTimeout(() => {
+      try {
+        const draft: OnboardingDraft = {
+          step,
+          ownerName,
+          businessName,
+          slug,
+          email,
+          services,
+          availability,
+        }
+        localStorage.setItem(draftKey, JSON.stringify(draft))
+        setDraftStatus('Avance guardado en este dispositivo.')
+      } catch (saveError) {
+        const detail = saveError instanceof Error ? saveError.message : 'No se pudo guardar el avance.'
+        setDraftStatus(`No pudimos guardar el avance: ${detail}`)
+      }
+    }, 250)
+
+    return () => window.clearTimeout(timeout)
+  }, [availability, businessName, draftRead.error, email, ownerName, services, slug, step])
+
+  function validateStep(targetStep: number) {
+    if (targetStep === 1 && (!ownerName.trim() || !businessName.trim() || !slug.trim())) {
+      return 'Completá tu nombre, el nombre del negocio y el enlace para continuar.'
+    }
+    if (targetStep === 2) {
+      const namedServices = services.filter(service => service.name.trim() !== '')
+      if (namedServices.length === 0) return 'Agregá al menos un servicio para que tus clientes puedan reservar.'
+      if (namedServices.length !== services.length) return 'Completá o eliminá los servicios que quedaron sin nombre.'
+      if (namedServices.some(service =>
+        !Number.isFinite(service.duration)
+        || !Number.isInteger(service.duration)
+        || service.duration < 5
+        || service.duration % 5 !== 0
+        || !Number.isFinite(service.price)
+        || service.price < 0
+      )) {
+        return 'La duración debe ser de 5 minutos como mínimo y avanzar de 5 en 5. El precio no puede ser negativo.'
+      }
+    }
+    if (targetStep === 3 && !availabilityIsSet(availability)) {
+      return 'Habilitá al menos un día y una franja horaria para recibir reservas.'
+    }
+    if (targetStep === 4) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Ingresá un email válido.'
+      if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.'
+    }
+    return null
+  }
+
+  function continueStep() {
+    const validationError = validateStep(step)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
+    setStep(current => Math.min(current + 1, 4))
+  }
+
+  function goBackStep() {
+    setError(null)
+    setStep(current => Math.max(current - 1, 1))
+  }
+
+  function discardDraft() {
+    try {
+      localStorage.removeItem(draftKey)
+      setDraftRead({ draft: null, error: null })
+      setStep(1)
+      setOwnerName('')
+      setBusinessName('')
+      setSlug('')
+      setEmail('')
+      setPassword('')
+      setServices([{ name: '', duration: 30, price: 0 }])
+      setAvailability(emptyAvailability())
+      setDraftStatus(null)
+    } catch (discardError) {
+      const detail = discardError instanceof Error ? discardError.message : 'No se pudo borrar el borrador.'
+      setDraftStatus(`No pudimos borrar el borrador: ${detail}`)
+    }
+  }
 
   async function finish() {
+    for (let stepToValidate = 1; stepToValidate <= 4; stepToValidate += 1) {
+      const validationError = validateStep(stepToValidate)
+      if (validationError) {
+        setStep(stepToValidate)
+        setError(validationError)
+        return
+      }
+    }
+
     setError(null)
-    if (!ownerName.trim() || !businessName.trim() || !slug.trim()) {
-      setError('Completá tu nombre, el nombre del negocio y el enlace (paso 1).')
-      return
-    }
-    if (!email.trim() || password.length < 6) {
-      setError('Ingresá un email válido y una contraseña de al menos 6 caracteres.')
-      return
-    }
     setBusy(true)
-    const signUpError = await signUp(email.trim(), password, ownerName.trim())
-    if (signUpError) {
-      setBusy(false)
-      setError(signUpError.includes('already registered') ? 'Ese email ya tiene una cuenta. Iniciá sesión.' : signUpError)
-      return
-    }
-    // signUp inicia sesión automáticamente si la confirmación por email está desactivada;
-    // si está activada, mostramos la pantalla de "revisá tu correo" y al confirmar
-    // el email Supabase redirige a la app y la sesión se inicia sola.
-    const userId = session?.user.id ?? (await supabase.auth.getSession()).data.session?.user.id
+
+    let userId = createdUserId ?? session?.user.id ?? null
     if (!userId) {
-      // Sin sesión (confirmación de email activada): guardamos lo cargado para
-      // crearlo todo automáticamente cuando el usuario vuelva con la cuenta confirmada.
+      let signUpError: string | null
+      try {
+        signUpError = await signUp(email.trim(), password, ownerName.trim())
+      } catch (signUpFailure) {
+        setBusy(false)
+        const detail = signUpFailure instanceof Error ? signUpFailure.message : 'error inesperado'
+        setError(`No pudimos crear la cuenta por un problema de conexión: ${detail}`)
+        return
+      }
+      if (signUpError) {
+        setBusy(false)
+        setError(signUpError.includes('already registered')
+          ? 'Ese email ya tiene una cuenta. Iniciá sesión.'
+          : signUpError)
+        return
+      }
+
+      let activeUserId: string | null = null
+      try {
+        const { data: { session: activeSession }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) {
+          setBusy(false)
+          setError(`La cuenta se creó, pero no pudimos verificar la sesión: ${sessionError.message}`)
+          return
+        }
+        activeUserId = activeSession?.user.id ?? null
+      } catch (sessionFailure) {
+        setBusy(false)
+        const detail = sessionFailure instanceof Error ? sessionFailure.message : 'error inesperado'
+        setError(`La cuenta se creó, pero no pudimos verificar la sesión: ${detail}`)
+        return
+      }
+      userId = activeUserId
+      if (userId) setCreatedUserId(userId)
+    }
+
+    if (!userId) {
       try {
         localStorage.setItem('reser-pending-setup', JSON.stringify({
           name: businessName.trim(),
           slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
-          services,
+          services: services.filter(service => service.name.trim() !== ''),
           availability,
         }))
-      } catch { /* si falla el storage, el usuario lo carga de nuevo en el panel */ }
+      } catch (storageError) {
+        setBusy(false)
+        const detail = storageError instanceof Error ? storageError.message : 'No se pudo guardar el avance.'
+        setError(`No pudimos guardar los datos del negocio para retomarlos después de confirmar el email: ${detail}`)
+        return
+      }
+      const cleanupError = removeLocalDraft()
+      if (cleanupError) console.error('No se pudo borrar el borrador de onboarding:', cleanupError)
       setBusy(false)
       setAwaitingConfirmation(true)
       return
     }
-    const setupError = await createBusinessWithSetup(userId, {
-      name: businessName.trim(),
-      slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
-      services,
-      availability,
-    })
-    setBusy(false)
-    if (setupError) {
-      setError(setupError.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : setupError)
+
+    let setupError: string | null
+    try {
+      setupError = await createBusinessWithSetup(userId, {
+        name: businessName.trim(),
+        slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+        services: services.filter(service => service.name.trim() !== ''),
+        availability,
+      })
+    } catch (setupFailure) {
+      setBusy(false)
+      const detail = setupFailure instanceof Error ? setupFailure.message : 'error inesperado'
+      setError(`No pudimos guardar el negocio: ${detail}. Tu avance sigue guardado; volvé a intentar.`)
       return
     }
-    try { localStorage.removeItem('reser-pending-setup') } catch { /* noop */ }
+    setBusy(false)
+    if (setupError) {
+      setError(setupError.includes('duplicate')
+        ? 'Ese enlace ya está en uso. Elegí otro.'
+        : `No pudimos guardar el negocio: ${setupError}. Tu avance sigue guardado; corregí el problema y volvé a intentar.`)
+      return
+    }
+
+    const cleanupError = removeLocalDraft()
+    if (cleanupError) console.error('No se pudo borrar el borrador de onboarding:', cleanupError)
     onFinish()
   }
 
   if (awaitingConfirmation) {
-    return <main className="onboarding"><header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
+    return <main className="onboarding">
+      <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
       <section className="onboarding-card">
         <span className="onboarding-icon"><Mail size={25} /></span>
         <h1>Revisá tu correo.</h1>
         <p>Te enviamos un email a <strong>{email}</strong> con un enlace para confirmar tu cuenta. Al hacer clic, vas a entrar directamente a tu panel, sin tener que iniciar sesión.</p>
-        <p style={{ color: '#7a919c', fontSize: 13 }}>¿No llegó? Revisá la carpeta de spam o correo no deseado.</p>
+        <p className="onboarding-hint">¿No llegó? Revisá la carpeta de spam o correo no deseado.</p>
       </section>
     </main>
   }
 
-  return <main className="onboarding"><header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header><div className="onboarding-progress"><span style={{ width: (step * 25) + '%' }} /></div>
-    <section className="onboarding-card"><p className="eyebrow">Configuración inicial · {step}/4</p>
+  return <main className="onboarding">
+    <header><Brand /><button className="text-button" onClick={onBack}>Salir</button></header>
+    <div
+      className="onboarding-progress"
+      role="progressbar"
+      aria-label="Progreso de configuración"
+      aria-valuemin={1}
+      aria-valuemax={4}
+      aria-valuenow={step}
+    >
+      <span style={{ width: `${step * 25}%` }} />
+    </div>
+    <form
+      className={`onboarding-card${step >= 2 ? ' onboarding-card--wide' : ''}`}
+      noValidate
+      onSubmit={event => {
+        event.preventDefault()
+        if (draftRead.error) return
+        if (step < 4) continueStep()
+        else void finish()
+      }}
+    >
+      <div className="onboarding-step-heading">
+        <p className="eyebrow">Configuración inicial · {step}/4</p>
+        <span>Unos minutos para dejar lista tu agenda</span>
+      </div>
+
+      {draftRead.draft && (
+        <p className="draft-notice" role="status">Retomamos el borrador que guardaste en este dispositivo.</p>
+      )}
+      {draftRead.error && (
+        <div className="draft-notice draft-notice--error" role="alert">
+          <span>No pudimos recuperar tu borrador ({draftRead.error}). Descartalo para empezar de nuevo; hasta entonces no se guardarán cambios.</span>
+          <button type="button" onClick={discardDraft}><Trash2 size={14} /> Descartar borrador</button>
+        </div>
+      )}
+      {!draftRead.error && draftStatus && <p className="draft-status" role="status">{draftStatus}</p>}
+
       {step === 1 && (<>
         <span className="onboarding-icon"><Store size={25} /></span>
-        <h1>Empecemos por tu negocio.</h1>
+        <h1 ref={stepHeadingRef} tabIndex={-1}>Empecemos por tu negocio.</h1>
         <p>Este nombre va a aparecer en tu página de reservas.</p>
         <label className="onboarding-field">Tu nombre
-          <input
-            placeholder="Ej: Nicolás"
-            value={ownerName}
-            onChange={e => setOwnerName(e.target.value)}
-          />
+          <input required autoComplete="name" placeholder="Ej: Nicolás" value={ownerName} onChange={e => setOwnerName(e.target.value)} />
         </label>
         <label className="onboarding-field">Nombre del negocio
-          <input
-            placeholder="Ej: Peluquería López"
-            value={businessName}
-            onChange={e => setBusinessName(e.target.value)}
-          />
+          <input required autoComplete="organization" placeholder="Ej: Peluquería López" value={businessName} onChange={e => setBusinessName(e.target.value)} />
         </label>
         <label className="onboarding-field">Tu enlace de RESER
           <div className="url-field">
             <span>reser.com.ar/</span>
-            <input
-              placeholder="tu-negocio"
-              value={slug}
-              onChange={e => setSlug(e.target.value)}
-            />
+            <input required autoComplete="off" placeholder="tu-negocio" value={slug} onChange={e => setSlug(e.target.value)} />
           </div>
         </label>
       </>)}
+
       {step === 2 && (<>
         <span className="onboarding-icon"><Sparkles size={25} /></span>
-        <h1>¿Qué servicios ofrecés?</h1>
-        <p>Podrás editarlos o sumar más después.</p>
+        <h1 ref={stepHeadingRef} tabIndex={-1}>¿Qué servicios ofrecés?</h1>
+        <p>Empezá con uno; después vas a poder editarlos o sumar más.</p>
         <div className="setup-services">
-          {services.map((svc, idx) => (
-            <div key={idx} className="service-row">
-              <input
-                placeholder="Nombre del servicio"
-                value={svc.name}
-                onChange={e => {
-                  const copy = [...services]
-                  copy[idx].name = e.target.value
-                  setServices(copy)
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Duración (min)"
-                min={5}
-                step={5}
-                value={svc.duration}
-                onChange={e => {
-                  const copy = [...services]
-                  copy[idx].duration = parseInt(e.target.value) || 0
-                  setServices(copy)
-                }}
-              />
-              <input
-                type="number"
-                placeholder="Precio"
-                min={0}
-                step={100}
-                value={svc.price}
-                onChange={e => {
-                  const copy = [...services]
-                  copy[idx].price = parseInt(e.target.value) || 0
-                  setServices(copy)
-                }}
-              />
-              <button onClick={() => {
-                const copy = [...services]
-                copy.splice(idx, 1)
-                setServices(copy)
-              }} className="service-remove">Eliminar</button>
-            </div>
+          {services.map((service, index) => (
+            <fieldset className="setup-service" key={index}>
+              <legend>Servicio {index + 1}</legend>
+              <label className="onboarding-field">Nombre del servicio
+                <input
+                  required
+                  placeholder="Ej: Corte de pelo"
+                  value={service.name}
+                  onChange={event => setServices(current => current.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, name: event.target.value } : item))}
+                />
+              </label>
+              <div className="setup-service-details">
+                <label className="onboarding-field">Duración (minutos)
+                  <input
+                    type="number"
+                    required
+                    min={5}
+                    step={5}
+                    value={service.duration}
+                    onChange={event => setServices(current => current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, duration: Number(event.target.value) } : item))}
+                  />
+                </label>
+                <label className="onboarding-field">Precio ($)
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step={100}
+                    value={service.price}
+                    onChange={event => setServices(current => current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, price: Number(event.target.value) } : item))}
+                  />
+                </label>
+              </div>
+              {services.length > 1 && (
+                <button
+                  type="button"
+                  className="service-remove"
+                  onClick={() => setServices(current => current.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  Eliminar servicio
+                </button>
+              )}
+            </fieldset>
           ))}
           <div className="add-service">
-            <button onClick={() => setServices([...services, {name: '', duration: 0, price: 0}])}>+ Agregar otro servicio</button>
+            <button type="button" onClick={() => setServices(current => [...current, { name: '', duration: 30, price: 0 }])}>
+              + Agregar otro servicio
+            </button>
           </div>
         </div>
       </>)}
+
       {step === 3 && (<>
         <span className="onboarding-icon"><Clock3 size={25} /></span>
-        <h1>Definí tu disponibilidad.</h1>
-        <p>Los clientes solo verán los horarios que vos habilites.</p>
-        <div className="availability-table">
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                {hours.map(h => (
-                  <th key={h}>{h.toString().padStart(2, '0')}:00</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {days.map(day => (
-                <tr key={day.id}>
-                  <th>{day.name}</th>
-                  {hours.map((hourIndex) => (
-                    <td key={hourIndex}>
-                      <input
-                        type="checkbox"
-                        checked={availability[day.id][hourIndex]}
-                        onChange={(e) => {
-                          setAvailability(prev => {
-                            const newAvailability = {...prev}
-                            const dayArray = [...newAvailability[day.id]]
-                            dayArray[hourIndex] = e.target.checked
-                            newAvailability[day.id] = dayArray
-                            return newAvailability
-                          })
-                        }}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h1 ref={stepHeadingRef} tabIndex={-1}>¿Cuándo atendés?</h1>
+        <p>Elegí una plantilla o definí tus horarios. Podés ajustar cada día y agregar una pausa.</p>
+        <AvailabilityEditor days={days} availability={availability} onChange={setAvailability} />
       </>)}
+
       {step === 4 && (<>
         <span className="onboarding-icon"><Mail size={25} /></span>
-        <h1>Tu agenda está lista.</h1>
-        <p>Vas a recibir cada nueva reserva y el sistema le enviará una confirmación al cliente.</p>
+        <h1 ref={stepHeadingRef} tabIndex={-1}>Tu agenda está lista.</h1>
+        <p>Creá tu cuenta para guardar la configuración y empezar a recibir reservas.</p>
         <div className="ready-card">
           <Check size={20} />
-          <span><strong>Notificaciones por email</strong><small>Podrás conectar WhatsApp Business cuando quieras.</small></span>
+          <span><strong>Configuración lista</strong><small>Podés cambiar tus servicios y horarios desde el panel.</small></span>
         </div>
         <label className="onboarding-field">Email de tu cuenta
-          <input type="email" placeholder="tu@email.com" value={email}
-            onChange={e => setEmail(e.target.value)} />
+          <input required type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
         </label>
         <label className="onboarding-field">Contraseña
-          <input type="password" placeholder="Mínimo 6 caracteres" value={password}
-            onChange={e => setPassword(e.target.value)} />
+          <input required type="password" minLength={6} autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} />
         </label>
-        {error && <p className="form-error">{error}</p>}
       </>)}
-      <button className="button button--primary button--full" disabled={busy} onClick={() => {
-        if (step < 4) { setStep(step + 1); return }
-        void finish()
-      }}>
-        {busy ? 'Creando tu cuenta…' : step === 4 ? 'Ir a mi panel' : 'Continuar'} <ArrowRight size={18} />
-      </button>
-    </section>
+
+      {error && <p ref={errorRef} className="form-error" id="onboarding-error" role="alert" tabIndex={-1}>{error}</p>}
+      <div className="onboarding-actions">
+        {step > 1 && (
+          <button type="button" className="button button--secondary" disabled={busy} onClick={goBackStep}>
+            <ArrowLeft size={17} /> Atrás
+          </button>
+        )}
+        <button
+          type="submit"
+          className="button button--primary button--full"
+          disabled={busy || Boolean(draftRead.error)}
+        >
+          {busy ? 'Creando tu cuenta…' : step === 4 ? 'Crear mi cuenta' : 'Continuar'}
+          {!busy && <ArrowRight size={18} />}
+        </button>
+      </div>
+    </form>
   </main>
 }

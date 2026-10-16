@@ -5,6 +5,13 @@ import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import {
+  AvailabilityEditor,
+  availabilityFromSlots,
+  availabilitySlotsFromMap,
+  type AvailabilityDay,
+  type AvailabilityMap,
+} from './AvailabilityEditor'
+import {
   createBusiness, createBusinessWithSetup, createService, deleteService, getAvailability, getDashboardStats,
   listReservations, listServices, setAvailability, updateBusiness, updateService,
   type DashboardStats, type Reservation, type Service,
@@ -15,11 +22,10 @@ type OwnerDashboardProps = { onExit: () => void }
 const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Configuración']
 const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, Settings2]
 
-const days = [
-  { id: 1, name: 'Lunes' }, { id: 2, name: 'Martes' }, { id: 3, name: 'Miércoles' },
-  { id: 4, name: 'Jueves' }, { id: 5, name: 'Viernes' }, { id: 6, name: 'Sábado' }, { id: 0, name: 'Domingo' },
+const days: AvailabilityDay[] = [
+  { id: '1', name: 'Lunes' }, { id: '2', name: 'Martes' }, { id: '3', name: 'Miércoles' },
+  { id: '4', name: 'Jueves' }, { id: '5', name: 'Viernes' }, { id: '6', name: 'Sábado' }, { id: '0', name: 'Domingo' },
 ]
-const hours = Array.from({ length: 24 }, (_, i) => i)
 
 function greeting() {
   const h = new Date().getHours()
@@ -114,34 +120,115 @@ type PendingSetup = {
   availability: Record<string, boolean[]>
 }
 
-function readPendingSetup(): PendingSetup | null {
+type PendingSetupRead = { pending: PendingSetup | null; error: string | null }
+
+function isPendingSetup(value: unknown): value is PendingSetup {
+  if (!value || typeof value !== 'object') return false
+  const setup = value as Record<string, unknown>
+  if (
+    typeof setup.name !== 'string'
+    || !setup.name.trim()
+    || typeof setup.slug !== 'string'
+    || !setup.slug.trim()
+    || !Array.isArray(setup.services)
+    || !setup.services.length
+    || !setup.availability
+    || typeof setup.availability !== 'object'
+  ) return false
+
+  const validServices = setup.services.every(service => {
+    if (!service || typeof service !== 'object') return false
+    const item = service as Record<string, unknown>
+    return typeof item.name === 'string'
+      && Boolean(item.name.trim())
+      && typeof item.duration === 'number'
+      && Number.isInteger(item.duration)
+      && item.duration >= 5
+      && item.duration % 5 === 0
+      && typeof item.price === 'number'
+      && Number.isFinite(item.price)
+      && item.price >= 0
+  })
+  const availability = setup.availability as Record<string, unknown>
+  const dayIds = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+  const validAvailability = dayIds.every(day => {
+    const hours = availability[day]
+    return Array.isArray(hours) && hours.length === 24 && hours.every(hour => typeof hour === 'boolean')
+  }) && Object.values(availability).some(hours =>
+    Array.isArray(hours) && hours.some(hour => hour === true),
+  )
+
+  return validServices && validAvailability
+}
+
+function readPendingSetup(): PendingSetupRead {
   try {
     const raw = localStorage.getItem('reser-pending-setup')
-    return raw ? JSON.parse(raw) as PendingSetup : null
-  } catch { return null }
+    if (!raw) return { pending: null, error: null }
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!isPendingSetup(parsed)) {
+      return { pending: null, error: 'Los datos guardados están incompletos o dañados.' }
+    }
+    return { pending: parsed, error: null }
+  } catch (readError) {
+    console.warn('No se pudo recuperar la configuración pendiente:', readError)
+    return {
+      pending: null,
+      error: readError instanceof SyntaxError
+        ? 'Los datos guardados no tienen un formato válido.'
+        : 'No se pudo acceder a los datos guardados en este dispositivo.',
+    }
+  }
 }
 
 function CreateBusinessCard() {
   const { session, refreshBusiness } = useAuth()
-  const [pending] = useState<PendingSetup | null>(() => readPendingSetup())
+  const [pendingState, setPendingState] = useState(readPendingSetup)
+  const pending = pendingState.pending
   const [name, setName] = useState(pending?.name ?? '')
   const [slug, setSlug] = useState(pending?.slug ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  function discardPendingSetup() {
+    try {
+      localStorage.removeItem('reser-pending-setup')
+      setPendingState({ pending: null, error: null })
+      setName('')
+      setSlug('')
+    } catch (discardError) {
+      console.error('No se pudo descartar la configuración pendiente:', discardError)
+      setPendingState({ pending: null, error: 'No se pudieron descartar los datos guardados. Volvé a intentar.' })
+    }
+  }
+
   async function create() {
     setError(null)
+    if (pendingState.error) return
     if (!name.trim() || !slug.trim()) { setError('Completá el nombre y el enlace de tu negocio.'); return }
     if (!session) { setError('Tu sesión expiró. Volvé a iniciar sesión.'); return }
     setBusy(true)
     const input = { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') }
-    // Si venimos del onboarding con servicios/horarios cargados, los creamos todos juntos.
-    const err = pending
-      ? await createBusinessWithSetup(session.user.id, { ...input, services: pending.services, availability: pending.availability })
-      : await createBusiness(session.user.id, input)
+    let err: string | null
+    try {
+      err = pending
+        ? await createBusinessWithSetup(session.user.id, { ...input, services: pending.services, availability: pending.availability })
+        : await createBusiness(session.user.id, input)
+    } catch (createError) {
+      setBusy(false)
+      const detail = createError instanceof Error ? createError.message : 'error inesperado'
+      setError(`No pudimos crear el negocio: ${detail}. Tus datos siguen guardados; volvé a intentar.`)
+      return
+    }
     setBusy(false)
     if (err) { setError(err.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : err); return }
-    try { localStorage.removeItem('reser-pending-setup') } catch { /* noop */ }
+    try {
+      localStorage.removeItem('reser-pending-setup')
+    } catch (storageError) {
+      const detail = storageError instanceof Error ? storageError.message : 'error inesperado'
+      console.error('El negocio se creó, pero no se pudieron borrar los datos pendientes:', detail)
+    }
     await refreshBusiness()
   }
 
@@ -152,6 +239,12 @@ function CreateBusinessCard() {
         ? 'Recuperamos los servicios y horarios que cargaste al registrarte. Confirmá el nombre y el enlace para dejar todo listo.'
         : 'Solo necesitás el nombre y tu enlace. Los servicios y horarios los cargás después desde las secciones del panel.'}
     </p>
+    {pendingState.error && (
+      <div className="form-error" role="alert">
+        <p>No pudimos recuperar los datos de tu configuración: {pendingState.error}</p>
+        <button type="button" className="text-button" onClick={discardPendingSetup}>Descartar datos guardados</button>
+      </div>
+    )}
     <label className="onboarding-field">Nombre del negocio
       <input placeholder="Ej: Peluquería López" value={name} onChange={e => setName(e.target.value)} />
     </label>
@@ -159,7 +252,7 @@ function CreateBusinessCard() {
       <div className="url-field"><span>reser.com.ar/</span><input placeholder="tu-negocio" value={slug} onChange={e => setSlug(e.target.value)} /></div>
     </label>
     {error && <p className="form-error">{error}</p>}
-    <button className="button button--primary" style={{ marginTop: 8 }} disabled={busy} onClick={() => void create()}>
+    <button className="button button--primary" style={{ marginTop: 8 }} disabled={busy || Boolean(pendingState.error)} onClick={() => void create()}>
       {busy ? 'Creando…' : 'Crear mi negocio'}
     </button>
   </section>
@@ -224,26 +317,37 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const { business } = useAuth()
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
-  const [slots, setSlots] = useState<Set<string>>(new Set())
+  const [availability, setAvailabilityMap] = useState<AvailabilityMap>(() => availabilityFromSlots(days, new Set()))
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadingAvailability, setLoadingAvailability] = useState(true)
+  const [availabilityLoadFailed, setAvailabilityLoadFailed] = useState(false)
 
-  useEffect(() => { getAvailability(businessId).then(setSlots) }, [businessId])
-
-  function toggle(day: number, hour: number) {
-    const key = `${day}-${hour}`
-    setSlots(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key); else next.add(key)
-      return next
-    })
-  }
+  useEffect(() => {
+    let active = true
+    setLoadingAvailability(true)
+    setAvailabilityLoadFailed(false)
+    getAvailability(businessId)
+      .then(slots => {
+        if (active) setAvailabilityMap(availabilityFromSlots(days, slots))
+      })
+      .catch(loadError => {
+        if (!active) return
+        setAvailabilityLoadFailed(true)
+        setMessage(`No pudimos cargar los horarios: ${loadError instanceof Error ? loadError.message : 'error inesperado'}. Recargá la página para volver a intentar.`)
+      })
+      .finally(() => {
+        if (active) setLoadingAvailability(false)
+      })
+    return () => { active = false }
+  }, [businessId])
 
   async function save() {
+    if (loadingAvailability || availabilityLoadFailed) return
     setBusy(true)
     setMessage(null)
     const bizError = await updateBusiness(businessId, { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') })
-    const avError = bizError ?? await setAvailability(businessId, slots)
+    const avError = bizError ?? await setAvailability(businessId, availabilitySlotsFromMap(availability))
     setBusy(false)
     if (avError) { setMessage(avError.includes('duplicate') ? 'Ese enlace ya está en uso.' : avError); return }
     await onSaved()
@@ -259,26 +363,11 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
       <div className="url-field"><span>reser.com.ar/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
     </label>
     <p className="eyebrow" style={{ marginTop: 20 }}>Disponibilidad</p>
-    <div className="availability-table">
-      <table>
-        <thead><tr><th></th>{hours.map(h => <th key={h}>{h.toString().padStart(2, '0')}:00</th>)}</tr></thead>
-        <tbody>
-          {days.map(day => (
-            <tr key={day.id}>
-              <th>{day.name}</th>
-              {hours.map(hour => (
-                <td key={hour}>
-                  <input type="checkbox" checked={slots.has(`${day.id}-${hour}`)} onChange={() => toggle(day.id, hour)} />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    {loadingAvailability && <p className="form-note" role="status">Cargando tus horarios…</p>}
+    <AvailabilityEditor days={days} availability={availability} onChange={setAvailabilityMap} />
     {message && <p className="form-note">{message}</p>}
-    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
-      {busy ? 'Guardando…' : 'Guardar cambios'}
+    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy || loadingAvailability || availabilityLoadFailed} onClick={() => void save()}>
+      {busy ? 'Guardando…' : loadingAvailability ? 'Cargando horarios…' : 'Guardar cambios'}
     </button>
   </section>
 }
