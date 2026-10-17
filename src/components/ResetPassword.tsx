@@ -1,0 +1,53 @@
+import { useState } from 'react'
+import { KeyRound } from 'lucide-react'
+import { Brand } from './Brand'
+import { useAuth } from '../lib/auth'
+
+// Se muestra cuando la persona llega desde el mail de "olvidé mi contraseña".
+export function ResetPassword({ onDone }: { onDone: () => void }) {
+  const { updatePassword } = useAuth()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (password !== confirm) { setError('Las contraseñas no coinciden.'); return }
+    setBusy(true)
+    setError(null)
+    const err = await updatePassword(password)
+    setBusy(false)
+    if (err) {
+      setError(err.includes('different from the old') ? 'Elegí una contraseña distinta a la anterior.' : 'No pudimos guardar la contraseña. Pedí un enlace nuevo e intentá de nuevo.')
+      return
+    }
+    window.history.replaceState(null, '', window.location.pathname)
+    onDone()
+  }
+
+  return (
+    <main className="onboarding">
+      <header><Brand /></header>
+      <section className="onboarding-card">
+        <span className="onboarding-icon"><KeyRound size={25} /></span>
+        <h1>Elegí tu contraseña nueva.</h1>
+        <p>Después de guardarla vas a entrar directo a tu panel.</p>
+        <form onSubmit={handleSubmit}>
+          <label className="onboarding-field">Contraseña nueva
+            <input type="password" required minLength={6} autoComplete="new-password" placeholder="••••••••"
+              value={password} onChange={e => setPassword(e.target.value)} />
+          </label>
+          <label className="onboarding-field">Repetila
+            <input type="password" required minLength={6} autoComplete="new-password" placeholder="••••••••"
+              value={confirm} onChange={e => setConfirm(e.target.value)} />
+          </label>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="button button--primary button--full" type="submit" disabled={busy}>
+            {busy ? 'Guardando…' : 'Guardar contraseña'}
+          </button>
+        </form>
+      </section>
+    </main>
+  )
+}

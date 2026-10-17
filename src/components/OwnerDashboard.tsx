@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Bell, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { Bell, CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { bookingUrl, slugify } from '../lib/routes'
 import { TeamSection } from './TeamSection'
+import { TimeOffSection } from './TimeOffSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -15,8 +16,8 @@ import {
 
 type OwnerDashboardProps = { onExit: () => void }
 
-const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Equipo', 'Configuración']
-const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, UserRound, Settings2]
+const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Equipo', 'Días libres', 'Configuración']
+const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, UserRound, CalendarOff, Settings2]
 
 const days: AvailabilityDay[] = [
   { id: '1', name: 'Lunes' }, { id: '2', name: 'Martes' }, { id: '3', name: 'Miércoles' },
@@ -133,7 +134,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
           <Metric icon={<UsersRound size={19} />} label="Clientes este mes" value={String(stats?.monthClients ?? 0)} detail="Clientes únicos con turno" />
-          <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={stats?.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Turnos no cancelados" />
+          <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={stats?.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Sobre los turnos que marcaste" />
         </section>
         <section className="dashboard-grid"><div className="agenda-card">
           <div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
@@ -180,6 +181,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       )}
 
       {active === 'Servicios' && <ServicesSection businessId={business.id} />}
+      {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
     </main>
@@ -597,7 +599,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
   onCancel: (reservation: Reservation) => void
   loading: boolean
   error: string | null
-  onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed'>) => void
+  onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
 }) {
   const [mode, setMode] = useState<CalendarMode>('week')
   const [selectedDate, setSelectedDate] = useState(() => new Date())
@@ -622,9 +624,9 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
   const shiftCalendar = (direction: number) => {
     setSelectedDate(current => mode === 'week' ? addDays(current, direction * 7) : moveMonth(current, direction))
   }
-  async function toggleAttendance(reservation: Reservation) {
-    const previousStatus = reservation.status === 'completed' ? 'completed' : 'confirmed'
-    const nextStatus = previousStatus === 'completed' ? 'confirmed' : 'completed'
+  async function toggleAttendance(reservation: Reservation, target: 'completed' | 'no_show' = 'completed') {
+    const previousStatus = reservation.status === 'completed' || reservation.status === 'no_show' ? reservation.status : 'confirmed'
+    const nextStatus = previousStatus === target ? 'confirmed' : target
     const clientName = reservation.clients?.name ?? 'Cliente'
     setAttendanceError(null)
     setPendingAttendance(current => new Set(current).add(reservation.id))
@@ -745,9 +747,10 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                   const date = new Date(reservation.starts_at)
                   const clientName = reservation.clients?.name ?? 'Cliente'
                   const isCompleted = reservation.status === 'completed'
+                  const isNoShow = reservation.status === 'no_show'
                   const canMarkAttended = date.getTime() <= Date.now()
                   return (
-                    <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}`} key={reservation.id}>
+                    <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}${isNoShow ? ' is-noshow' : ''}`} key={reservation.id}>
                       <time>{date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
                       <span className="calendar-appointment-marker" aria-hidden="true" />
                       <div>
@@ -755,6 +758,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                         <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
                       </div>
                       {reservation.services && <b>{formatPrice(Number(reservation.services.price))}</b>}
+                      <div className="calendar-actions">
                       <button
                         type="button"
                         className="calendar-attendance"
@@ -766,7 +770,19 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                         <Check size={14} />
                         <span>{isCompleted ? 'Atendido' : 'Marcar atendido'}</span>
                       </button>
-                      {!isCompleted && <button type="button" className="calendar-cancel" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(reservation)}><X size={14} /></button>}
+                      <button
+                        type="button"
+                        className="calendar-attendance calendar-noshow"
+                        aria-label={isNoShow ? `Desmarcar "no vino": ${clientName}` : `Marcar que no vino: ${clientName}`}
+                        aria-pressed={isNoShow}
+                        disabled={pendingAttendance.has(reservation.id) || (!isNoShow && !canMarkAttended)}
+                        onClick={() => void toggleAttendance(reservation, 'no_show')}
+                      >
+                        <X size={14} />
+                        <span>{isNoShow ? 'No vino' : 'Marcar no vino'}</span>
+                      </button>
+                      {!isCompleted && !isNoShow && <button type="button" className="calendar-cancel" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(reservation)}><X size={14} /></button>}
+                      </div>
                     </article>
                   )
                 })}
@@ -894,14 +910,18 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
   const [cancelHours, setCancelHours] = useState(business?.cancel_min_hours ?? 2)
+  const [minNotice, setMinNotice] = useState(business?.min_notice_hours ?? 1)
+  const [maxAdvance, setMaxAdvance] = useState(business?.max_advance_days ?? 60)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const cancelOptions = [...new Set([0, 1, 2, 4, 12, 24, 48, 72, cancelHours])].sort((a, b) => a - b)
+  const noticeOptions = [...new Set([0, 1, 2, 4, 12, 24, 48, minNotice])].sort((a, b) => a - b)
+  const advanceOptions = [...new Set([7, 14, 30, 60, 90, 180, maxAdvance])].sort((a, b) => a - b)
 
   async function save() {
     setBusy(true)
     setMessage(null)
-    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours })
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance })
     setBusy(false)
     if (error) { setMessage(error.includes('duplicate') ? 'Ese enlace ya está en uso.' : error); return }
     await onSaved()
@@ -915,6 +935,16 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     </label>
     <label className="onboarding-field">Tu enlace de RESER
       <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
+    </label>
+    <label className="onboarding-field">Tus clientes pueden reservar con una anticipación mínima de
+      <select value={minNotice} onChange={e => setMinNotice(Number(e.target.value))}>
+        {noticeOptions.map(h => <option key={h} value={h}>{h === 0 ? 'Sin mínimo (hasta último momento)' : `${h} ${h === 1 ? 'hora' : 'horas'}`}</option>)}
+      </select>
+    </label>
+    <label className="onboarding-field">y hasta
+      <select value={maxAdvance} onChange={e => setMaxAdvance(Number(e.target.value))}>
+        {advanceOptions.map(d => <option key={d} value={d}>{d} días hacia adelante</option>)}
+      </select>
     </label>
     <label className="onboarding-field">Tus clientes pueden cancelar online
       <select value={cancelHours} onChange={e => setCancelHours(Number(e.target.value))}>

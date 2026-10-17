@@ -14,7 +14,7 @@ const fullDayLabel = (d: Date) =>
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 
-const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2 }
+const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60 }
 const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín' }, { id: 'demo-2', name: 'Sofía' }]
 const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
   id,
@@ -65,6 +65,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     return d
   }), [weekOffset])
   const date = dates[dateIndex]
+  const maxDays = business?.max_advance_days ?? 60 // hasta cuántos días adelante deja reservar el negocio
 
   // Solo los profesionales que ofrecen el servicio elegido
   const serviceProfessionals = useMemo(() => professionals.filter(p =>
@@ -231,8 +232,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             <button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 02</p><h2>Elegí día y horario</h2><p className="section-description">Mostramos solo los turnos que están disponibles.</p>
             <div className="date-picker">
               <button type="button" className="nav" aria-label="Días anteriores" disabled={weekOffset === 0} onClick={() => { setWeekOffset(w => Math.max(0, w - 1)); setDateIndex(0) }}><ChevronLeft size={15} /></button>
-              {dates.map((item, index) => <button type="button" key={item.toDateString()} className={dateIndex === index ? 'is-selected' : ''} onClick={() => setDateIndex(index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
-              <button type="button" className="nav" aria-label="Días siguientes" onClick={() => { setWeekOffset(w => w + 1); setDateIndex(0) }}><ChevronRight size={15} /></button>
+              {dates.map((item, index) => <button type="button" key={item.toDateString()} disabled={weekOffset * 5 + index > maxDays} className={dateIndex === index ? 'is-selected' : ''} onClick={() => setDateIndex(index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
+              <button type="button" className="nav" aria-label="Días siguientes" disabled={(weekOffset + 1) * 5 > maxDays} onClick={() => { setWeekOffset(w => w + 1); setDateIndex(0) }}><ChevronRight size={15} /></button>
             </div>
             <div className="time-heading"><span><CalendarDays size={16} /> {fullDayLabel(date)}</span><small>Hora local del negocio</small></div>
             {loadingSlots

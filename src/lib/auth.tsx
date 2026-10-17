@@ -3,13 +3,23 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 export type Profile = { id: string; full_name: string }
-export type Business = { id: string; name: string; slug: string; cancel_min_hours: number }
+export type Business = {
+  id: string
+  name: string
+  slug: string
+  cancel_min_hours: number
+  min_notice_hours: number
+  max_advance_days: number
+}
 
 type AuthContextValue = {
   session: Session | null
   profile: Profile | null
   business: Business | null
   loading: boolean
+  recovering: boolean
+  requestPasswordReset: (email: string) => Promise<string | null>
+  updatePassword: (password: string) => Promise<string | null>
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string, fullName: string) => Promise<string | null>
   signOut: () => Promise<void>
@@ -23,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [business, setBusiness] = useState<Business | null>(null)
   const [loading, setLoading] = useState(true)
+  // true mientras la persona llegó desde el mail de "olvidé mi contraseña" y falta elegir la nueva
+  const [recovering, setRecovering] = useState(() => window.location.hash.includes('type=recovery'))
 
   async function loadUserData(userId: string) {
     const { data: profileData } = await supabase
@@ -30,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(profileData)
 
     const { data: businessData } = await supabase
-      .from('businesses').select('id, name, slug, cancel_min_hours').eq('owner_id', userId)
+      .from('businesses').select('id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days').eq('owner_id', userId)
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
     setBusiness(businessData)
   }
@@ -42,7 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
       setSession(newSession)
       if (newSession) await loadUserData(newSession.user.id)
       else { setProfile(null); setBusiness(null) }
@@ -69,6 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null
   }
 
+  async function requestPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
+    return error ? error.message : null
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return error.message
+    setRecovering(false)
+    return null
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -78,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, business, loading, signIn, signUp, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ session, profile, business, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, signOut, refreshBusiness }}>
       {children}
     </AuthContext.Provider>
   )

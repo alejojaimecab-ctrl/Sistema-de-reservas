@@ -15,6 +15,9 @@ const BookingExperience = lazy(() =>
 const OwnerDashboard = lazy(() =>
   import('./components/OwnerDashboard').then(module => ({ default: module.OwnerDashboard })),
 )
+const ResetPassword = lazy(() =>
+  import('./components/ResetPassword').then(module => ({ default: module.ResetPassword })),
+)
 const CancelBooking = lazy(() =>
   import('./components/CancelBooking').then(module => ({ default: module.CancelBooking })),
 )
@@ -52,7 +55,7 @@ function Root() {
   const [publicSlug, setPublicSlug] = useState(() => slugFromPath(window.location.pathname))
   const [cancelToken, setCancelToken] = useState(() => cancelTokenFromPath(window.location.pathname))
   const [view, setView] = useState<View>(() => cancelToken ? 'cancel' : publicSlug ? 'public-booking' : 'home')
-  const { session, loading } = useAuth()
+  const { session, loading, recovering } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
 
   // Botones atrás/adelante del navegador: la URL manda sobre la vista pública.
@@ -86,6 +89,7 @@ function Root() {
   }, [session, loading])
 
   if (loading) return null
+  if (recovering && session) return <ResetPassword onDone={() => setView('dashboard')} />
   if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />
   if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
   if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />

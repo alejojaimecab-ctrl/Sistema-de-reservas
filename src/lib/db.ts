@@ -27,7 +27,7 @@ export type Service = {
 export type Reservation = {
   id: string
   starts_at: string
-  status: 'confirmed' | 'cancelled' | 'completed'
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
   clients: { name: string } | null
   services: { name: string; price: number } | null
   resources: { name: string } | null
@@ -116,10 +116,11 @@ export async function getDashboardStats(businessId: string): Promise<DashboardSt
   ])
 
   const monthClients = new Set((month.data ?? []).map(r => r.client_id)).size
-  const past = attended.data ?? []
-  const attendanceRate = past.length === 0
+  // Asistencia real: de los turnos que el dueño ya marcó, cuántos vinieron
+  const marked = (attended.data ?? []).filter(r => r.status === 'completed' || r.status === 'no_show')
+  const attendanceRate = marked.length === 0
     ? null
-    : Math.round((past.filter(r => r.status !== 'cancelled').length / past.length) * 100)
+    : Math.round((marked.filter(r => r.status === 'completed').length / marked.length) * 100)
 
   return { todayCount: today.count ?? 0, monthClients, attendanceRate }
 }
@@ -168,7 +169,7 @@ export async function listAgendaReservations(
 
 export async function updateReservationStatus(
   id: string,
-  status: Extract<Reservation['status'], 'confirmed' | 'completed'>,
+  status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>,
 ): Promise<string | null> {
   const owned = await ownedBusinessIds()
   if (owned.length === 0) return 'No se pudo validar el acceso al negocio.'
@@ -231,7 +232,13 @@ export async function createOwnerReservation(input: {
 
 // --- API pública (Fases 3 y 5): la usa la página de reserva sin sesión ---
 
-export type PublicBusiness = { slug: string; name: string; cancel_min_hours: number }
+export type PublicBusiness = {
+  slug: string
+  name: string
+  cancel_min_hours: number
+  min_notice_hours: number
+  max_advance_days: number
+}
 export type PublicService = {
   id: string
   business_slug: string
@@ -243,7 +250,7 @@ export type PublicService = {
 // `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
 // la UI mostraba el empty state ante un error de red.
 export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours').eq('slug', slug).maybeSingle()
+  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days').eq('slug', slug).maybeSingle()
   return { business: data ?? null, failed: !!error }
 }
 
@@ -299,6 +306,9 @@ const BOOK_PUBLIC_KNOWN_ERRORS = [
   'Ese horario no está dentro de la disponibilidad del negocio',
   'Ese horario acaba de ocuparse, elegí otro',
   'Ese profesional no está disponible',
+  'Ese día no hay atención con ese profesional',
+  'Ya no se puede reservar con tan poca anticipación',
+  'Todavía no se pueden reservar turnos para esa fecha',
   'Ese profesional no ofrece este servicio',
   'Demasiadas reservas con ese email, probá más tarde',
   'Demasiadas reservas desde esta conexión, probá más tarde',
@@ -340,7 +350,7 @@ export type ReservationByToken = {
   professional_name: string
   starts_at: string
   ends_at: string
-  status: 'confirmed' | 'cancelled' | 'completed'
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
   cancel_min_hours: number
   can_cancel: boolean
 }
@@ -397,12 +407,60 @@ export async function deleteService(id: string) {
   return error ? error.message : null
 }
 
-export async function updateBusiness(id: string, input: { name: string; slug: string; cancel_min_hours?: number }) {
+export async function updateBusiness(id: string, input: { name: string; slug: string; cancel_min_hours?: number; min_notice_hours?: number; max_advance_days?: number }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 'No hay sesión activa'
   const problem = slugProblem(input.slug)
   if (problem) return problem
   const { error } = await supabase.from('businesses').update(input).eq('id', id).eq('owner_id', user.id)
+  return error ? error.message : null
+}
+
+// --- Días libres (feriados y vacaciones) ---
+
+export type TimeOff = { id: string; resource_id: string | null; starts_on: string; ends_on: string; reason: string | null }
+
+const dayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+export async function listTimeOff(businessId: string): Promise<TimeOff[]> {
+  if (!(await ownsBusiness(businessId))) return []
+  const { data } = await supabase.from('time_off').select('id, resource_id, starts_on, ends_on, reason')
+    .eq('business_id', businessId).gte('ends_on', dayKey(new Date())).order('starts_on', { ascending: true })
+  return data ?? []
+}
+
+export async function createTimeOff(
+  businessId: string,
+  input: { resourceId: string | null; startsOn: string; endsOn: string; reason: string },
+): Promise<{ affected: number; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) return { affected: 0, error: 'No tenés permiso sobre este negocio' }
+  if (!input.startsOn || !input.endsOn) return { affected: 0, error: 'Elegí desde y hasta qué día.' }
+  if (input.endsOn < input.startsOn) return { affected: 0, error: 'El último día no puede ser anterior al primero.' }
+  const { error } = await supabase.from('time_off').insert({
+    business_id: businessId,
+    resource_id: input.resourceId,
+    starts_on: input.startsOn,
+    ends_on: input.endsOn,
+    reason: input.reason.trim() || null,
+  })
+  if (error) return { affected: 0, error: error.message }
+
+  // Los turnos ya reservados en esos días no se cancelan solos: avisamos cuántos son.
+  const from = new Date(`${input.startsOn}T00:00:00`)
+  const to = new Date(`${input.endsOn}T00:00:00`)
+  to.setDate(to.getDate() + 1)
+  let query = supabase.from('reservations').select('id', { count: 'exact', head: true })
+    .eq('business_id', businessId).eq('status', 'confirmed')
+    .gte('starts_at', from.toISOString()).lt('starts_at', to.toISOString())
+  if (input.resourceId) query = query.eq('resource_id', input.resourceId)
+  const { count } = await query
+  return { affected: count ?? 0, error: null }
+}
+
+export async function deleteTimeOff(id: string): Promise<string | null> {
+  const owned = await ownedBusinessIds()
+  const { error } = await supabase.from('time_off').delete().eq('id', id).in('business_id', owned)
   return error ? error.message : null
 }
 
