@@ -256,6 +256,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       <label className="onboarding-field">Nombre
         <input value={name} disabled={loading || loadFailed} onChange={e => edit({ name: e.target.value })} />
       </label>
+      {selected.name === 'Principal' && professionals.filter(p => p.is_active).length > 1 && <p className="form-note">"Principal" es el profesional que se crea con tu negocio. Ponele el nombre real o, si nadie atiende con ese nombre, desactivalo con el botón de abajo: así no aparece cuando tus clientes eligen con quién reservar.</p>}
       <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece {selected.name}</p>
       {services.length === 0
         ? <p className="form-note">Primero cargá tus servicios en la sección Servicios.</p>
