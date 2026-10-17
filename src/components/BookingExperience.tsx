@@ -13,7 +13,7 @@ const dayLabel = (d: Date) =>
 const fullDayLabel = (d: Date) =>
   d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
 const timeLabel = (iso: string) =>
-  new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60, phone: null, address: null, logo_path: null }
 const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín', whatsapp: null }, { id: 'demo-2', name: 'Sofía', whatsapp: null }]

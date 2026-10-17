@@ -344,7 +344,7 @@ function ReservationList({ reservations, showProfessional, onCancel }: { reserva
     const date = new Date(r.starts_at)
     const clientName = r.clients?.name ?? 'Cliente'
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
-      <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+      <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
       <span className={`avatar avatar--${colors[index % colors.length]}`}>{initials(clientName)}</span>
       <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
@@ -523,7 +523,7 @@ function ManualReservationForm({
               <span>Horario disponible</span>
               <select required value={startsAt} onChange={event => setStartsAt(event.target.value)} disabled={loadingSlots || slotsFailed || slots.length === 0}>
                 <option value="">{loadingSlots ? 'Buscando horarios…' : slotsFailed ? 'No pudimos cargar' : slots.length ? 'Elegí un horario' : 'Sin horarios disponibles'}</option>
-                {slots.map(slot => <option key={slot} value={slot}>{new Date(slot).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</option>)}
+                {slots.map(slot => <option key={slot} value={slot}>{new Date(slot).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</option>)}
               </select>
             </label>
           </div>
@@ -703,7 +703,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                       <span className="calendar-day-events">
                         {dayReservations.slice(0, 3).map(reservation => (
                           <span className={`calendar-week-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
-                            <time>{new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+                            <time>{new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
                             <span>{reservation.clients?.name ?? 'Cliente'}</span>
                           </span>
                         ))}
@@ -715,7 +715,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                       <span className="calendar-month-events">
                         {dayReservations.slice(0, 2).map(reservation => (
                           <span className={`calendar-month-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
-                            {new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}
                             <span>{reservation.clients?.name ?? 'Cliente'}</span>
                           </span>
                         ))}
@@ -751,7 +751,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                   const canMarkAttended = date.getTime() <= Date.now()
                   return (
                     <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}${isNoShow ? ' is-noshow' : ''}`} key={reservation.id}>
-                      <time>{date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+                      <time>{date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
                       <span className="calendar-appointment-marker" aria-hidden="true" />
                       <div>
                         <strong>{clientName}</strong>

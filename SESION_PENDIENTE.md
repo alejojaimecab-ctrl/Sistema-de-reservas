@@ -18,7 +18,10 @@
   y los mails (migración 020, bucket `business-logos`); landing sin prueba social inventada;
   limpieza diaria del log antiabuso (`book_rate_log`). Antes: autoguardado en Equipo, días libres,
   "no vino", recuperar contraseña, servicios por profesional (migraciones 018–019).
-- Migraciones 011–020 están aplicadas en Supabase, pero el historial del CLI solo llega a la 010
+- **Horarios por servicio** (migración 024): la grilla de cada servicio avanza de a su duración desde el inicio
+  de cada franja del profesional (45 min → 9:00, 9:45, 10:30…); hora en formato 24 h en toda la app.
+  También: servicios por WhatsApp y precio fijo/desde/a consultar (023), reparto parejo de "Cualquiera" (022).
+- Migraciones 011–024 están aplicadas en Supabase, pero el historial del CLI solo llega a la 010
   (011–013 se corrieron a mano; 014–017 con el MCP). Los archivos del repo son la fuente de verdad.
 
 ## Pendiente antes de lanzar

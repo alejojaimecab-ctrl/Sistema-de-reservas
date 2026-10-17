@@ -5,7 +5,7 @@ import { cancelReservationByToken, getReservationByToken, type ReservationByToke
 const dateLabel = (iso: string) =>
   new Date(iso).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
 const timeLabel = (iso: string) =>
-  new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 export function CancelBooking({ token, onBack }: { token: string; onBack: () => void }) {
   const [reservation, setReservation] = useState<ReservationByToken | null>(null)
