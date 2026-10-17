@@ -5,6 +5,7 @@ import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { createBusinessWithSetup } from '../lib/db'
+import { slugify } from '../lib/routes'
 
 type SetupService = { name: string; duration: number; price: number }
 type OnboardingDraft = {
@@ -299,7 +300,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       try {
         localStorage.setItem('reser-pending-setup', JSON.stringify({
           name: businessName.trim(),
-          slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+          slug: slugify(slug),
           services: services.filter(service => service.name.trim() !== ''),
           availability,
         }))
@@ -320,7 +321,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     try {
       setupError = await createBusinessWithSetup(userId, {
         name: businessName.trim(),
-        slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+        slug: slugify(slug),
         services: services.filter(service => service.name.trim() !== ''),
         availability,
       })

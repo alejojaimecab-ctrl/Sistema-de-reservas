@@ -5,8 +5,9 @@ import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
 import { AuthProvider, useAuth } from './lib/auth'
+import { goTo, slugFromPath } from './lib/routes'
 
-type View = 'home' | 'booking' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
+type View = 'home' | 'public-booking' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
 
 const BookingExperience = lazy(() =>
   import('./components/BookingExperience').then(module => ({ default: module.BookingExperience })),
@@ -45,9 +46,27 @@ function AppLoading() {
 }
 
 function Root() {
-  const [view, setView] = useState<View>('home')
+  const [publicSlug, setPublicSlug] = useState(() => slugFromPath(window.location.pathname))
+  const [view, setView] = useState<View>(() => publicSlug ? 'public-booking' : 'home')
   const { session, loading } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
+
+  // Botones atrás/adelante del navegador: la URL manda sobre la vista pública.
+  useEffect(() => {
+    const onPop = () => {
+      const slug = slugFromPath(window.location.pathname)
+      setPublicSlug(slug)
+      setView(v => slug ? 'public-booking' : v === 'public-booking' ? 'home' : v)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const leavePublicBooking = () => {
+    goTo('/')
+    setPublicSlug(null)
+    setView('home')
+  }
 
   // Cuando aparece una sesión nueva (login, o al volver del email de confirmación),
   // llevar al usuario directo al dashboard.
@@ -60,7 +79,7 @@ function Root() {
   }, [session, loading])
 
   if (loading) return null
-  if (view === 'booking') return <BookingExperience onBack={() => setView('home')} />
+  if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
   if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />
   if (view === 'dashboard') {
     if (!session) return <Login onBack={() => setView('home')} />

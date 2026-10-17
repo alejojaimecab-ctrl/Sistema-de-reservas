@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, formatPrice } from '../data/demo'
-import { bookPublic, getFirstPublicBusiness, getPublicSlots, listPublicServices, type PublicBusiness, type PublicService } from '../lib/db'
+import { bookPublic, getPublicBusiness, getPublicSlots, listPublicServices, type PublicBusiness, type PublicService } from '../lib/db'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
 
@@ -30,7 +30,7 @@ function previewSlots(date: Date) {
   }).filter(slot => new Date(slot).getTime() > Date.now())
 }
 
-export function BookingExperience({ onBack, demo = false }: { onBack: () => void; demo?: boolean }) {
+export function BookingExperience({ onBack, demo = false, slug }: { onBack: () => void; demo?: boolean; slug?: string }) {
   const [step, setStep] = useState(1)
   const [business, setBusiness] = useState<PublicBusiness | null>(null)
   const [services, setServices] = useState<PublicService[]>([])
@@ -69,7 +69,8 @@ export function BookingExperience({ onBack, demo = false }: { onBack: () => void
         setLoadingServices(false)
         return
       }
-      const { business: biz, failed } = await getFirstPublicBusiness()
+      if (!slug) { setLoadingServices(false); return }
+      const { business: biz, failed } = await getPublicBusiness(slug)
       if (cancelled) return
       if (failed) { setLoadFailed(true); setLoadingServices(false); return }
       setBusiness(biz)
@@ -83,7 +84,7 @@ export function BookingExperience({ onBack, demo = false }: { onBack: () => void
       setLoadingServices(false)
     })()
     return () => { cancelled = true }
-  }, [demo, retryCount])
+  }, [demo, slug, retryCount])
 
   useEffect(() => {
     if (!business || !service) return
@@ -157,8 +158,8 @@ export function BookingExperience({ onBack, demo = false }: { onBack: () => void
 
   if (!business) return <section className="booking-shell booking-shell--success">
     <div className="booking-success">
-      <p className="eyebrow">Reserva online</p><h1>Todavía no hay ningún negocio publicado.</h1>
-      <p className="success-copy">Cuando un negocio configure su agenda, vas a poder reservar desde acá.</p>
+      <p className="eyebrow">Reserva online</p><h1>No encontramos ese negocio.</h1>
+      <p className="success-copy">Revisá que el enlace esté bien escrito o pedile al negocio que te lo vuelva a enviar.</p>
       <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
     </div>
   </section>

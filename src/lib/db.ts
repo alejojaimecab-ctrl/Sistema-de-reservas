@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { slugProblem } from './routes'
 
 // Fase 6: filtro explícito del dueño en cada query (defensa en profundidad sobre RLS).
 // Devuelve los ids de negocios del usuario autenticado; [] si no hay sesión.
@@ -48,6 +49,8 @@ export async function createBusinessWithSetup(
 ) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.id !== ownerId) return 'La sesión no coincide con el dueño indicado'
+  const problem = slugProblem(input.slug)
+  if (problem) return problem
   const { data: business, error } = await supabase
     .from('businesses')
     .insert({ owner_id: user.id, name: input.name, slug: input.slug })
@@ -86,6 +89,8 @@ export async function createBusinessWithSetup(
 export async function createBusiness(ownerId: string, input: { name: string; slug: string }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.id !== ownerId) return 'La sesión no coincide con el dueño indicado'
+  const problem = slugProblem(input.slug)
+  if (problem) return problem
   const { error } = await supabase
     .from('businesses')
     .insert({ owner_id: user.id, name: input.name, slug: input.slug })
@@ -232,13 +237,11 @@ export type PublicService = {
   price: number
 }
 
-// MVP: la página de reserva toma el primer negocio publicado.
-// Cuando haya ruta por slug (/reservar/:slug), esto pasa a buscar por slug.
-// `failed` distingue "no hay negocio" de "no pudimos conectar": sin eso la UI
-// mostraba el empty state ante un error de red.
-export async function getFirstPublicBusiness(): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name').limit(1)
-  return { business: data?.[0] ?? null, failed: !!error }
+// `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
+// la UI mostraba el empty state ante un error de red.
+export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
+  const { data, error } = await supabase.from('public_businesses').select('slug, name').eq('slug', slug).maybeSingle()
+  return { business: data ?? null, failed: !!error }
 }
 
 export async function listPublicServices(slug: string): Promise<{ services: PublicService[]; failed: boolean }> {
@@ -331,6 +334,8 @@ export async function deleteService(id: string) {
 export async function updateBusiness(id: string, input: { name: string; slug: string }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 'No hay sesión activa'
+  const problem = slugProblem(input.slug)
+  if (problem) return problem
   const { error } = await supabase.from('businesses').update(input).eq('id', id).eq('owner_id', user.id)
   return error ? error.message : null
 }

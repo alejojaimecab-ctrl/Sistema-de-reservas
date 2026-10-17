@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Bell, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { Bell, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
+import { bookingUrl, slugify } from '../lib/routes'
 import {
   AvailabilityEditor,
   availabilityFromSlots,
@@ -99,8 +100,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     <aside className="dashboard-sidebar"><Brand />
       <div className="business-switch">
         <span className="mini-logo">{initials(business.name)}</span>
-        <span><strong>{business.name}</strong><small>reser.com.ar/{business.slug}</small></span>
-        <Ellipsis size={18} />
+        <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
+        <CopyLinkButton slug={business.slug} />
       </div>
       <nav>{sections.map((item, index) => { const Icon = sectionIcons[index]; return <button className={active === item ? 'is-active' : ''} key={item} onClick={() => setActive(item)}><Icon size={18} />{item}</button> })}</nav>
       <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
@@ -262,7 +263,7 @@ function CreateBusinessCard() {
     if (!name.trim() || !slug.trim()) { setError('Completá el nombre y el enlace de tu negocio.'); return }
     if (!session) { setError('Tu sesión expiró. Volvé a iniciar sesión.'); return }
     setBusy(true)
-    const input = { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') }
+    const input = { name: name.trim(), slug: slugify(slug) }
     let err: string | null
     try {
       err = pending
@@ -873,7 +874,7 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     if (loadingAvailability || availabilityLoadFailed) return
     setBusy(true)
     setMessage(null)
-    const bizError = await updateBusiness(businessId, { name: name.trim(), slug: slug.trim().toLowerCase().replace(/\s+/g, '-') })
+    const bizError = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug) })
     const avError = bizError ?? await setAvailability(businessId, availabilitySlotsFromMap(availability))
     setBusy(false)
     if (avError) { setMessage(avError.includes('duplicate') ? 'Ese enlace ya está en uso.' : avError); return }
@@ -897,6 +898,22 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
       {busy ? 'Guardando…' : loadingAvailability ? 'Cargando horarios…' : 'Guardar cambios'}
     </button>
   </section>
+}
+
+function CopyLinkButton({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(bookingUrl(slug))
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      window.prompt('Copiá el enlace de reservas:', bookingUrl(slug))
+    }
+  }
+  return <button type="button" className="icon-button" style={{ marginLeft: 'auto', width: 30, height: 30 }} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace de reservas'} title={copied ? 'Copiado' : 'Copiar enlace de reservas'} onClick={() => void copy()}>
+    {copied ? <Check size={15} /> : <Copy size={15} />}
+  </button>
 }
 
 function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
