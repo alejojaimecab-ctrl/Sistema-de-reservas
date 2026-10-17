@@ -87,6 +87,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     || (serviceProfessionals.length === 1 ? serviceProfessionals[0].whatsapp : null)
     || business?.phone
     || null
+  const waName = serviceProfessionals.find(p => p.id === professionalId)?.name
+    ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : null)
   const waHref = isWhatsapp && waNumber && business && service
     ? whatsappHref(waNumber, `Hola, vi la agenda de ${business.name} en RESER y quiero consultar por ${service.name}.`)
     : null
@@ -250,7 +252,13 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                 <p className="section-description">Este servicio se coordina por WhatsApp: escribile directamente y acuerdan día y horario.</p>
                 {waHref
                   ? <a className="button button--primary button--full" href={waHref} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Escribir por WhatsApp</a>
-                  : <p className="form-note" role="status">Este servicio todavía no tiene un WhatsApp cargado. Consultá directamente con el negocio.</p>}
+                  : <>
+                    <button type="button" className="button button--primary button--full" disabled><MessageCircle size={18} /> Escribir por WhatsApp</button>
+                    <p className="section-description" role="status" style={{ marginTop: 10 }}>
+                      {waName ? `${waName} todavía no cargó su WhatsApp.` : 'Este servicio todavía no tiene un WhatsApp cargado.'}{' '}
+                      {serviceProfessionals.length > 1 ? 'Elegí a otra persona o consultá directamente con el negocio.' : 'Consultá directamente con el negocio.'}
+                    </p>
+                  </>}
               </>
               : <button className="button button--primary button--full" disabled={!service || (professionals.length > 0 && serviceProfessionals.length === 0)} onClick={() => setStep(2)}>Continuar <ChevronRight size={18} /></button>}
           </motion.div>}

@@ -802,11 +802,21 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
 }
 
 function ServicesSection({ businessId }: { businessId: string }) {
+  const { business } = useAuth()
   const [services, setServices] = useState<Service[]>([])
+  const [team, setTeam] = useState<Professional[]>([])
+  const [offers, setOffers] = useState<ResourceService[]>([])
   const [error, setError] = useState<string | null>(null)
   const shouldReduceMotion = useReducedMotion()
 
-  async function reload() { setServices(await listServices(businessId)) }
+  async function reload() {
+    const [loadedServices, loadedTeam, loadedOffers] = await Promise.all([
+      listServices(businessId), listProfessionals(businessId), listResourceServices(businessId),
+    ])
+    setServices(loadedServices)
+    setTeam(loadedTeam)
+    setOffers(loadedOffers)
+  }
   useEffect(() => { void reload() }, [businessId])
 
   function updateLocal(id: string, patch: Partial<Service>) {
@@ -913,6 +923,14 @@ function ServicesSection({ businessId }: { businessId: string }) {
                   </select>
                 </label>
                 {svc.booking_mode === 'whatsapp' && <small>El cliente verá un botón para escribirle al profesional que elija. Cargá su WhatsApp en la sección Equipo.</small>}
+                {svc.booking_mode === 'whatsapp' && !business?.phone?.trim() && (() => {
+                  const missing = team
+                    .filter(p => p.is_active && !p.whatsapp?.trim() && offers.some(o => o.resource_id === p.id && o.service_id === svc.id))
+                    .map(p => p.name)
+                  return missing.length > 0
+                    ? <small style={{ color: '#ffc27a' }} role="alert">⚠ Falta el WhatsApp de {missing.join(', ')}: sus clientes no van a poder escribirle. Cargalo en Equipo.</small>
+                    : null
+                })()}
               </div>
             </motion.div>
           ))}
