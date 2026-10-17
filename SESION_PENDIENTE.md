@@ -1,37 +1,38 @@
-# Dónde quedamos (sesión 2026-10-07/08)
+# Dónde quedamos (actualizado 2026-10-17)
 
-## Hecho y commiteado
-- Migraciones aplicadas en Supabase remoto: 007 (slots duración/timezone),
-  008 (recordatorios email: `reminder_sent_at`, pg_cron + pg_net, job
-  `send-reminders` cada 5 min), 009 (grants a service_role), 010 (tabla
-  `app_config` para el secreto del cron, reemplaza ALTER DATABASE SET).
-- Edge Function `send-reminders` desplegada y probada OK (responde
-  `{"procesadas":0,...}`; auth por header `x-reminder-secret`).
-- Secrets en Supabase: RESEND_API_KEY, REMINDER_SECRET, REMINDER_FROM.
-  Los valores reales están en `.env.local` (ignorado por git).
-- El usuario ya corrió en el SQL Editor el INSERT de `app_config` con el
-  secreto y "dio todo bien" (cron autenticado).
-- Commits: 2aee30f (feature), b45eebf (fix app_config).
+## Hecho y commiteado (camino al lanzamiento)
+- **Etapa 1** · Ruta pública por slug (`/:slug`), 404 amable, slugs reservados, botón copiar enlace.
+- **Etapa 2** · Multi-profesional (migración 014): cada profesional es un `resources` con su propia
+  disponibilidad y agenda; sección "Equipo" en el panel; selector "¿Con quién?" en la reserva
+  (pública y manual). 014 también **restauró el rate limit de `book_public`**, que las
+  migraciones 011/012 habían pisado. 016 arregló los permisos de `resources`.
+- **Etapa 3** · Cancelación (migración 015): enlace privado `/cancelar/<token>` para el cliente,
+  cancelar desde el panel para el dueño, anticipación mínima configurable por negocio
+  (`businesses.cancel_min_hours`, 0 = sin límite).
+- **Etapa 4** · Mails (migración 017 + Edge Function `send-reminders` v7): confirmación al cliente
+  con enlace de cancelar, aviso al dueño de reserva nueva y de cancelación del cliente, aviso al
+  cliente si el negocio cancela, recordatorio 1 h antes. HTML escapado; remitente
+  "<Negocio> vía RESER"; reply-to al dueño/cliente. Los dispara un trigger vía pg_net.
+- Migraciones 011–017 están aplicadas en Supabase, pero el historial del CLI solo llega a la 010
+  (011–013 se corrieron a mano; 014–017 con el MCP). Los archivos del repo son la fuente de verdad.
 
-## Pendiente inmediato (retomar acá)
-1. **Hacer la reserva de prueba end-to-end** con email alejojaimecab@gmail.com
-   en el negocio slug `peluqueria`, turno a ~1 hora, y verificar que llegue
-   el recordatorio por email.
-   - Se intentó por navegador pero Computer Use no tiene navegadores
-     disponibles en esta máquina (`cua.getState()` → vacío). Alternativa:
-     reservar directo vía RPC `book_public` (mismo camino que usa la app) o
-     pedirle al usuario que reserve desde http://localhost:5175/.
-   - Ojo: con `onboarding@resend.dev` solo llega mail al email de la cuenta
-     de Resend (alejojaimecab@gmail.com).
-2. Verificar en la base que la reserva quedó con `reminder_sent_at` seteado.
-3. Opcional: agregar `supabase/.temp/` al `.gitignore` (quedó commiteado por
-   error, inofensivo) y decidir qué hacer con `.claude/` (sin trackear).
+## Pendiente antes de lanzar
+1. **Dominio** (sin comprar): verificar en Resend (registros SPF/DKIM en el DNS) y cambiar el secret
+   `REMINDER_FROM` a `RESER <reservas@tudominio.com>`. Hoy con `onboarding@resend.dev` solo
+   llegan mails a alejojaimecab@gmail.com.
+2. **Secret `APP_URL`** (`supabase secrets set APP_URL=https://tudominio.com`): sin definir, los
+   enlaces de cancelar de los mails apuntan a `http://localhost:5175`.
+3. **Hosting**: Cloudflare Pages o Vercel, con reescritura de rutas a `index.html` (hace falta
+   para `/:slug` y `/cancelar/:token`).
+4. Auth: recuperar contraseña; bloqueo de días/feriados; reglas de anticipación mínima/máxima para
+   reservar; estado "no vino" y métrica de asistencia real.
+5. Legal (términos, privacidad Ley 25.326), datos del negocio en la página pública (teléfono,
+   dirección, logo), limpiar prueba social inventada en la landing.
+6. Planes y cobro (se decide al final): `subscriptions`, límites validados en la base,
+   Mercado Pago.
 
-## Después
-- Dominio propio en Resend para mandar a cualquier cliente (hoy solo al
-  email verificado). Atado a la decisión pendiente de dominio/nombre.
-- Decisiones abiertas del PRODUCT.md: precios/plan, dominio y nombre
-  definitivos.
-- Dev server: `npx vite --port 5175` (prefijo aprobado).
-- Supabase CLI ya vinculado (project ref lhmpmzxvpkqlfnwvwglu); el token de
-  acceso se pasa por `SUPABASE_ACCESS_TOKEN` en cada comando (no persistido).
+## Notas
+- Dev server: `npx vite --port 5175` (también en `.claude/launch.json`).
+- Supabase CLI vinculado (project ref lhmpmzxvpkqlfnwvwglu); el token se pasa por
+  `SUPABASE_ACCESS_TOKEN` en cada comando (no persistido).
+- La Edge Function se despliega también con el MCP de Supabase (`deploy_edge_function`).

@@ -1,128 +1,167 @@
-// RESER · Recordatorios por email: 1 hora antes del turno.
+// RESER · Envío de mails por Resend. Una sola función con tres tipos de aviso:
 //
-// Corre cada 5 minutos vía pg_cron (migración 008). Busca reservas
-// confirmadas que empiezan dentro de la ventana [now+50min, now+70min]
-// y todavía no fueron recordadas (reminder_sent_at is null), les manda
-// el email por Resend y las marca como recordadas.
+//   { type: 'reminders' }  (o body vacío) → lo dispara pg_cron cada 5 minutos: recuerda
+//        1 hora antes los turnos confirmados que todavía no fueron recordados.
+//   { type: 'booked', reservation_id, by_owner }    → reserva nueva (trigger en la base):
+//        confirmación al cliente + aviso al dueño (salvo que la haya cargado el dueño).
+//   { type: 'cancelled', reservation_id }           → cancelación (trigger en la base):
+//        si canceló el cliente avisa al dueño; si canceló el negocio avisa al cliente.
 //
 // Secrets necesarios (supabase secrets set ...):
-//   RESEND_API_KEY     → API key de https://resend.com
-//   REMINDER_SECRET    → secreto compartido con el cron (header x-reminder-secret)
-//   REMINDER_FROM      → remitente, ej: "RESER <recordatorios@tudominio.com>"
-//                        (con el dominio de prueba de Resend: onboarding@resend.dev)
+//   RESEND_API_KEY   → API key de https://resend.com
+//   REMINDER_SECRET  → secreto compartido con la base (header x-reminder-secret)
+//   REMINDER_FROM    → remitente base, ej: "RESER <reservas@tudominio.com>". El nombre se
+//                      reemplaza por "<Negocio> vía RESER"; solo importa la dirección.
+//   APP_URL          → URL pública de la app, ej: https://reser.com (para los enlaces de
+//                      cancelar). Sin definir usa http://localhost:5175 (solo desarrollo).
+
+import {
+  clientCancelledByBusiness,
+  clientConfirmation,
+  clientReminder,
+  ownerClientCancelled,
+  ownerNewBooking,
+  senderFor,
+  type Mail,
+  type MailContext,
+  type MailReservation,
+} from './mail.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const FROM = Deno.env.get('REMINDER_FROM') ?? 'RESER <onboarding@resend.dev>'
+const MAIL_FROM = Deno.env.get('REMINDER_FROM') ?? 'RESER <onboarding@resend.dev>'
 const SECRET = Deno.env.get('REMINDER_SECRET') ?? ''
+const APP_URL = (Deno.env.get('APP_URL') ?? 'http://localhost:5175').replace(/\/+$/, '')
 
-type ReminderRow = {
-  id: string
-  starts_at: string
-  clients: { name: string; email: string | null } | null
-  services: { name: string } | null
-  businesses: { name: string; timezone: string } | null
+const ctx: MailContext = { appUrl: APP_URL }
+const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
+
+const SELECT =
+  'id,starts_at,status,cancel_token,cancelled_by,' +
+  'clients(name,email,phone),services(name),resources(name),' +
+  'businesses(name,slug,timezone,owner_id,cancel_min_hours)'
+
+const serviceHeaders = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+
+type Result = { to: string; ok: boolean; detalle?: string }
+
+async function sendMail(
+  to: string,
+  mail: Mail,
+  r: MailReservation,
+  kind: string,
+  replyTo?: string | null,
+): Promise<Result> {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      // Si la base reintenta, Resend no manda dos veces el mismo aviso.
+      'Idempotency-Key': `${kind}-${r.id}-${to}`,
+    },
+    body: JSON.stringify({
+      from: senderFor(r.businesses?.name ?? '', MAIL_FROM),
+      to,
+      subject: mail.subject,
+      html: mail.html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    }),
+  })
+  return { to, ok: res.ok, detalle: res.ok ? undefined : await res.text() }
 }
 
-function formatLocal(iso: string, timezone: string): { fecha: string; hora: string } {
-  const d = new Date(iso)
-  const fecha = new Intl.DateTimeFormat('es-AR', {
-    timeZone: timezone, weekday: 'long', day: 'numeric', month: 'long',
-  }).format(d)
-  const hora = new Intl.DateTimeFormat('es-AR', {
-    timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(d)
-  return { fecha, hora }
+async function fetchReservations(filter: string): Promise<MailReservation[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/reservations?select=${SELECT}&${filter}`, { headers: serviceHeaders })
+  if (!res.ok) throw new Error(`error consultando reservas: ${res.status} ${await res.text()}`)
+  return (await res.json()) as MailReservation[]
 }
 
-function buildHtml(row: ReminderRow): string {
-  const tz = row.businesses?.timezone ?? 'America/Argentina/Buenos_Aires'
-  const { fecha, hora } = formatLocal(row.starts_at, tz)
-  const negocio = row.businesses?.name ?? 'el negocio'
-  const servicio = row.services?.name ?? 'tu turno'
-  const nombre = row.clients?.name ?? ''
-  return `
-  <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1a2b33;">
-    <h2 style="margin-bottom: 4px;">¡Te esperamos en 1 hora, ${nombre}!</h2>
-    <p style="color: #4a5f6a;">Recordatorio de tu turno en <strong>${negocio}</strong></p>
-    <div style="background: #f2f8fb; border-radius: 12px; padding: 16px 20px; margin: 16px 0;">
-      <p style="margin: 0 0 6px;"><strong>Servicio:</strong> ${servicio}</p>
-      <p style="margin: 0 0 6px;"><strong>Día:</strong> ${fecha}</p>
-      <p style="margin: 0;"><strong>Hora:</strong> ${hora} h</p>
-    </div>
-    <p style="color: #4a5f6a; font-size: 14px;">Si no podés asistir, avisale a ${negocio} cuanto antes.</p>
-  </div>`
+async function ownerEmail(ownerId: string): Promise<string | null> {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${ownerId}`, { headers: serviceHeaders })
+  if (!res.ok) return null
+  return ((await res.json()) as { email?: string }).email ?? null
+}
+
+async function sendEvent(type: 'booked' | 'cancelled', id: string, byOwner: boolean) {
+  const [r] = await fetchReservations(`id=eq.${id}`)
+  if (!r) return { ok: false, detalle: 'reserva inexistente', resultados: [] }
+
+  const resultados: Result[] = []
+  const clientEmail = r.clients?.email ?? null
+  const owner = r.businesses ? await ownerEmail(r.businesses.owner_id) : null
+
+  if (type === 'booked' && r.status === 'confirmed') {
+    if (clientEmail) resultados.push(await sendMail(clientEmail, clientConfirmation(r, ctx), r, 'booked-client', owner))
+    if (!byOwner && owner) resultados.push(await sendMail(owner, ownerNewBooking(r), r, 'booked-owner', clientEmail))
+  }
+
+  if (type === 'cancelled' && r.status === 'cancelled') {
+    if (r.cancelled_by === 'client' && owner) {
+      resultados.push(await sendMail(owner, ownerClientCancelled(r), r, 'cancelled-owner', clientEmail))
+    }
+    if (r.cancelled_by === 'owner' && clientEmail) {
+      resultados.push(await sendMail(clientEmail, clientCancelledByBusiness(r, ctx), r, 'cancelled-client', owner))
+    }
+  }
+
+  return { ok: true, resultados }
+}
+
+async function sendReminders() {
+  const now = Date.now()
+  const from = new Date(now + 50 * 60_000).toISOString()
+  const to = new Date(now + 70 * 60_000).toISOString()
+  const rows = await fetchReservations(
+    `status=eq.confirmed&reminder_sent_at=is.null&starts_at=gte.${from}&starts_at=lte.${to}`,
+  )
+
+  const resultados: Array<Result & { id: string }> = []
+  for (const r of rows) {
+    const email = r.clients?.email
+    if (email) {
+      const owner = r.businesses ? await ownerEmail(r.businesses.owner_id) : null
+      const result = await sendMail(email, clientReminder(r, ctx), r, 'reminder', owner)
+      resultados.push({ id: r.id, ...result })
+      if (!result.ok) continue // no marcar: se reintenta en la próxima corrida
+    } else {
+      // Sin email no hay a quién recordarle: se marca igual para no reintentar.
+      resultados.push({ id: r.id, to: '', ok: false, detalle: 'sin email' })
+    }
+
+    await fetch(`${SUPABASE_URL}/rest/v1/reservations?id=eq.${r.id}`, {
+      method: 'PATCH',
+      headers: { ...serviceHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ reminder_sent_at: new Date().toISOString() }),
+    })
+  }
+  return { procesadas: rows.length, resultados }
 }
 
 Deno.serve(async (req) => {
   try {
-  // Protección: solo el cron (o quien tenga el secreto) puede dispararlo.
-  if (SECRET && req.headers.get('x-reminder-secret') !== SECRET) {
-    return new Response('unauthorized', { status: 401 })
-  }
-  if (!RESEND_API_KEY) {
-    return new Response('RESEND_API_KEY no configurada', { status: 500 })
-  }
-  const now = Date.now()
-  const from = new Date(now + 50 * 60_000).toISOString()
-  const to = new Date(now + 70 * 60_000).toISOString()
+    if (!SECRET) return new Response('REMINDER_SECRET no configurada', { status: 500 })
+    if (req.headers.get('x-reminder-secret') !== SECRET) return new Response('unauthorized', { status: 401 })
+    if (!RESEND_API_KEY) return new Response('RESEND_API_KEY no configurada', { status: 500 })
 
-  const url =
-    `${SUPABASE_URL}/rest/v1/reservations` +
-    `?select=id,starts_at,clients(name,email),services(name),businesses(name,timezone)` +
-    `&status=eq.confirmed&reminder_sent_at=is.null` +
-    `&starts_at=gte.${from}&starts_at=lte.${to}`
+    const body = (await req.json().catch(() => ({}))) as {
+      type?: string
+      reservation_id?: string
+      by_owner?: boolean
+    }
+    const type = body.type ?? 'reminders'
 
-  const res = await fetch(url, {
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-    },
-  })
-  if (!res.ok) {
-    return new Response(`error consultando reservas: ${res.status} ${await res.text()}`, { status: 502 })
-  }
-  const rows = (await res.json()) as ReminderRow[]
+    if (type === 'reminders') return Response.json(await sendReminders())
 
-  const resultados: { id: string; ok: boolean; detalle?: string }[] = []
-
-  for (const row of rows) {
-    const email = row.clients?.email
-    if (!email) {
-      // Sin email no hay a quién recordarle: se marca igual para no reintentar.
-      resultados.push({ id: row.id, ok: false, detalle: 'sin email' })
-    } else {
-      const send = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: FROM,
-          to: email,
-          subject: `Tu turno en ${row.businesses?.name ?? 'RESER'} es en 1 hora`,
-          html: buildHtml(row),
-        }),
-      })
-      resultados.push({ id: row.id, ok: send.ok, detalle: send.ok ? undefined : await send.text() })
-      if (!send.ok) continue // no marcar: se reintenta en el próximo cron
+    if (type === 'booked' || type === 'cancelled') {
+      if (!body.reservation_id || !UUID.test(body.reservation_id)) {
+        return new Response('reservation_id inválido', { status: 400 })
+      }
+      return Response.json(await sendEvent(type, body.reservation_id, body.by_owner === true))
     }
 
-    await fetch(`${SUPABASE_URL}/rest/v1/reservations?id=eq.${row.id}`, {
-      method: 'PATCH',
-      headers: {
-        apikey: SERVICE_KEY,
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify({ reminder_sent_at: new Date().toISOString() }),
-    })
-  }
-
-  return Response.json({ procesadas: rows.length, resultados })
+    return new Response('tipo desconocido', { status: 400 })
   } catch (err) {
     return new Response(`error interno: ${String(err)}`, { status: 500 })
   }
