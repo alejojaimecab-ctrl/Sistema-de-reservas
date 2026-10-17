@@ -33,7 +33,6 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const [availability, setAvailabilityMap] = useState<AvailabilityMap>(() => availabilityFromSlots(days, new Set()))
   const [services, setServices] = useState<Service[]>([])
   const [offered, setOffered] = useState<Set<string>>(new Set())
-  const [copyFrom, setCopyFrom] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -165,24 +164,9 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   async function selectProfessional(id: string) {
     if (id === selected?.id) return
     await flush()
-    setCopyFrom('')
     setSaveState('idle')
     setSaveError(null)
     setSelectedId(id)
-  }
-
-  async function copyHoursFrom(otherId: string) {
-    setCopyFrom(otherId)
-    if (!otherId) return
-    const other = professionals.find(p => p.id === otherId)
-    setMessage(null)
-    try {
-      const slots = await getAvailability(businessId, otherId)
-      edit({ availability: availabilityFromSlots(days, slots) })
-      setMessage(`Horarios copiados de ${other?.name ?? 'otro profesional'}.`)
-    } catch {
-      setMessage('No pudimos copiar los horarios. Probá de nuevo.')
-    }
   }
 
   async function add() {
@@ -198,7 +182,6 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     await onChanged()
     setBusy(false)
     setNewName('')
-    setCopyFrom('')
     setSaveState('idle')
     setSelectedId(id)
     if (copyError) setMessage(`Se creó el profesional, pero no pudimos copiar los horarios: ${copyError}`)
@@ -257,7 +240,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         <input value={name} disabled={loading || loadFailed} onChange={e => edit({ name: e.target.value })} />
       </label>
       {selected.name === 'Principal' && professionals.filter(p => p.is_active).length > 1 && <p className="form-note">"Principal" es el profesional que se crea con tu negocio. Ponele el nombre real o, si nadie atiende con ese nombre, desactivalo con el botón de abajo: así no aparece cuando tus clientes eligen con quién reservar.</p>}
-      <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece {selected.name}</p>
+      <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece</p>
       {services.length === 0
         ? <p className="form-note">Primero cargá tus servicios en la sección Servicios.</p>
         : <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', margin: '8px 0 4px' }}>
@@ -266,16 +249,10 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
             {service.name}
           </label>)}
         </div>}
-      {offered.size === 0 && services.length > 0 && !loading && <p className="form-note">Sin servicios asignados, nadie va a poder reservar con {selected.name}.</p>}
-      <p className="eyebrow" style={{ marginTop: 20 }}>Horarios de {selected.name}</p>
-      {professionals.length > 1 && <label className="onboarding-field" style={{ marginBottom: 8 }}>Copiar los horarios de
-        <select value={copyFrom} disabled={loading || loadFailed} onChange={e => void copyHoursFrom(e.target.value)}>
-          <option value="">Elegí un profesional…</option>
-          {professionals.filter(p => p.id !== selected.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </label>}
+      {offered.size === 0 && services.length > 0 && !loading && <p className="form-note">Sin servicios asignados, nadie va a poder reservar con este profesional.</p>}
+      <p className="eyebrow" style={{ marginTop: 20 }}>Horarios</p>
       {loading && <p className="form-note" role="status">Cargando…</p>}
-      <AvailabilityEditor days={days} availability={availability} onChange={map => { setCopyFrom(''); edit({ availability: map }) }} />
+      <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
         <button type="button" className="button button--secondary" disabled={busy} onClick={() => void toggleActive()}>
           {selected.is_active ? 'Desactivar profesional' : 'Reactivar profesional'}
