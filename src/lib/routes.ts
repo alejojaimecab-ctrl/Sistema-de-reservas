@@ -64,6 +64,33 @@ export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^0-9+]/g, '')}`
 }
 
+// Número para wa.me: solo dígitos y con código de país. Entiende cómo lo escribe un argentino:
+// "11 5555 0000", "011 15 5555 0000", "+54 9 11 5555 0000". Devuelve null si no parece un número.
+export function whatsappDigits(raw: string): string | null {
+  let d = raw.replace(/[^0-9]/g, '')
+  if (d.startsWith('00')) d = d.slice(2)
+  if (d.startsWith('54')) {
+    if (d.length === 12 && d[2] !== '9') d = `549${d.slice(2)}` // 54 11 5555 0000 → 54 9 11 5555 0000
+    return d.length >= 12 ? d : null
+  }
+  d = d.replace(/^0+/, '')
+  // El "15" de los celulares viejos va después del código de área (2, 3 o 4 dígitos).
+  if (d.length === 12) {
+    for (const area of [2, 3, 4]) {
+      if (d.slice(area, area + 2) === '15') { d = d.slice(0, area) + d.slice(area + 2); break }
+    }
+  }
+  if (d.length === 10) return `549${d}`
+  if (d.length === 11 && d.startsWith('9')) return `54${d}`
+  return d.length >= 11 ? d : null
+}
+
+// Enlace de WhatsApp con un mensaje ya escrito
+export function whatsappHref(raw: string, text: string): string | null {
+  const digits = whatsappDigits(raw)
+  return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : null
+}
+
 export function goTo(path: string) {
   if (window.location.pathname !== path) window.history.pushState(null, '', path)
 }

@@ -13,7 +13,7 @@ import {
 } from '../lib/db'
 
 // Lo que se guarda de un profesional: nombre, horarios y servicios que ofrece.
-type Draft = { id: string; name: string; availability: AvailabilityMap; offered: Set<string> }
+type Draft = { id: string; name: string; whatsapp: string; availability: AvailabilityMap; offered: Set<string> }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 // Espera después del último cambio antes de guardar (junta varios clics en un solo guardado).
@@ -30,6 +30,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const selectedKey = selected?.id ?? null
   const [newName, setNewName] = useState('')
   const [name, setName] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   const [availability, setAvailabilityMap] = useState<AvailabilityMap>(() => availabilityFromSlots(days, new Set()))
   const [services, setServices] = useState<Service[]>([])
   const [offered, setOffered] = useState<Set<string>>(new Set())
@@ -40,6 +41,8 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const activeCount = professionals.filter(p => p.is_active).length
+  const offeredServices = services.filter(service => offered.has(service.id))
+  const onlyWhatsapp = offeredServices.length > 0 && offeredServices.every(service => service.booking_mode === 'whatsapp')
 
   // Guardado automático: los cambios se juntan en `draftRef`, se guardan tras una pausa y
   // siempre en fila (`chainRef`), así dos guardados nunca se pisan entre sí.
@@ -55,22 +58,25 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   async function persist(draft: Draft): Promise<string | null> {
     const current = professionalsRef.current.find(p => p.id === draft.id)
     const trimmed = draft.name.trim()
-    let renamed = false
+    let changed = false
     let nameProblem: string | null = null
+    const changes: { name?: string; whatsapp?: string | null } = {}
     if (current && trimmed !== current.name) {
-      if (!trimmed) {
-        nameProblem = 'El nombre no puede quedar vacío.'
-      } else {
-        const renameError = await updateProfessional(draft.id, { name: trimmed })
-        if (renameError) return renameError
-        renamed = true
-      }
+      if (!trimmed) nameProblem = 'El nombre no puede quedar vacío.'
+      else changes.name = trimmed
+    }
+    const number = draft.whatsapp.trim()
+    if (current && number !== (current.whatsapp ?? '')) changes.whatsapp = number || null
+    if (Object.keys(changes).length > 0) {
+      const updateError = await updateProfessional(draft.id, changes)
+      if (updateError) return updateError
+      changed = true
     }
     const availabilityError = await setAvailability(businessId, draft.id, availabilitySlotsFromMap(draft.availability))
     if (availabilityError) return availabilityError
     const servicesError = await setProfessionalServices(businessId, draft.id, [...draft.offered])
     if (servicesError) return servicesError
-    if (renamed) await onChangedRef.current()
+    if (changed) await onChangedRef.current()
     return nameProblem
   }
 
@@ -117,6 +123,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     if (!selected) return
     let active = true
     setName(selected.name)
+    setWhatsapp(selected.whatsapp ?? '')
     setMessage(null)
     setLoading(true)
     setLoadFailed(false)
@@ -147,9 +154,10 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     if (!selected || loading || loadFailed) return
     const base: Draft = draftRef.current?.id === selected.id
       ? draftRef.current
-      : { id: selected.id, name, availability, offered }
+      : { id: selected.id, name, whatsapp, availability, offered }
     const next: Draft = { ...base, ...patch }
     setName(next.name)
+    setWhatsapp(next.whatsapp)
     setAvailabilityMap(next.availability)
     setOffered(next.offered)
     scheduleSave(next)
@@ -240,6 +248,9 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         <input value={name} disabled={loading || loadFailed} onChange={e => edit({ name: e.target.value })} />
       </label>
       {selected.name === 'Principal' && professionals.filter(p => p.is_active).length > 1 && <p className="form-note">"Principal" es el profesional que se crea con tu negocio. Ponele el nombre real o, si nadie atiende con ese nombre, desactivalo con el botón de abajo: así no aparece cuando tus clientes eligen con quién reservar.</p>}
+      <label className="onboarding-field">WhatsApp <small>(opcional)</small>
+        <input type="tel" maxLength={40} autoComplete="off" placeholder="11 5555 0000" disabled={loading || loadFailed} value={whatsapp} onChange={e => edit({ whatsapp: e.target.value })} />
+      </label>
       <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece</p>
       {services.length === 0
         ? <p className="form-note">Primero cargá tus servicios en la sección Servicios.</p>
@@ -250,9 +261,12 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
           </label>)}
         </div>}
       {offered.size === 0 && services.length > 0 && !loading && <p className="form-note">Sin servicios asignados, nadie va a poder reservar con este profesional.</p>}
+      {offeredServices.some(service => service.booking_mode === 'whatsapp') && !whatsapp.trim() && <p className="form-note">Este profesional ofrece servicios por WhatsApp pero no tiene número: se usa el teléfono del negocio (Configuración), si lo cargaste.</p>}
       <p className="eyebrow" style={{ marginTop: 20 }}>Horarios</p>
       {loading && <p className="form-note" role="status">Cargando…</p>}
-      <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />
+      {onlyWhatsapp
+        ? <p className="form-note">Todo lo que ofrece este profesional se coordina por WhatsApp: no hace falta cargar horarios en RESER.</p>
+        : <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
         <button type="button" className="button button--secondary" disabled={busy} onClick={() => void toggleActive()}>
           {selected.is_active ? 'Desactivar profesional' : 'Reactivar profesional'}

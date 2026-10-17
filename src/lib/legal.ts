@@ -170,6 +170,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
             'Con el negocio: cada negocio ve los datos de sus propios clientes y solo de ellos.',
             `Con proveedores que nos permiten funcionar: Supabase (base de datos, autenticación y archivos), Resend (envío de emails) y ${LEGAL.hosting} (publicación de la web). Solo reciben lo necesario para cumplir su función.`,
             'Con Google, únicamente si tocás "Agendar en Google Calendar": tu navegador le envía el nombre del servicio, el negocio y el horario.',
+            'Con WhatsApp (Meta), únicamente si tocás "Escribir por WhatsApp" en un servicio que se coordina por ese medio: tu navegador abre WhatsApp con un mensaje ya escrito y, desde ahí, la conversación es entre vos y el negocio, bajo las condiciones de WhatsApp.',
             'Con autoridades, cuando una norma o una orden judicial lo exija.',
           ],
           'Algunos de estos proveedores pueden tener sus servidores fuera de la Argentina. Elegimos proveedores que aplican medidas de seguridad adecuadas.',

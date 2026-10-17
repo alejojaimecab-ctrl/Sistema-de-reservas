@@ -15,12 +15,16 @@ async function ownsBusiness(businessId: string): Promise<boolean> {
   return (await ownedBusinessIds()).includes(businessId)
 }
 
+export type BookingMode = 'online' | 'whatsapp'
+
 export type Service = {
   id: string
   business_id: string
   name: string
   duration_min: number
   price: number
+  price_mode: 'fixed' | 'from' | 'ask'
+  booking_mode: BookingMode
   is_active: boolean
 }
 
@@ -195,9 +199,10 @@ export async function listReservationServices(
   }
   const { data, error } = await supabase
     .from('services')
-    .select('id, business_id, name, duration_min, price, is_active')
+    .select('id, business_id, name, duration_min, price, price_mode, booking_mode, is_active')
     .eq('business_id', businessId)
     .eq('is_active', true)
+    .eq('booking_mode', 'online') // los servicios por WhatsApp no tienen agenda en RESER
     .order('name')
   if (error) return { services: [], error: error.message }
   return { services: data ?? [], error: null }
@@ -248,6 +253,8 @@ export type PublicService = {
   name: string
   duration_min: number
   price: number
+  price_mode: 'fixed' | 'from' | 'ask'
+  booking_mode: BookingMode
 }
 
 // `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
@@ -259,7 +266,7 @@ export async function getPublicBusiness(slug: string): Promise<{ business: Publi
 
 export async function listPublicServices(slug: string): Promise<{ services: PublicService[]; failed: boolean }> {
   const { data, error } = await supabase
-    .from('public_services').select('id, business_slug, name, duration_min, price')
+    .from('public_services').select('id, business_slug, name, duration_min, price, price_mode, booking_mode')
     .eq('business_slug', slug).order('name')
   return { services: data ?? [], failed: !!error }
 }
@@ -268,7 +275,7 @@ export async function listPublicServices(slug: string): Promise<{ services: Publ
 // Solo devuelve horarios donde entra la duración completa del servicio,
 // calculados en la zona horaria del negocio. Devuelve starts_at en
 // timestamptz; la UI los muestra en hora local.
-export type PublicProfessional = { id: string; name: string }
+export type PublicProfessional = { id: string; name: string; whatsapp: string | null }
 
 export async function listPublicResourceServices(slug: string): Promise<ResourceService[]> {
   const { data } = await supabase.from('public_resource_services').select('resource_id, service_id').eq('business_slug', slug)
@@ -277,7 +284,7 @@ export async function listPublicResourceServices(slug: string): Promise<Resource
 
 export async function listPublicProfessionals(slug: string): Promise<{ professionals: PublicProfessional[]; failed: boolean }> {
   const { data, error } = await supabase
-    .from('public_resources').select('id, name')
+    .from('public_resources').select('id, name, whatsapp')
     .eq('business_slug', slug).order('created_at', { ascending: true })
   return { professionals: data ?? [], failed: !!error }
 }
@@ -392,13 +399,15 @@ export async function listServices(businessId: string): Promise<Service[]> {
   return data ?? []
 }
 
-export async function createService(businessId: string, svc: { name: string; duration_min: number; price: number }) {
+type ServiceInput = { name: string; duration_min: number; price: number; price_mode?: Service['price_mode']; booking_mode?: BookingMode }
+
+export async function createService(businessId: string, svc: ServiceInput) {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
   const { error } = await supabase.from('services').insert({ business_id: businessId, ...svc })
   return error ? error.message : null
 }
 
-export async function updateService(id: string, svc: { name: string; duration_min: number; price: number }) {
+export async function updateService(id: string, svc: ServiceInput) {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('services').update(svc).eq('id', id).in('business_id', owned)
   return error ? error.message : null
@@ -541,12 +550,12 @@ export async function deleteTimeOff(id: string): Promise<string | null> {
 
 // --- Profesionales (resources): cada uno con su propia disponibilidad y agenda ---
 
-export type Professional = { id: string; name: string; is_active: boolean }
+export type Professional = { id: string; name: string; is_active: boolean; whatsapp: string | null }
 
 export async function listProfessionals(businessId: string): Promise<Professional[]> {
   if (!(await ownsBusiness(businessId))) return []
   const { data } = await supabase
-    .from('resources').select('id, name, is_active')
+    .from('resources').select('id, name, is_active, whatsapp')
     .eq('business_id', businessId).order('created_at', { ascending: true })
   return data ?? []
 }
@@ -561,11 +570,15 @@ export async function createProfessional(businessId: string, name: string): Prom
 
 export async function updateProfessional(
   id: string,
-  changes: { name?: string; is_active?: boolean },
+  changes: { name?: string; is_active?: boolean; whatsapp?: string | null },
 ): Promise<string | null> {
   const owned = await ownedBusinessIds()
   if (changes.name !== undefined && !changes.name.trim()) return 'Escribí el nombre del profesional.'
-  const patch = changes.name !== undefined ? { ...changes, name: changes.name.trim() } : changes
+  const patch = {
+    ...changes,
+    ...(changes.name !== undefined ? { name: changes.name.trim() } : {}),
+    ...(changes.whatsapp !== undefined ? { whatsapp: changes.whatsapp?.trim() || null } : {}),
+  }
   const { data, error } = await supabase
     .from('resources').update(patch).eq('id', id).in('business_id', owned).select('id').maybeSingle()
   if (error) return error.message

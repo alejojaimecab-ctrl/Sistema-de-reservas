@@ -285,3 +285,8 @@
 .legal-consent input { margin-top: 3px; flex: 0 0 auto; }
 .legal-consent a, .site-footer-links a { color: #8fdcf5; }
 .site-footer-links { display: inline-flex; gap: 14px; margin-left: 14px; }
+.service-options { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; margin-top: 4px; }
+.service-options label { display: grid; gap: 4px; font-size: 10px; color: #9eb7c2; font-weight: 700; }
+.service-options select { height: 34px; min-width: 190px; padding: 0 10px; color: #dcecf1; background: #13232b; border: 1px solid #28414c; border-radius: 8px; font-size: 12px; }
+.service-options select:focus-visible { outline: 2px solid #60d7ff; outline-offset: 2px; }
+.service-options small { flex: 1 1 100%; color: #7f9aa5; font-size: 11px; }

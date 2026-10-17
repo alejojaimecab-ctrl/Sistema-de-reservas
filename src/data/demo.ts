@@ -15,6 +15,12 @@ export const demoServices: Service[] = [
   { id: 'premium', name: 'Servicio C', duration: 75, price: 19000, icon: Sparkles },
 ]
 
+export type PriceMode = 'fixed' | 'from' | 'ask'
+
+// Cómo se muestra el precio de un servicio: fijo, "Desde $X" o "A consultar"
+export const priceLabel = (price: number, mode: PriceMode) =>
+  mode === 'ask' ? 'A consultar' : mode === 'from' ? `Desde ${formatPrice(price)}` : formatPrice(price)
+
 export const formatPrice = (price: number) =>
   new Intl.NumberFormat('es-AR', {
     style: 'currency',

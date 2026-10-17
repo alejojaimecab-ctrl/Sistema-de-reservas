@@ -814,8 +814,19 @@ function ServicesSection({ businessId }: { businessId: string }) {
   }
 
   function persist(svc: Service) {
-    void updateService(svc.id, { name: svc.name, duration_min: svc.duration_min, price: svc.price })
-      .then(err => { if (err) setError(err) })
+    void updateService(svc.id, {
+      name: svc.name,
+      duration_min: svc.duration_min,
+      price: svc.price,
+      price_mode: svc.price_mode,
+      booking_mode: svc.booking_mode,
+    }).then(err => { if (err) setError(err) })
+  }
+
+  // Los selectores guardan al instante (no esperan a salir del campo)
+  function change(svc: Service, patch: Partial<Service>) {
+    updateLocal(svc.id, patch)
+    persist({ ...svc, ...patch })
   }
 
   return <section className="agenda-card">
@@ -847,7 +858,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                   onBlur={() => persist(svc)}
                 />
               </label>
-              <label className="service-value service-duration">
+              <label className="service-value service-duration" style={svc.booking_mode === 'whatsapp' ? { visibility: 'hidden' } : undefined}>
                 <span><Clock3 size={13} /> Duración</span>
                 <span className="service-value-input">
                   <input
@@ -862,7 +873,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                   <small>min</small>
                 </span>
               </label>
-              <label className="service-value service-price">
+              <label className="service-value service-price" style={svc.price_mode === 'ask' ? { visibility: 'hidden' } : undefined}>
                 <span><DollarSign size={13} /> Precio</span>
                 <span className="service-value-input">
                   <small>$</small>
@@ -885,6 +896,24 @@ function ServicesSection({ businessId }: { businessId: string }) {
               >
                 <Trash2 size={15} /><span>Eliminar</span>
               </button>
+              <div className="service-options">
+                <label>
+                  <span>Precio</span>
+                  <select aria-label={`Tipo de precio de ${svc.name || 'servicio'}`} value={svc.price_mode} onChange={e => change(svc, { price_mode: e.target.value as Service['price_mode'] })}>
+                    <option value="fixed">Precio fijo</option>
+                    <option value="from">Desde (precio mínimo)</option>
+                    <option value="ask">A consultar</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Cómo se reserva</span>
+                  <select aria-label={`Cómo se reserva ${svc.name || 'servicio'}`} value={svc.booking_mode} onChange={e => change(svc, { booking_mode: e.target.value as Service['booking_mode'] })}>
+                    <option value="online">Con horario en RESER</option>
+                    <option value="whatsapp">Se coordina por WhatsApp</option>
+                  </select>
+                </label>
+                {svc.booking_mode === 'whatsapp' && <small>El cliente verá un botón para escribirle al profesional que elija. Cargá su WhatsApp en la sección Equipo.</small>}
+              </div>
             </motion.div>
           ))}
         </AnimatePresence>
