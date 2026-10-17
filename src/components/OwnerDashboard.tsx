@@ -9,7 +9,7 @@ import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
-  cancelOwnerReservation, createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
+  cancelOwnerReservation, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
   listAgendaReservations, listReservationServices, listReservations, listServices, updateBusiness, updateReservationStatus, updateService,
   listProfessionals, listResourceServices, type DashboardStats, type Professional, type Reservation, type ResourceService, type Service,
 } from '../lib/db'
@@ -115,7 +115,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   return <div className="dashboard">
     <aside className="dashboard-sidebar"><Brand />
       <div className="business-switch">
-        <span className="mini-logo">{initials(business.name)}</span>
+        <span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{initials(business.name)}</span>
         <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
         <CopyLinkButton slug={business.slug} />
       </div>
@@ -910,6 +910,9 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
   const [cancelHours, setCancelHours] = useState(business?.cancel_min_hours ?? 2)
+  const [phone, setPhone] = useState(business?.phone ?? '')
+  const [address, setAddress] = useState(business?.address ?? '')
+  const [logoBusy, setLogoBusy] = useState(false)
   const [minNotice, setMinNotice] = useState(business?.min_notice_hours ?? 1)
   const [maxAdvance, setMaxAdvance] = useState(business?.max_advance_days ?? 60)
   const [message, setMessage] = useState<string | null>(null)
@@ -918,10 +921,31 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const noticeOptions = [...new Set([0, 1, 2, 4, 12, 24, 48, minNotice])].sort((a, b) => a - b)
   const advanceOptions = [...new Set([7, 14, 30, 60, 90, 180, maxAdvance])].sort((a, b) => a - b)
 
+  async function changeLogo(file: File | undefined) {
+    if (!file) return
+    setLogoBusy(true)
+    setMessage(null)
+    const logoError = await uploadBusinessLogo(businessId, file, business?.logo_path ?? null)
+    setLogoBusy(false)
+    if (logoError) { setMessage(logoError); return }
+    await onSaved()
+    setMessage('Logo actualizado ✓')
+  }
+
+  async function clearLogo() {
+    setLogoBusy(true)
+    setMessage(null)
+    const logoError = await removeBusinessLogo(businessId, business?.logo_path ?? null)
+    setLogoBusy(false)
+    if (logoError) { setMessage(logoError); return }
+    await onSaved()
+    setMessage('Logo quitado.')
+  }
+
   async function save() {
     setBusy(true)
     setMessage(null)
-    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance })
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: address.trim() || null })
     setBusy(false)
     if (error) { setMessage(error.includes('duplicate') ? 'Ese enlace ya está en uso.' : error); return }
     await onSaved()
@@ -935,6 +959,26 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     </label>
     <label className="onboarding-field">Tu enlace de RESER
       <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
+    </label>
+    <p className="eyebrow" style={{ marginTop: 20 }}>Lo que ven tus clientes</p>
+    <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '8px 0 14px', flexWrap: 'wrap' }}>
+      <span className="mini-logo" aria-hidden="true" style={{ width: 56, height: 56, ...(logoUrl(business?.logo_path) ? { backgroundImage: `url(${logoUrl(business?.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}) }}>{initials(name)}</span>
+      <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <label className="button button--secondary button--small" style={{ cursor: logoBusy ? 'wait' : 'pointer' }}>
+            {logoBusy ? 'Subiendo…' : business?.logo_path ? 'Cambiar logo' : 'Subir logo'}
+            <input type="file" hidden disabled={logoBusy} accept="image/png,image/jpeg,image/webp" onChange={e => { void changeLogo(e.target.files?.[0]); e.target.value = '' }} />
+          </label>
+          {business?.logo_path && <button type="button" className="text-button" disabled={logoBusy} onClick={() => void clearLogo()}>Quitar</button>}
+        </div>
+        <small style={{ color: '#7f9aa5' }}>PNG, JPG o WebP, hasta 1 MB. Funciona mejor si es cuadrado.</small>
+      </div>
+    </div>
+    <label className="onboarding-field">Teléfono <small>(opcional)</small>
+      <input type="tel" maxLength={40} autoComplete="off" placeholder="11 5555 5555" value={phone} onChange={e => setPhone(e.target.value)} />
+    </label>
+    <label className="onboarding-field">Dirección <small>(opcional)</small>
+      <input maxLength={160} autoComplete="off" placeholder="Calle 123, Ciudad" value={address} onChange={e => setAddress(e.target.value)} />
     </label>
     <label className="onboarding-field">Tus clientes pueden reservar con una anticipación mínima de
       <select value={minNotice} onChange={e => setMinNotice(Number(e.target.value))}>

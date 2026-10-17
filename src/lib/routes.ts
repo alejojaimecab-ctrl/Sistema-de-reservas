@@ -40,12 +40,28 @@ export function cancelTokenFromPath(pathname: string): string | null {
   return first === 'cancelar' && isUuid && rest.length === 0 ? token.toLowerCase() : null
 }
 
+// '/terminos' o '/privacidad' → documento legal; cualquier otra ruta → null
+export function legalDocFromPath(pathname: string): 'terminos' | 'privacidad' | null {
+  const parts = pathname.split('/').filter(Boolean)
+  return parts.length === 1 && (parts[0] === 'terminos' || parts[0] === 'privacidad') ? parts[0] : null
+}
+
 export function cancelUrl(token: string): string {
   return `${window.location.origin}/cancelar/${token}`
 }
 
 export function bookingUrl(slug: string): string {
   return `${window.location.origin}/${slug}`
+}
+
+// Enlace a Google Maps con la dirección del negocio
+export function mapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+}
+
+// tel: solo con dígitos y +, sin importar cómo lo escribió el dueño
+export function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^0-9+]/g, '')}`
 }
 
 export function goTo(path: string) {

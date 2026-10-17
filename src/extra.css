@@ -267,3 +267,21 @@
 .calendar-appointment.is-noshow .calendar-appointment-marker { background: #f08a95; box-shadow: 0 0 0 4px #4a232a; }
 .calendar-noshow[aria-pressed="true"] { color: #ffd2d6; background: #4a232a; border-color: #a35a63; }
 .calendar-noshow:hover:not(:disabled) { color: #ffd2d6; background: #3a1d22; border-color: #a35a63; }
+.booking-contact { display: grid; gap: 8px; margin-top: 18px; }
+.booking-contact a { display: inline-flex; align-items: center; gap: 8px; color: #9eb7c2; font-size: 13px; text-decoration: none; }
+.booking-contact a:hover { color: #d7f3fb; text-decoration: underline; }
+.legal-page { min-height: 100vh; padding: 0 20px 64px; background: radial-gradient(circle at 20% 0%, #123c51, transparent 36%), #080d13; color: #c9dde4; }
+.legal-header { max-width: 780px; margin: 0 auto; height: 84px; display: flex; align-items: center; justify-content: space-between; }
+.legal-card { max-width: 780px; margin: 0 auto; padding: 36px clamp(20px, 5vw, 48px); background: #0f1b22; border: 1px solid #223843; border-radius: 16px; line-height: 1.65; }
+.legal-card h1 { margin: 6px 0 4px; color: #eef9fc; font-size: clamp(28px, 5vw, 38px); letter-spacing: -.04em; }
+.legal-card h2 { margin: 28px 0 8px; color: #e3f4f9; font-size: 18px; }
+.legal-card p, .legal-card li { color: #b3cad3; font-size: 14.5px; }
+.legal-card ul { padding-left: 20px; display: grid; gap: 6px; margin: 8px 0; }
+.legal-meta { color: #7f9aa5 !important; font-size: 12px !important; margin: 0 0 14px; }
+.legal-intro { color: #d5e8ee !important; font-size: 16px !important; }
+.legal-switch { margin-top: 32px; padding-top: 16px; border-top: 1px solid #223843; }
+.legal-placeholder { background: #5a4a14; color: #ffe9a3; padding: 0 4px; border-radius: 4px; }
+.legal-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: #9fb7c1; line-height: 1.5; margin: 6px 0 2px; }
+.legal-consent input { margin-top: 3px; flex: 0 0 auto; }
+.legal-consent a, .site-footer-links a { color: #8fdcf5; }
+.site-footer-links { display: inline-flex; gap: 14px; margin-left: 14px; }

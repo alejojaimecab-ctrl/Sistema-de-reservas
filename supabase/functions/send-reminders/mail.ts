@@ -17,6 +17,8 @@ export type MailReservation = {
     timezone: string
     owner_id: string
     cancel_min_hours: number
+    phone: string | null
+    address: string | null
   } | null
 }
 
@@ -84,6 +86,11 @@ function rowsFor(r: MailReservation): Array<[string, string]> {
   ]
 }
 
+// Dónde queda el negocio y cómo llamarlo (solo en los mails al cliente)
+function placeRows(r: MailReservation): Array<[string, string]> {
+  return [['Dónde', r.businesses?.address ?? ''], ['Teléfono del negocio', r.businesses?.phone ?? '']]
+}
+
 const business = (r: MailReservation) => r.businesses?.name ?? 'el negocio'
 const client = (r: MailReservation) => r.clients?.name ?? 'Cliente'
 
@@ -96,7 +103,7 @@ export function clientConfirmation(r: MailReservation, ctx: MailContext): Mail {
     html: layout(
       `¡Listo, ${client(r)}! Tu turno está confirmado`,
       `Reservaste en <strong>${esc(business(r))}</strong>.`,
-      rowsFor(r),
+      [...rowsFor(r), ...placeRows(r)],
       cancelBlock(r, ctx),
     ),
   }
@@ -109,7 +116,7 @@ export function clientReminder(r: MailReservation, ctx: MailContext): Mail {
     html: layout(
       `¡Te esperamos en 1 hora, ${client(r)}!`,
       `Recordatorio de tu turno en <strong>${esc(business(r))}</strong>.`,
-      rowsFor(r),
+      [...rowsFor(r), ...placeRows(r)],
       cancelBlock(r, ctx),
     ),
   }

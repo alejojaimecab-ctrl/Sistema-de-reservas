@@ -119,6 +119,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   const [ownerName, setOwnerName] = useState(restored?.ownerName ?? '')
   const [email, setEmail] = useState(restored?.email ?? '')
   const [password, setPassword] = useState('')
+  const [acceptedLegal, setAcceptedLegal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [draftStatus, setDraftStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -207,6 +208,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     if (targetStep === 4) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Ingresá un email válido.'
       if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.'
+      if (!acceptedLegal) return 'Para crear tu cuenta tenés que aceptar los Términos y la Política de privacidad.'
     }
     return null
   }
@@ -492,6 +494,10 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         </label>
         <label className="onboarding-field">Contraseña
           <input required type="password" minLength={6} autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} />
+        </label>
+        <label className="legal-consent">
+          <input type="checkbox" checked={acceptedLegal} onChange={e => setAcceptedLegal(e.target.checked)} />
+          <span>Leí y acepto los <a href="/terminos" target="_blank" rel="noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>. Entiendo que, como negocio, voy a tratar datos de mis clientes.</span>
         </label>
       </>)}
 

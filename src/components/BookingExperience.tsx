@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
+import { Brush, CalendarDays, MapPin, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, formatPrice } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
-import { cancelUrl } from '../lib/routes'
+import { logoUrl } from '../lib/db'
+import { cancelUrl, mapsUrl, telHref } from '../lib/routes'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
 
@@ -14,7 +15,7 @@ const fullDayLabel = (d: Date) =>
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 
-const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60 }
+const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60, phone: null, address: null, logo_path: null }
 const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín' }, { id: 'demo-2', name: 'Sofía' }]
 const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
   id,
@@ -202,6 +203,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       {demo
         ? <p className="success-note"><CirclePlay size={15} /> No se guardó en la agenda del negocio.</p>
         : <p className="success-note"><Mail size={15} /> La reserva quedó asociada a tu correo.</p>}
+      {!demo && business.address && <p className="success-note"><MapPin size={15} /> Te esperamos en {business.address}.</p>}
       {!demo && cancelToken && <p className="success-note"><Mail size={15} /> Si no podés asistir, cancelá desde <a href={cancelUrl(cancelToken)}>este enlace</a>{business.cancel_min_hours > 0 ? ` (hasta ${business.cancel_min_hours} hs antes)` : ''}. Guardalo.</p>}
       {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
       <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
@@ -211,7 +213,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   return <section className="booking-shell">
     <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo ? <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span> : <span className="booking-business">{business.name}</span>}</div>
     <div className="booking-layout">
-      <aside className="booking-intro"><span className="mini-logo">{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : 'Reserva online'}</p><h1>Un momento para vos.</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.'}</p><div className="booking-side-info"><Clock3 size={17} /><span>{demo ? 'Probá los pasos sin guardar datos.' : 'Sin esperas. Sin llamadas.'}</span></div></aside>
+      <aside className="booking-intro"><span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : 'Reserva online'}</p><h1>Un momento para vos.</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.'}</p><div className="booking-side-info"><Clock3 size={17} /><span>{demo ? 'Probá los pasos sin guardar datos.' : 'Sin esperas. Sin llamadas.'}</span></div>{(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
       <div className="booking-card">
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
@@ -253,6 +255,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             {error
               ? <p className="form-note" role="alert">{error}</p>
               : <p className="form-note">Lo usamos para identificar tu reserva.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
+          <p className="form-note">Al confirmar aceptás que {business.name} y RESER usen tus datos para gestionar este turno y avisarte por email. <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>.</p>
           </motion.form>}
         </AnimatePresence>
       </div>

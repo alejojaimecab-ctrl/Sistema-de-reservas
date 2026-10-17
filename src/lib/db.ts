@@ -238,6 +238,9 @@ export type PublicBusiness = {
   cancel_min_hours: number
   min_notice_hours: number
   max_advance_days: number
+  phone: string | null
+  address: string | null
+  logo_path: string | null
 }
 export type PublicService = {
   id: string
@@ -250,7 +253,7 @@ export type PublicService = {
 // `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
 // la UI mostraba el empty state ante un error de red.
 export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days').eq('slug', slug).maybeSingle()
+  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path').eq('slug', slug).maybeSingle()
   return { business: data ?? null, failed: !!error }
 }
 
@@ -407,7 +410,57 @@ export async function deleteService(id: string) {
   return error ? error.message : null
 }
 
-export async function updateBusiness(id: string, input: { name: string; slug: string; cancel_min_hours?: number; min_notice_hours?: number; max_advance_days?: number }) {
+// --- Logo del negocio (Storage: bucket público business-logos, carpeta = id del negocio) ---
+
+const LOGO_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
+const LOGO_MAX_BYTES = 1024 * 1024
+
+export function logoUrl(path: string | null | undefined): string | null {
+  if (!path) return null
+  return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/business-logos/${path}`
+}
+
+export async function uploadBusinessLogo(
+  businessId: string,
+  file: File,
+  previousPath: string | null,
+): Promise<string | null> {
+  if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
+  const extension = LOGO_TYPES[file.type]
+  if (!extension) return 'El logo tiene que ser una imagen PNG, JPG o WebP.'
+  if (file.size > LOGO_MAX_BYTES) return 'El logo pesa demasiado: el máximo es 1 MB.'
+
+  // Nombre nuevo en cada subida: así nunca se ve un logo viejo cacheado.
+  const path = `${businessId}/${Date.now()}.${extension}`
+  const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, file, { contentType: file.type })
+  if (uploadError) return 'No pudimos subir el logo. Probá de nuevo.'
+
+  const { error: updateError } = await supabase.from('businesses').update({ logo_path: path }).eq('id', businessId)
+  if (updateError) {
+    await supabase.storage.from('business-logos').remove([path])
+    return updateError.message
+  }
+  if (previousPath) await supabase.storage.from('business-logos').remove([previousPath])
+  return null
+}
+
+export async function removeBusinessLogo(businessId: string, currentPath: string | null): Promise<string | null> {
+  if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
+  const { error } = await supabase.from('businesses').update({ logo_path: null }).eq('id', businessId)
+  if (error) return error.message
+  if (currentPath) await supabase.storage.from('business-logos').remove([currentPath])
+  return null
+}
+
+export async function updateBusiness(id: string, input: {
+  name: string
+  slug: string
+  cancel_min_hours?: number
+  min_notice_hours?: number
+  max_advance_days?: number
+  phone?: string | null
+  address?: string | null
+}) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 'No hay sesión activa'
   const problem = slugProblem(input.slug)

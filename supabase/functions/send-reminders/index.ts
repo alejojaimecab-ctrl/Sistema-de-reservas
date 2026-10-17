@@ -40,7 +40,7 @@ const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
 const SELECT =
   'id,starts_at,status,cancel_token,cancelled_by,' +
   'clients(name,email,phone),services(name),resources(name),' +
-  'businesses(name,slug,timezone,owner_id,cancel_min_hours)'
+  'businesses(name,slug,timezone,owner_id,cancel_min_hours,phone,address)'
 
 const serviceHeaders = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
 

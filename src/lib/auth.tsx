@@ -10,6 +10,9 @@ export type Business = {
   cancel_min_hours: number
   min_notice_hours: number
   max_advance_days: number
+  phone: string | null
+  address: string | null
+  logo_path: string | null
 }
 
 type AuthContextValue = {
@@ -42,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(profileData)
 
     const { data: businessData } = await supabase
-      .from('businesses').select('id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days').eq('owner_id', userId)
+      .from('businesses').select('id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path').eq('owner_id', userId)
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
     setBusiness(businessData)
   }
