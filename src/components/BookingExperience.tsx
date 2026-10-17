@@ -72,7 +72,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [slotsRetry, setSlotsRetry] = useState(0)
   const reduceMotion = useReduceMotion()
   const confirmRef = useRef<HTMLButtonElement>(null)
-  // Transición verde al confirmar: nace en el botón, llena la pantalla y se recoge hacia el tilde
+  const cardRef = useRef<HTMLDivElement>(null)
+  // Transición verde al confirmar: nace en el botón, llena la tarjeta y se recoge hacia el tilde
   const [wipe, setWipe] = useState<{ x: number; y: number; phase: 'cover' | 'reveal' } | null>(null)
 
   // Ventana de 5 días; weekOffset la desplaza de a 5 días hacia adelante/atrás
@@ -166,10 +167,12 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   }, [business, service, professionalId, date, slotsRetry, demo])
 
   const startWipe = () => {
-    const rect = confirmRef.current?.getBoundingClientRect()
+    // Origen relativo a la tarjeta del formulario: el centro del botón de confirmar
+    const button = confirmRef.current?.getBoundingClientRect()
+    const card = cardRef.current?.getBoundingClientRect()
     setWipe({
-      x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
-      y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2,
+      x: button && card ? button.left - card.left + button.width / 2 : 200,
+      y: button && card ? button.top - card.top + button.height / 2 : 300,
       phase: 'cover',
     })
   }
@@ -232,7 +235,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   </section>
 
   if (completed && service) return <section className="booking-shell booking-shell--success">
-    <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 190, damping: 20, delay: 0.1 }}>
+    <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.22, ease: 'easeOut' }}>
       <SuccessCheck startDelay={0.5} />
       <motion.div variants={successStagger} initial={reduceMotion ? 'show' : 'hidden'} animate="show">
         <motion.p variants={successRise} className="eyebrow eyebrow--ok">{demo ? 'Vista previa' : 'Reserva confirmada'}</motion.p>
@@ -251,15 +254,15 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
         </motion.div>
       </motion.div>
+      {wipe?.phase === 'reveal' && <GreenWipe phase="reveal" onDone={() => setWipe(null)} />}
     </motion.div>
-    {wipe?.phase === 'reveal' && <GreenWipe phase="reveal" x={wipe.x} y={wipe.y} onDone={() => setWipe(null)} />}
   </section>
 
   return <section className="booking-shell">
     <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo ? <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span> : <span className="booking-business">{business.name}</span>}</div>
     <div className="booking-layout">
       <aside className="booking-intro"><span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : 'Reserva online'}</p><h1>Un momento para vos.</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.'}</p><div className="booking-side-info"><Clock3 size={17} /><span>{demo ? 'Probá los pasos sin guardar datos.' : 'Sin esperas. Sin llamadas.'}</span></div>{(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
-      <div className="booking-card">
+      <div className="booking-card" ref={cardRef}>
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
             ? <button type="button" className="is-active" key={n} onClick={() => setStep(n)} aria-label={`Volver al paso ${n}`}>{n}</button>
@@ -320,8 +323,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           <p className="form-note">Al confirmar aceptás que {business.name} y RESER usen tus datos para gestionar este turno y avisarte por email. <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>.</p>
           </motion.form>}
         </AnimatePresence>
+        {wipe?.phase === 'cover' && <GreenWipe phase="cover" x={wipe.x} y={wipe.y} onDone={() => { setCompleted(true); setSaving(false); setWipe(w => w && { ...w, phase: 'reveal' }) }} />}
       </div>
     </div>
-    {wipe?.phase === 'cover' && <GreenWipe phase="cover" x={wipe.x} y={wipe.y} onDone={() => { setCompleted(true); setSaving(false); setWipe(w => w && { ...w, phase: 'reveal' }) }} />}
   </section>
 }

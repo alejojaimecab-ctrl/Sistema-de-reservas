@@ -306,5 +306,6 @@
 .success-actions .button { width: 100%; justify-content: center; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .success-badge .halo { display: none; } }
 /* Transición verde al confirmar la reserva */
-.green-wipe { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: radial-gradient(circle at 50% 42%, #b4f7e0 0%, #5fe0b5 36%, #2fbf94 100%); }
+.green-wipe { position: absolute; inset: 0; z-index: 20; border-radius: inherit; pointer-events: none; background: radial-gradient(circle at 50% 42%, #b4f7e0 0%, #5fe0b5 36%, #2fbf94 100%); }
 .green-wipe--cover { pointer-events: auto; }
+.booking-card { position: relative; overflow: hidden; }
