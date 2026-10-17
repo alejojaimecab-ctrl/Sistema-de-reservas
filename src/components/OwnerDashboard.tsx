@@ -8,7 +8,7 @@ import { bookingUrl, slugify } from '../lib/routes'
 import { TeamSection } from './TeamSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
-  createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
+  cancelOwnerReservation, createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
   listAgendaReservations, listReservationServices, listReservations, listServices, updateBusiness, updateReservationStatus, updateService,
   listProfessionals, type DashboardStats, type Professional, type Reservation, type Service,
 } from '../lib/db'
@@ -49,9 +49,23 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [showNewReservation, setShowNewReservation] = useState(false)
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
   const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [cancelNotice, setCancelNotice] = useState<{ text: string; isError: boolean } | null>(null)
   const activeProfessionals = professionals.filter(p => p.is_active)
   const reloadProfessionals = async () => {
     if (business) setProfessionals(await listProfessionals(business.id))
+  }
+
+  async function cancelReservation(reservation: Reservation) {
+    if (!business) return
+    const who = reservation.clients?.name ?? 'el cliente'
+    if (!window.confirm(`¿Cancelar el turno de ${who}? El horario va a quedar libre.`)) return
+    setCancelNotice(null)
+    const cancelError = await cancelOwnerReservation(reservation.id)
+    if (cancelError) { setCancelNotice({ text: `No pudimos cancelar el turno: ${cancelError}`, isError: true }); return }
+    setUpcomingReservations(current => current.filter(item => item.id !== reservation.id))
+    void listReservations(business.id).then(setReservations)
+    void getDashboardStats(business.id).then(setStats)
+    setCancelNotice({ text: `Cancelaste el turno de ${who}.`, isError: false })
   }
 
   useEffect(() => {
@@ -113,6 +127,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button></div>
       </header>
 
+      {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
+
       {active === 'Resumen' && <>
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
@@ -121,7 +137,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         </section>
         <section className="dashboard-grid"><div className="agenda-card">
           <div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} />
+          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
         </div></section>
       </>}
 
@@ -129,6 +145,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <AgendaCalendar
           reservations={upcomingReservations}
           showProfessional={activeProfessionals.length > 1}
+          onCancel={cancelReservation}
           loading={agendaLoading}
           error={agendaError}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
@@ -158,7 +175,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             }}
           />}
           {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
-          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} />
+          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
         </section>
       )}
 
@@ -316,7 +333,7 @@ function CreateBusinessCard() {
   </section>
 }
 
-function ReservationList({ reservations, showProfessional }: { reservations: Reservation[]; showProfessional: boolean }) {
+function ReservationList({ reservations, showProfessional, onCancel }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void }) {
   if (reservations.length === 0) {
     return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
@@ -329,7 +346,7 @@ function ReservationList({ reservations, showProfessional }: { reservations: Res
       <span className={`avatar avatar--${colors[index % colors.length]}`}>{initials(clientName)}</span>
       <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
-      <button aria-label={`Acciones para ${clientName}`}><Ellipsis size={19} /></button>
+      <button type="button" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(r)}><X size={17} /></button>
     </motion.div>
   })}</div>
 }
@@ -562,9 +579,10 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, loading, error, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
+  onCancel: (reservation: Reservation) => void
   loading: boolean
   error: string | null
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed'>) => void
@@ -736,6 +754,7 @@ function AgendaCalendar({ reservations, showProfessional, loading, error, onStat
                         <Check size={14} />
                         <span>{isCompleted ? 'Atendido' : 'Marcar atendido'}</span>
                       </button>
+                      {!isCompleted && <button type="button" className="calendar-cancel" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(reservation)}><X size={14} /></button>}
                     </article>
                   )
                 })}
@@ -862,13 +881,15 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const { business } = useAuth()
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
+  const [cancelHours, setCancelHours] = useState(business?.cancel_min_hours ?? 2)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const cancelOptions = [...new Set([0, 1, 2, 4, 12, 24, 48, 72, cancelHours])].sort((a, b) => a - b)
 
   async function save() {
     setBusy(true)
     setMessage(null)
-    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug) })
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours })
     setBusy(false)
     if (error) { setMessage(error.includes('duplicate') ? 'Ese enlace ya está en uso.' : error); return }
     await onSaved()
@@ -883,7 +904,12 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     <label className="onboarding-field">Tu enlace de RESER
       <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
     </label>
-    <p className="form-note">Los horarios se editan en la sección Equipo.</p>
+    <label className="onboarding-field">Tus clientes pueden cancelar online
+      <select value={cancelHours} onChange={e => setCancelHours(Number(e.target.value))}>
+        {cancelOptions.map(h => <option key={h} value={h}>{h === 0 ? 'Hasta el momento del turno' : `Hasta ${h} ${h === 1 ? 'hora' : 'horas'} antes`}</option>)}
+      </select>
+    </label>
+    <p className="form-note">Pasado ese límite, el cliente tiene que comunicarse con vos. Vos siempre podés cancelar desde tu panel. Los horarios se editan en la sección Equipo.</p>
     {message && <p className="form-note">{message}</p>}
     <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
       {busy ? 'Guardando…' : 'Guardar cambios'}

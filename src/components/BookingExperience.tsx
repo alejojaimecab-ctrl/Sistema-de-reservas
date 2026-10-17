@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, formatPrice } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService } from '../lib/db'
+import { cancelUrl } from '../lib/routes'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
 
@@ -13,7 +14,7 @@ const fullDayLabel = (d: Date) =>
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 
-const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio' }
+const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2 }
 const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín' }, { id: 'demo-2', name: 'Sofía' }]
 const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
   id,
@@ -40,6 +41,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [professionals, setProfessionals] = useState<PublicProfessional[]>([])
   const [professionalId, setProfessionalId] = useState('') // '' = cualquiera
   const [bookedWith, setBookedWith] = useState<string | null>(null)
+  const [cancelToken, setCancelToken] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [dateIndex, setDateIndex] = useState(0)
@@ -125,7 +127,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       setCompleted(true)
       return
     }
-    const { professionalName, error: bookError } = await bookPublic({
+    const { professionalName, cancelToken: token, error: bookError } = await bookPublic({
       slug: business.slug,
       serviceId: service.id,
       startsAt: time,
@@ -136,6 +138,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     setSaving(false)
     if (bookError) { setError(bookError); return }
     setBookedWith(professionalName)
+    setCancelToken(token)
     setCompleted(true)
   }
 
@@ -184,6 +187,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       {demo
         ? <p className="success-note"><CirclePlay size={15} /> No se guardó en la agenda del negocio.</p>
         : <p className="success-note"><Mail size={15} /> La reserva quedó asociada a tu correo.</p>}
+      {!demo && cancelToken && <p className="success-note"><Mail size={15} /> Si no podés asistir, cancelá desde <a href={cancelUrl(cancelToken)}>este enlace</a>{business.cancel_min_hours > 0 ? ` (hasta ${business.cancel_min_hours} hs antes)` : ''}. Guardalo.</p>}
       {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
       <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
     </motion.div>
@@ -233,7 +237,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             <button type="submit" className="button button--primary button--full" disabled={saving}>{saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
               ? <p className="form-note" role="alert">{error}</p>
-              : <p className="form-note">Lo usamos para identificar tu reserva.</p>}
+              : <p className="form-note">Lo usamos para identificar tu reserva.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
           </motion.form>}
         </AnimatePresence>
       </div>

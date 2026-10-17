@@ -231,7 +231,7 @@ export async function createOwnerReservation(input: {
 
 // --- API pública (Fases 3 y 5): la usa la página de reserva sin sesión ---
 
-export type PublicBusiness = { slug: string; name: string }
+export type PublicBusiness = { slug: string; name: string; cancel_min_hours: number }
 export type PublicService = {
   id: string
   business_slug: string
@@ -243,7 +243,7 @@ export type PublicService = {
 // `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
 // la UI mostraba el empty state ante un error de red.
 export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name').eq('slug', slug).maybeSingle()
+  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours').eq('slug', slug).maybeSingle()
   return { business: data ?? null, failed: !!error }
 }
 
@@ -307,7 +307,7 @@ export async function bookPublic(input: {
   email: string
   phone?: string
   resourceId?: string | null
-}): Promise<{ professionalName: string | null; error: string | null }> {
+}): Promise<{ professionalName: string | null; cancelToken: string | null; error: string | null }> {
   const { data, error } = await supabase.rpc('book_public', {
     p_slug: input.slug,
     p_service_id: input.serviceId,
@@ -317,10 +317,53 @@ export async function bookPublic(input: {
     p_phone: input.phone || null,
     p_resource_id: input.resourceId ?? null,
   })
-  if (!error) return { professionalName: (data as { resource_name?: string } | null)?.resource_name ?? null, error: null }
-  if (BOOK_PUBLIC_KNOWN_ERRORS.some(msg => error.message.includes(msg))) return { professionalName: null, error: error.message }
+  if (!error) {
+    const booked = data as { resource_name?: string; cancel_token?: string } | null
+    return { professionalName: booked?.resource_name ?? null, cancelToken: booked?.cancel_token ?? null, error: null }
+  }
+  if (BOOK_PUBLIC_KNOWN_ERRORS.some(msg => error.message.includes(msg))) return { professionalName: null, cancelToken: null, error: error.message }
   console.warn('book_public falló con un error no mapeado:', error.message)
-  return { professionalName: null, error: BOOK_PUBLIC_FALLBACK }
+  return { professionalName: null, cancelToken: null, error: BOOK_PUBLIC_FALLBACK }
+}
+
+// --- Cancelación ---
+
+export type ReservationByToken = {
+  business_name: string
+  service_name: string
+  professional_name: string
+  starts_at: string
+  ends_at: string
+  status: 'confirmed' | 'cancelled' | 'completed'
+  cancel_min_hours: number
+  can_cancel: boolean
+}
+
+const CANCEL_FALLBACK = 'No pudimos procesar la cancelación. Probá de nuevo en unos minutos.'
+const CANCEL_KNOWN_ERRORS = [
+  'No encontramos esa reserva',
+  'Ya no se puede cancelar online',
+  'Este turno ya fue atendido',
+  'Este turno ya pasó',
+]
+
+export async function getReservationByToken(token: string): Promise<{ reservation: ReservationByToken | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('get_reservation_by_token', { p_token: token })
+  if (error) {
+    return { reservation: null, error: error.message.includes('No encontramos esa reserva') ? 'No encontramos esa reserva. Revisá que el enlace esté completo.' : CANCEL_FALLBACK }
+  }
+  return { reservation: data as ReservationByToken, error: null }
+}
+
+export async function cancelReservationByToken(token: string): Promise<string | null> {
+  const { error } = await supabase.rpc('cancel_reservation_by_token', { p_token: token })
+  if (!error) return null
+  return CANCEL_KNOWN_ERRORS.some(msg => error.message.includes(msg)) ? error.message : CANCEL_FALLBACK
+}
+
+export async function cancelOwnerReservation(id: string): Promise<string | null> {
+  const { error } = await supabase.rpc('cancel_reservation_owner', { p_reservation_id: id })
+  return error ? error.message : null
 }
 
 export async function listServices(businessId: string): Promise<Service[]> {
@@ -348,7 +391,7 @@ export async function deleteService(id: string) {
   return error ? error.message : null
 }
 
-export async function updateBusiness(id: string, input: { name: string; slug: string }) {
+export async function updateBusiness(id: string, input: { name: string; slug: string; cancel_min_hours?: number }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 'No hay sesión activa'
   const problem = slugProblem(input.slug)

@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 export type Profile = { id: string; full_name: string }
-export type Business = { id: string; name: string; slug: string }
+export type Business = { id: string; name: string; slug: string; cancel_min_hours: number }
 
 type AuthContextValue = {
   session: Session | null
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(profileData)
 
     const { data: businessData } = await supabase
-      .from('businesses').select('id, name, slug').eq('owner_id', userId)
+      .from('businesses').select('id, name, slug, cancel_min_hours').eq('owner_id', userId)
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
     setBusiness(businessData)
   }

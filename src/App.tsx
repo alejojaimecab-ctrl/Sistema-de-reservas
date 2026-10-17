@@ -5,15 +5,18 @@ import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
 import { AuthProvider, useAuth } from './lib/auth'
-import { goTo, slugFromPath } from './lib/routes'
+import { cancelTokenFromPath, goTo, slugFromPath } from './lib/routes'
 
-type View = 'home' | 'public-booking' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
+type View = 'home' | 'public-booking' | 'cancel' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
 
 const BookingExperience = lazy(() =>
   import('./components/BookingExperience').then(module => ({ default: module.BookingExperience })),
 )
 const OwnerDashboard = lazy(() =>
   import('./components/OwnerDashboard').then(module => ({ default: module.OwnerDashboard })),
+)
+const CancelBooking = lazy(() =>
+  import('./components/CancelBooking').then(module => ({ default: module.CancelBooking })),
 )
 const Onboarding = lazy(() =>
   import('./components/Onboarding').then(module => ({ default: module.Onboarding })),
@@ -47,7 +50,8 @@ function AppLoading() {
 
 function Root() {
   const [publicSlug, setPublicSlug] = useState(() => slugFromPath(window.location.pathname))
-  const [view, setView] = useState<View>(() => publicSlug ? 'public-booking' : 'home')
+  const [cancelToken, setCancelToken] = useState(() => cancelTokenFromPath(window.location.pathname))
+  const [view, setView] = useState<View>(() => cancelToken ? 'cancel' : publicSlug ? 'public-booking' : 'home')
   const { session, loading } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
 
@@ -55,8 +59,10 @@ function Root() {
   useEffect(() => {
     const onPop = () => {
       const slug = slugFromPath(window.location.pathname)
+      const token = cancelTokenFromPath(window.location.pathname)
       setPublicSlug(slug)
-      setView(v => slug ? 'public-booking' : v === 'public-booking' ? 'home' : v)
+      setCancelToken(token)
+      setView(v => token ? 'cancel' : slug ? 'public-booking' : (v === 'public-booking' || v === 'cancel') ? 'home' : v)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -65,6 +71,7 @@ function Root() {
   const leavePublicBooking = () => {
     goTo('/')
     setPublicSlug(null)
+    setCancelToken(null)
     setView('home')
   }
 
@@ -79,6 +86,7 @@ function Root() {
   }, [session, loading])
 
   if (loading) return null
+  if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />
   if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
   if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />
   if (view === 'dashboard') {
