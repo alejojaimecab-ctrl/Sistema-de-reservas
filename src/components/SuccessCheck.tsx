@@ -1,5 +1,6 @@
 import { useId } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { useReduceMotion } from '../lib/motion'
 
 // Confirmación de reserva: el disco aparece con resorte, un anillo se dibuja alrededor, el tilde se
 // traza, salen dos ondas y una ráfaga de partículas. Verde de "acierto" + celeste de marca.
@@ -22,8 +23,9 @@ const PARTICLES = Array.from({ length: 16 }, (_, i) => {
   }
 })
 
-export function SuccessCheck() {
-  const reduce = useReducedMotion()
+// startDelay: segundos de espera antes de empezar (para sincronizar con la transición verde que llega antes)
+export function SuccessCheck({ startDelay = 0 }: { startDelay?: number }) {
+  const reduce = useReduceMotion()
   const gradientId = useId()
   const ringId = useId()
 
@@ -32,7 +34,7 @@ export function SuccessCheck() {
       className="halo"
       initial={{ opacity: 0, scale: 0.6 }}
       animate={{ opacity: [0, 0.8, 0.5, 0.8], scale: [0.6, 1.05, 1, 1.08] }}
-      transition={{ duration: 3.6, times: [0, 0.25, 0.6, 1], delay: 0.2, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+      transition={{ duration: 3.6, times: [0, 0.25, 0.6, 1], delay: 0.2 + startDelay, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
     />}
 
     {!reduce && [0, 1].map(i => <motion.span
@@ -40,7 +42,7 @@ export function SuccessCheck() {
       className="ripple"
       initial={{ scale: 1, opacity: 0 }}
       animate={{ scale: 2.3, opacity: [0, 0.55, 0] }}
-      transition={{ duration: 1.5, delay: 0.5 + i * 0.28, ease: 'easeOut' }}
+      transition={{ duration: 1.5, delay: startDelay + 0.5 + i * 0.28, ease: 'easeOut' }}
     />)}
 
     {!reduce && PARTICLES.map((p, i) => <motion.span
@@ -49,7 +51,7 @@ export function SuccessCheck() {
       style={{ width: p.size, height: p.size, marginLeft: -p.size / 2, marginTop: -p.size / 2, background: p.color }}
       initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
       animate={{ x: p.x, y: p.y, scale: [0, 1.15, 0.3], opacity: [1, 1, 0] }}
-      transition={{ duration: 1, delay: p.delay, ease: EASE }}
+      transition={{ duration: 1, delay: startDelay + p.delay, ease: EASE }}
     />)}
 
     <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} role="presentation">
@@ -70,7 +72,7 @@ export function SuccessCheck() {
           cx={C} cy={C} r={58} fill="none" stroke={`url(#${ringId})`} strokeWidth={3} strokeLinecap="round"
           initial={reduce ? false : { pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.15, ease: EASE }}
+          transition={{ duration: 0.8, delay: startDelay + 0.15, ease: EASE }}
         />
       </g>
 
@@ -80,7 +82,7 @@ export function SuccessCheck() {
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         initial={reduce ? false : { scale: 0 }}
         animate={{ scale: 1 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 16, delay: startDelay }}
       />
 
       {/* Tilde: su caja está centrada exactamente en el centro del disco */}
@@ -89,7 +91,7 @@ export function SuccessCheck() {
         fill="none" stroke="#06241b" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round"
         initial={reduce ? false : { pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 0.5, delay: 0.45, ease: 'easeOut' }}
+        transition={{ duration: 0.5, delay: startDelay + 0.45, ease: 'easeOut' }}
       />
     </svg>
   </div>

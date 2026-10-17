@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Brush, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, priceLabel } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
 import { SuccessCheck } from './SuccessCheck'
+import { GreenWipe } from './GreenWipe'
+import { useReduceMotion } from '../lib/motion'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
@@ -17,7 +19,7 @@ const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 // Entrada escalonada de la pantalla de reserva confirmada (arranca cuando termina el tilde)
-const successStagger = { hidden: {}, show: { transition: { delayChildren: 0.7, staggerChildren: 0.09 } } }
+const successStagger = { hidden: {}, show: { transition: { delayChildren: 1.25, staggerChildren: 0.09 } } }
 const successRise = {
   hidden: { opacity: 0, y: 14 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
@@ -68,7 +70,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [slotsFailed, setSlotsFailed] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [slotsRetry, setSlotsRetry] = useState(0)
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useReduceMotion()
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  // Transición verde al confirmar: nace en el botón, llena la pantalla y se recoge hacia el tilde
+  const [wipe, setWipe] = useState<{ x: number; y: number; phase: 'cover' | 'reveal' } | null>(null)
 
   // Ventana de 5 días; weekOffset la desplaza de a 5 días hacia adelante/atrás
   const dates = useMemo(() => Array.from({ length: 5 }, (_, i) => {
@@ -160,13 +165,21 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     return () => { cancelled = true }
   }, [business, service, professionalId, date, slotsRetry, demo])
 
+  const startWipe = () => {
+    const rect = confirmRef.current?.getBoundingClientRect()
+    setWipe({
+      x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
+      y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2,
+      phase: 'cover',
+    })
+  }
+
   const save = async () => {
     if (!time || !business || !service || !name.trim() || !email.trim()) return
     setSaving(true)
     setError('')
     if (demo) {
-      setSaving(false)
-      setCompleted(true)
+      startWipe()
       return
     }
     const { professionalName, cancelToken: token, error: bookError } = await bookPublic({
@@ -177,11 +190,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       email: email.trim(),
       resourceId: professionalId || null,
     })
-    setSaving(false)
-    if (bookError) { setError(bookError); return }
+    if (bookError) { setSaving(false); setError(bookError); return }
     setBookedWith(professionalName)
     setCancelToken(token)
-    setCompleted(true)
+    startWipe()
   }
 
   // Link "Agendar" para la pantalla de éxito: abre Google Calendar con el turno
@@ -220,8 +232,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   </section>
 
   if (completed && service) return <section className="booking-shell booking-shell--success">
-    <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 190, damping: 20 }}>
-      <SuccessCheck />
+    <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 190, damping: 20, delay: 0.1 }}>
+      <SuccessCheck startDelay={0.5} />
       <motion.div variants={successStagger} initial={reduceMotion ? 'show' : 'hidden'} animate="show">
         <motion.p variants={successRise} className="eyebrow eyebrow--ok">{demo ? 'Vista previa' : 'Reserva confirmada'}</motion.p>
         <motion.h1 variants={successRise}>{demo ? `Así se vería tu reserva, ${name.trim().split(' ')[0]}.` : `Todo listo, ${name.trim().split(' ')[0]}.`}</motion.h1>
@@ -240,6 +252,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         </motion.div>
       </motion.div>
     </motion.div>
+    {wipe?.phase === 'reveal' && <GreenWipe phase="reveal" x={wipe.x} y={wipe.y} onDone={() => setWipe(null)} />}
   </section>
 
   return <section className="booking-shell">
@@ -300,7 +313,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
             <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && serviceProfessionals.length > 0 && <div><span>Profesional</span><strong>{serviceProfessionals.find(p => p.id === professionalId)?.name ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : 'Quien esté libre')}</strong></div>}<div className="review-total"><span>{service.price_mode === 'fixed' ? 'Total' : 'Precio'}</span><strong>{priceLabel(service.price, service.price_mode)}</strong></div></div>
-            <button type="submit" className="button button--primary button--full" disabled={saving}>{saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
+            <button ref={confirmRef} type="submit" className="button button--primary button--full" disabled={saving}>{wipe ? <>¡Reservado! <Check size={18} /></> : saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
               ? <p className="form-note" role="alert">{error}</p>
               : <p className="form-note">Lo usamos para identificar tu reserva.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
@@ -309,5 +322,6 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         </AnimatePresence>
       </div>
     </div>
+    {wipe?.phase === 'cover' && <GreenWipe phase="cover" x={wipe.x} y={wipe.y} onDone={() => { setCompleted(true); setSaving(false); setWipe(w => w && { ...w, phase: 'reveal' }) }} />}
   </section>
 }
