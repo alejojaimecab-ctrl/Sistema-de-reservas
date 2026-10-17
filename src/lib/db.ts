@@ -535,13 +535,28 @@ export async function getAvailability(businessId: string, resourceId: string): P
   return new Set((data ?? []).map(r => `${r.day_of_week}-${r.slot_index}`))
 }
 
+// Guarda solo las diferencias (no borra todo y reinserta): con guardado automático,
+// un corte a mitad de camino no puede dejar a un profesional sin horarios.
 export async function setAvailability(businessId: string, resourceId: string, slots: Set<string>) {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
-  const { error: delError } = await supabase.from('availability').delete()
-    .eq('business_id', businessId).eq('resource_id', resourceId)
-  if (delError) return delError.message
-  if (slots.size === 0) return null
-  const rows = [...slots].map(key => {
+  const current = await getAvailability(businessId, resourceId)
+  const toAdd = [...slots].filter(key => !current.has(key))
+  const toRemove = [...current].filter(key => !slots.has(key))
+
+  const removeByDay = new Map<number, number[]>()
+  for (const key of toRemove) {
+    const [day, slotIndex] = key.split('-').map(Number)
+    removeByDay.set(day, [...(removeByDay.get(day) ?? []), slotIndex])
+  }
+  for (const [day, slotIndexes] of removeByDay) {
+    const { error } = await supabase.from('availability').delete()
+      .eq('business_id', businessId).eq('resource_id', resourceId)
+      .eq('day_of_week', day).in('slot_index', slotIndexes)
+    if (error) return error.message
+  }
+
+  if (toAdd.length === 0) return null
+  const rows = toAdd.map(key => {
     const [day, slotIndex] = key.split('-').map(Number)
     return { business_id: businessId, resource_id: resourceId, day_of_week: day, slot_index: slotIndex }
   })
