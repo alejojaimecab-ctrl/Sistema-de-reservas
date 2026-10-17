@@ -413,7 +413,26 @@ export async function deleteService(id: string) {
 // --- Logo del negocio (Storage: bucket público business-logos, carpeta = id del negocio) ---
 
 const LOGO_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
-const LOGO_MAX_BYTES = 1024 * 1024
+const LOGO_MAX_BYTES = 1024 * 1024 // tope de lo que se guarda (el bucket lo exige también)
+const LOGO_MAX_INPUT_BYTES = 10 * 1024 * 1024 // lo que se acepta antes de ajustar la imagen
+const LOGO_MAX_SIDE = 512 // px del lado más largo: se muestra a 43-56 px
+
+// Achica y comprime el logo en el navegador: una foto de celular de varios MB queda en unos KB.
+async function prepareLogo(file: File): Promise<File | string> {
+  const bitmap = await createImageBitmap(file).catch(() => null)
+  if (!bitmap) return 'No pudimos leer esa imagen. Probá con otra.'
+  const scale = Math.min(1, LOGO_MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  // WebP conserva la transparencia; si el navegador no sabe generarlo, devuelve PNG.
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9))
+  const extension = blob ? LOGO_TYPES[blob.type] : undefined
+  if (!blob || !extension) return 'No pudimos procesar esa imagen. Probá con otra.'
+  return new File([blob], `logo.${extension}`, { type: blob.type })
+}
 
 export function logoUrl(path: string | null | undefined): string | null {
   if (!path) return null
@@ -426,13 +445,16 @@ export async function uploadBusinessLogo(
   previousPath: string | null,
 ): Promise<string | null> {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
-  const extension = LOGO_TYPES[file.type]
-  if (!extension) return 'El logo tiene que ser una imagen PNG, JPG o WebP.'
-  if (file.size > LOGO_MAX_BYTES) return 'El logo pesa demasiado: el máximo es 1 MB.'
+  if (!LOGO_TYPES[file.type]) return 'El logo tiene que ser una imagen PNG, JPG o WebP.'
+  if (file.size > LOGO_MAX_INPUT_BYTES) return 'La imagen pesa demasiado: el máximo es 10 MB.'
+  const prepared = await prepareLogo(file)
+  if (typeof prepared === 'string') return prepared
+  if (prepared.size > LOGO_MAX_BYTES) return 'No pudimos achicar la imagen lo suficiente. Probá con otra.'
+  const extension = LOGO_TYPES[prepared.type]
 
   // Nombre nuevo en cada subida: así nunca se ve un logo viejo cacheado.
   const path = `${businessId}/${Date.now()}.${extension}`
-  const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, file, { contentType: file.type })
+  const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, prepared, { contentType: prepared.type })
   if (uploadError) return 'No pudimos subir el logo. Probá de nuevo.'
 
   const { error: updateError } = await supabase.from('businesses').update({ logo_path: path }).eq('id', businessId)

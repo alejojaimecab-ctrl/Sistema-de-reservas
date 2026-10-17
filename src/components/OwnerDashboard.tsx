@@ -971,7 +971,7 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
           </label>
           {business?.logo_path && <button type="button" className="text-button" disabled={logoBusy} onClick={() => void clearLogo()}>Quitar</button>}
         </div>
-        <small style={{ color: '#7f9aa5' }}>PNG, JPG o WebP, hasta 1 MB. Funciona mejor si es cuadrado.</small>
+        <small style={{ color: '#7f9aa5' }}>PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
       </div>
     </div>
     <label className="onboarding-field">Teléfono <small>(opcional)</small>
