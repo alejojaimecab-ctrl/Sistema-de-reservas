@@ -1,15 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Bell, CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { bookingUrl, slugify } from '../lib/routes'
+import { Eye, EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
-  cancelOwnerReservation, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
+  cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
   listAgendaReservations, listReservationServices, listReservations, listServices, updateBusiness, updateReservationStatus, updateService,
   listProfessionals, listResourceServices, type DashboardStats, type Professional, type Reservation, type ResourceService, type Service,
 } from '../lib/db'
@@ -125,7 +126,6 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     <main className="dashboard-main">
       <header className="dashboard-header">
         <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
-        <div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button></div>
       </header>
 
       {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
@@ -823,6 +823,21 @@ function ServicesSection({ businessId }: { businessId: string }) {
     setServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
   }
 
+  async function toggleActive(svc: Service) {
+    setError(null)
+    const err = await setServiceActive(svc.id, !svc.is_active)
+    if (err) setError(err); else void reload()
+  }
+
+  async function removeService(svc: Service) {
+    if (!window.confirm(`¿Eliminar "${svc.name || 'este servicio'}" para siempre? Solo se puede si todavía no tiene reservas; si las tiene, desactivalo.`)) return
+    setError(null)
+    const err = await deleteService(svc.id)
+    if (err) setError(err); else void reload()
+  }
+
+  const activeCount = services.filter(svc => svc.is_active).length
+
   function persist(svc: Service) {
     void updateService(svc.id, {
       name: svc.name,
@@ -843,7 +858,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
     <div className="services-heading">
       <div className="services-heading-mark"><Sparkles size={18} /></div>
       <div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div>
-      <span className="services-count">{services.length} {services.length === 1 ? 'servicio' : 'servicios'}</span>
+      <span className="services-count">{activeCount} {activeCount === 1 ? 'servicio' : 'servicios'}{services.length > activeCount ? ` · ${services.length - activeCount} oculto${services.length - activeCount === 1 ? '' : 's'}` : ''}</span>
     </div>
     <div className="services-editor">
       <div className="services-list">
@@ -851,7 +866,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
           {services.map(svc => (
             <motion.div
               key={svc.id}
-              className="service-row"
+              className={`service-row${svc.is_active ? '' : ' is-inactive'}`}
               layout="position"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -860,7 +875,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
             >
               <span className="service-row-mark" aria-hidden="true"><Sparkles size={16} /></span>
               <label className="service-name">
-                <span>Nombre del servicio</span>
+                <span>Nombre del servicio{!svc.is_active && ' · oculto para tus clientes'}</span>
                 <input
                   aria-label={`Nombre del servicio ${svc.name || ''}`.trim()}
                   value={svc.name}
@@ -902,7 +917,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                 type="button"
                 className="service-remove"
                 aria-label={`Eliminar ${svc.name || 'servicio'}`}
-                onClick={() => void deleteService(svc.id).then(err => { if (err) setError(err); else void reload() })}
+                onClick={() => void removeService(svc)}
               >
                 <Trash2 size={15} /><span>Eliminar</span>
               </button>
@@ -922,6 +937,9 @@ function ServicesSection({ businessId }: { businessId: string }) {
                     <option value="whatsapp">Se coordina por WhatsApp</option>
                   </select>
                 </label>
+                <button type="button" className="service-toggle" aria-label={svc.is_active ? `Desactivar ${svc.name || 'servicio'}` : `Reactivar ${svc.name || 'servicio'}`} title={svc.is_active ? 'Tus clientes dejan de verlo; las reservas se conservan' : 'Vuelve a mostrarse a tus clientes'} onClick={() => void toggleActive(svc)}>
+                  {svc.is_active ? <EyeOff size={14} /> : <Eye size={14} />}{svc.is_active ? 'Desactivar' : 'Reactivar'}
+                </button>
                 {svc.booking_mode === 'whatsapp' && <small>El cliente verá un botón para escribirle al profesional que elija. Cargá su WhatsApp en la sección Equipo.</small>}
                 {svc.booking_mode === 'whatsapp' && !business?.phone?.trim() && (() => {
                   const missing = team

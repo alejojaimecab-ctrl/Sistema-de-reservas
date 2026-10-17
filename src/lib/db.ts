@@ -413,9 +413,20 @@ export async function updateService(id: string, svc: ServiceInput) {
   return error ? error.message : null
 }
 
+// Un servicio con reservas no se puede borrar (la base lo impide): hay que desactivarlo.
 export async function deleteService(id: string) {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('services').delete().eq('id', id).in('business_id', owned)
+  if (!error) return null
+  return error.code === '23503'
+    ? 'Este servicio ya tiene reservas, por eso no se puede eliminar. Desactivalo y tus clientes dejan de verlo (las reservas se conservan).'
+    : error.message
+}
+
+// Desactivar oculta el servicio a los clientes sin perder las reservas; se puede reactivar.
+export async function setServiceActive(id: string, isActive: boolean) {
+  const owned = await ownedBusinessIds()
+  const { error } = await supabase.from('services').update({ is_active: isActive }).eq('id', id).in('business_id', owned)
   return error ? error.message : null
 }
 
