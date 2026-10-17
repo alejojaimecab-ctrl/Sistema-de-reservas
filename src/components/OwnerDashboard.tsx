@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
-import { Bell, CalendarDays, CheckCircle2, Clock3, Ellipsis, LayoutDashboard, LogOut, Plus, Settings2, Sparkles, UsersRound } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { Bell, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
@@ -12,8 +12,8 @@ import {
   type AvailabilityMap,
 } from './AvailabilityEditor'
 import {
-  createBusiness, createBusinessWithSetup, createService, deleteService, getAvailability, getDashboardStats,
-  listReservations, listServices, setAvailability, updateBusiness, updateService,
+  createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getAvailability, getDashboardStats, getPublicSlots,
+  listAgendaReservations, listReservationServices, listReservations, listServices, setAvailability, updateBusiness, updateReservationStatus, updateService,
   type DashboardStats, type Reservation, type Service,
 } from '../lib/db'
 
@@ -47,11 +47,34 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [active, setActive] = useState('Resumen')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([])
+  const [agendaLoading, setAgendaLoading] = useState(true)
+  const [agendaError, setAgendaError] = useState<string | null>(null)
+  const [showNewReservation, setShowNewReservation] = useState(false)
+  const [reservationNotice, setReservationNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!business) return
     getDashboardStats(business.id).then(setStats)
     listReservations(business.id).then(setReservations)
+    let active = true
+    setAgendaLoading(true)
+    setAgendaError(null)
+    setUpcomingReservations([])
+    listAgendaReservations(business.id)
+      .then(result => {
+        if (!active) return
+        setUpcomingReservations(result.reservations)
+        setAgendaError(result.error)
+      })
+      .catch(loadError => {
+        if (!active) return
+        setAgendaError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los próximos turnos.')
+      })
+      .finally(() => {
+        if (active) setAgendaLoading(false)
+      })
+    return () => { active = false }
   }, [business])
 
   if (!business) {
@@ -85,7 +108,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     <main className="dashboard-main">
       <header className="dashboard-header">
         <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
-        <div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button><button className="button button--primary" onClick={() => setActive('Reservas')}><Plus size={17} /> Nueva reserva</button></div>
+        <div className="header-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={19} /><i /></button></div>
       </header>
 
       {active === 'Resumen' && <>
@@ -100,9 +123,37 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         </div></section>
       </>}
 
-      {(active === 'Agenda' || active === 'Reservas') && (
+      {active === 'Agenda' && (
+        <AgendaCalendar
+          reservations={upcomingReservations}
+          loading={agendaLoading}
+          error={agendaError}
+          onStatusChange={(id, status) => setUpcomingReservations(current =>
+            current.map(reservation => reservation.id === id ? { ...reservation, status } : reservation),
+          )}
+        />
+      )}
+
+      {active === 'Reservas' && (
         <section className="agenda-card">
-          <div className="card-heading"><div><p className="eyebrow">{active}</p><h2>Próximas reservas</h2></div></div>
+          <div className="card-heading"><div><p className="eyebrow">Reservas</p><h2>Próximas reservas</h2></div>{!showNewReservation && <button type="button" className="button button--primary button--small" onClick={() => { setReservationNotice(null); setShowNewReservation(true) }}><Plus size={15} /> Nueva reserva</button>}</div>
+          {showNewReservation && <ManualReservationForm
+            businessId={business.id}
+            businessSlug={business.slug}
+            onCancel={() => setShowNewReservation(false)}
+            onCreated={reservation => {
+              setReservations(current => [...current, reservation].sort((a, b) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+              ).slice(0, 10))
+              setUpcomingReservations(current => [...current, reservation].sort((a, b) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+              ))
+              setReservationNotice('La reserva se agregó correctamente.')
+              setShowNewReservation(false)
+              void getDashboardStats(business.id).then(setStats)
+            }}
+          />}
+          {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
           <ReservationList reservations={reservations} />
         </section>
       )}
@@ -153,7 +204,9 @@ function isPendingSetup(value: unknown): value is PendingSetup {
   const dayIds = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
   const validAvailability = dayIds.every(day => {
     const hours = availability[day]
-    return Array.isArray(hours) && hours.length === 24 && hours.every(hour => typeof hour === 'boolean')
+    return Array.isArray(hours)
+      && (hours.length === 24 || hours.length === 48)
+      && hours.every(hour => typeof hour === 'boolean')
   }) && Object.values(availability).some(hours =>
     Array.isArray(hours) && hours.some(hour => hour === true),
   )
@@ -260,7 +313,7 @@ function CreateBusinessCard() {
 
 function ReservationList({ reservations }: { reservations: Reservation[] }) {
   if (reservations.length === 0) {
-    return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Cuando tus clientes reserven desde tu enlace, van a aparecer acá.</p>
+    return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
   const colors = ['blue', 'violet', 'orange']
   return <div className="agenda-list">{reservations.map((r, index) => {
@@ -276,9 +329,417 @@ function ReservationList({ reservations }: { reservations: Reservation[] }) {
   })}</div>
 }
 
+function ManualReservationForm({
+  businessId,
+  businessSlug,
+  onCancel,
+  onCreated,
+}: {
+  businessId: string
+  businessSlug: string
+  onCancel: () => void
+  onCreated: (reservation: Reservation) => void
+}) {
+  const [services, setServices] = useState<Service[]>([])
+  const [serviceId, setServiceId] = useState('')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [date, setDate] = useState(() => localDateInputValue(new Date()))
+  const [slots, setSlots] = useState<string[]>([])
+  const [startsAt, setStartsAt] = useState('')
+  const [loadingServices, setLoadingServices] = useState(true)
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [slotsFailed, setSlotsFailed] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [retrySlots, setRetrySlots] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    listReservationServices(businessId).then(result => {
+      if (!active) return
+      setServices(result.services)
+      setError(result.error)
+      setServiceId(result.services[0]?.id ?? '')
+    }).catch(loadError => {
+      if (!active) return
+      setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los servicios.')
+    }).finally(() => {
+      if (active) setLoadingServices(false)
+    })
+    return () => { active = false }
+  }, [businessId])
+
+  useEffect(() => {
+    if (!serviceId || !date) {
+      setSlots([])
+      setStartsAt('')
+      return
+    }
+    let active = true
+    setError(null)
+    setLoadingSlots(true)
+    setSlotsFailed(false)
+    setStartsAt('')
+    getPublicSlots(businessSlug, serviceId, new Date(`${date}T12:00:00`))
+      .then(result => {
+        if (!active) return
+        setSlots(result.slots)
+        setSlotsFailed(result.failed)
+      })
+      .catch(loadError => {
+        if (!active) return
+        setSlots([])
+        setSlotsFailed(true)
+        setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los horarios disponibles.')
+      })
+      .finally(() => {
+        if (active) setLoadingSlots(false)
+      })
+    return () => { active = false }
+  }, [businessSlug, serviceId, date, retrySlots])
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const selectedService = services.find(service => service.id === serviceId)
+    if (!selectedService || !startsAt) return
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await createOwnerReservation({
+        businessId,
+        serviceId,
+        startsAt,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+      })
+      if (result.error || !result.id) {
+        setError(result.error ?? 'No pudimos guardar la reserva.')
+        return
+      }
+      onCreated({
+        id: result.id,
+        starts_at: startsAt,
+        status: 'confirmed',
+        clients: { name: name.trim() },
+        services: { name: selectedService.name, price: selectedService.price },
+      })
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'No pudimos guardar la reserva.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="manual-reservation-form" onSubmit={event => void submit(event)}>
+      <div className="manual-reservation-heading">
+        <div><h3>Agregar reserva</h3><p>Completá los datos del cliente y elegí un horario disponible.</p></div>
+        <button type="button" className="manual-reservation-close" aria-label="Cerrar formulario" onClick={onCancel}><X size={17} /></button>
+      </div>
+      {loadingServices ? (
+        <p className="manual-reservation-message" role="status">Cargando servicios…</p>
+      ) : services.length === 0 ? (
+        <div className="manual-reservation-message">
+          <p>{error ?? 'Todavía no hay servicios activos para reservar.'}</p>
+          <button type="button" className="link-button" onClick={onCancel}>Cerrar</button>
+        </div>
+      ) : (
+        <>
+          <div className="manual-reservation-fields">
+            <label>
+              <span>Nombre del cliente</span>
+              <div><UserRound size={16} /><input required autoComplete="name" value={name} onChange={event => setName(event.target.value)} /></div>
+            </label>
+            <label>
+              <span>Correo electrónico</span>
+              <div><Mail size={16} /><input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></div>
+            </label>
+            <label>
+              <span>Teléfono <small>(opcional)</small></span>
+              <div><Phone size={16} /><input type="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} /></div>
+            </label>
+            <label>
+              <span>Servicio</span>
+              <select required value={serviceId} onChange={event => setServiceId(event.target.value)}>
+                {services.map(service => <option key={service.id} value={service.id}>{service.name} · {service.duration_min} min · {formatPrice(Number(service.price))}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Fecha</span>
+              <input type="date" required min={localDateInputValue(new Date())} value={date} onChange={event => setDate(event.target.value)} />
+            </label>
+            <label>
+              <span>Horario disponible</span>
+              <select required value={startsAt} onChange={event => setStartsAt(event.target.value)} disabled={loadingSlots || slotsFailed || slots.length === 0}>
+                <option value="">{loadingSlots ? 'Buscando horarios…' : slotsFailed ? 'No pudimos cargar' : slots.length ? 'Elegí un horario' : 'Sin horarios disponibles'}</option>
+                {slots.map(slot => <option key={slot} value={slot}>{new Date(slot).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</option>)}
+              </select>
+            </label>
+          </div>
+          {slotsFailed && <p className="manual-reservation-error" role="alert">No pudimos consultar la disponibilidad. <button type="button" className="link-button" onClick={() => { setError(null); setRetrySlots(count => count + 1) }}>Reintentar</button></p>}
+          {error && !slotsFailed && <p className="manual-reservation-error" role="alert">{error}</p>}
+          {!loadingSlots && !slotsFailed && slots.length === 0 && <p className="manual-reservation-message">No hay horarios disponibles para ese servicio y fecha. Probá con otro día.</p>}
+          <div className="manual-reservation-actions">
+            <button type="button" className="button button--secondary" onClick={onCancel} disabled={saving}>Cancelar</button>
+            <button type="submit" className="button button--primary" disabled={saving || loadingSlots || !startsAt}>
+              {saving ? 'Guardando…' : <><Plus size={16} /> Crear reserva</>}
+            </button>
+          </div>
+        </>
+      )}
+    </form>
+  )
+}
+
+function localDateInputValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+type CalendarMode = 'week' | 'month'
+
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + amount)
+  return next
+}
+
+function weekDates(date: Date) {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index))
+}
+
+function monthDates(date: Date) {
+  const first = new Date(date.getFullYear(), date.getMonth(), 1)
+  const mondayOffset = (first.getDay() + 6) % 7
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  const totalDays = Math.ceil((mondayOffset + daysInMonth) / 7) * 7
+  const start = addDays(first, -mondayOffset)
+  return Array.from({ length: totalDays }, (_, index) => addDays(start, index))
+}
+
+function moveMonth(date: Date, amount: number) {
+  const targetMonth = new Date(date.getFullYear(), date.getMonth() + amount, 1)
+  const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate()
+  return new Date(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(date.getDate(), lastDay))
+}
+
+function calendarMonthLabel(date: Date) {
+  return date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+}
+
+function calendarWeekLabel(dates: Date[]) {
+  const first = dates[0]
+  const last = dates[6]
+  const firstMonth = first.toLocaleDateString('es-AR', { month: 'short' })
+  const lastMonth = last.toLocaleDateString('es-AR', { month: 'short' })
+  return first.getMonth() === last.getMonth()
+    ? `${first.getDate()}–${last.getDate()} ${lastMonth} ${last.getFullYear()}`
+    : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
+}
+
+function AgendaCalendar({ reservations, loading, error, onStatusChange }: {
+  reservations: Reservation[]
+  loading: boolean
+  error: string | null
+  onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed'>) => void
+}) {
+  const [mode, setMode] = useState<CalendarMode>('week')
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
+  const [pendingAttendance, setPendingAttendance] = useState<Set<string>>(() => new Set())
+  const [attendanceError, setAttendanceError] = useState<string | null>(null)
+  const today = new Date()
+  const dates = mode === 'week' ? weekDates(selectedDate) : monthDates(selectedDate)
+  const reservationsByDate = new Map<string, Reservation[]>()
+
+  reservations.forEach(reservation => {
+    const key = dateKey(new Date(reservation.starts_at))
+    const dayReservations = reservationsByDate.get(key) ?? []
+    dayReservations.push(reservation)
+    reservationsByDate.set(key, dayReservations)
+  })
+
+  const selectedReservations = reservationsByDate.get(dateKey(selectedDate)) ?? []
+  const visibleReservations = dates.reduce((total, date) =>
+    total + (reservationsByDate.get(dateKey(date))?.length ?? 0), 0)
+  const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+  const heading = mode === 'week' ? calendarWeekLabel(dates) : calendarMonthLabel(selectedDate)
+  const shiftCalendar = (direction: number) => {
+    setSelectedDate(current => mode === 'week' ? addDays(current, direction * 7) : moveMonth(current, direction))
+  }
+  async function toggleAttendance(reservation: Reservation) {
+    const previousStatus = reservation.status === 'completed' ? 'completed' : 'confirmed'
+    const nextStatus = previousStatus === 'completed' ? 'confirmed' : 'completed'
+    const clientName = reservation.clients?.name ?? 'Cliente'
+    setAttendanceError(null)
+    setPendingAttendance(current => new Set(current).add(reservation.id))
+    onStatusChange(reservation.id, nextStatus)
+    try {
+      const updateError = await updateReservationStatus(reservation.id, nextStatus)
+      if (updateError) {
+        onStatusChange(reservation.id, previousStatus)
+        setAttendanceError(`No pudimos actualizar el turno de ${clientName}: ${updateError}`)
+      }
+    } catch (updateError) {
+      onStatusChange(reservation.id, previousStatus)
+      setAttendanceError(`No pudimos actualizar el turno de ${clientName}: ${updateError instanceof Error ? updateError.message : 'Ocurrió un error inesperado.'}`)
+    } finally {
+      setPendingAttendance(current => {
+        const next = new Set(current)
+        next.delete(reservation.id)
+        return next
+      })
+    }
+  }
+
+  return (
+    <section className="agenda-card calendar-card">
+      <div className="calendar-heading">
+        <div>
+          <p className="eyebrow">Agenda</p>
+          <h2>{mode === 'week' ? 'Tu semana, de un vistazo' : 'Tu mes, de un vistazo'}</h2>
+        </div>
+        <div className="calendar-mode" role="group" aria-label="Vista del calendario">
+          <button type="button" aria-pressed={mode === 'week'} className={mode === 'week' ? 'is-active' : ''} onClick={() => setMode('week')}>Semana</button>
+          <button type="button" aria-pressed={mode === 'month'} className={mode === 'month' ? 'is-active' : ''} onClick={() => setMode('month')}>Mes</button>
+        </div>
+      </div>
+
+      <div className="calendar-toolbar">
+        <div className="calendar-navigation">
+          <button type="button" aria-label={mode === 'week' ? 'Semana anterior' : 'Mes anterior'} onClick={() => shiftCalendar(-1)}><ChevronLeft size={18} /></button>
+          <button type="button" aria-label={mode === 'week' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => shiftCalendar(1)}><ChevronRight size={18} /></button>
+          <h3>{heading}</h3>
+        </div>
+        <button type="button" className="calendar-today" onClick={() => setSelectedDate(new Date())}>Hoy</button>
+      </div>
+
+      {error ? (
+        <p className="calendar-message calendar-message--error" role="alert">No pudimos cargar los turnos: {error}</p>
+      ) : (
+        <>
+          <div className={`calendar-grid calendar-grid--${mode}`}>
+            <div className="calendar-weekdays">
+              {weekdays.map(day => <span key={day}>{day}</span>)}
+            </div>
+            <div className="calendar-days">
+              {dates.map(date => {
+                const key = dateKey(date)
+                const dayReservations = reservationsByDate.get(key) ?? []
+                const completedCount = dayReservations.filter(reservation => reservation.status === 'completed').length
+                const isCurrentMonth = date.getMonth() === selectedDate.getMonth()
+                const isSelected = key === dateKey(selectedDate)
+                const isToday = key === dateKey(today)
+
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`calendar-day${isCurrentMonth ? '' : ' is-outside'}${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}${dayReservations.length ? ' has-reservations' : ''}`}
+                    aria-pressed={isSelected}
+                    aria-label={`${date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${dayReservations.length} ${dayReservations.length === 1 ? 'turno' : 'turnos'}${completedCount ? `, ${completedCount} atendidos` : ''}`}
+                    onClick={() => setSelectedDate(date)}
+                  >
+                    {mode === 'week' && <span className="calendar-day-weekday">{date.toLocaleDateString('es-AR', { weekday: 'short' })}</span>}
+                    <span className="calendar-day-number">{date.getDate()}</span>
+                    {mode === 'week' ? (
+                      <span className="calendar-day-events">
+                        {dayReservations.slice(0, 3).map(reservation => (
+                          <span className={`calendar-week-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
+                            <time>{new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+                            <span>{reservation.clients?.name ?? 'Cliente'}</span>
+                          </span>
+                        ))}
+                        {dayReservations.length > 3 && <span className="calendar-more">+{dayReservations.length - 3} más</span>}
+                        {dayReservations.length === 0 && <span className="calendar-free">Libre</span>}
+                        {completedCount > 0 && <span className="calendar-completed-count">{completedCount} atendidos</span>}
+                      </span>
+                    ) : (
+                      <span className="calendar-month-events">
+                        {dayReservations.slice(0, 2).map(reservation => (
+                          <span className={`calendar-month-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
+                            {new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                            <span>{reservation.clients?.name ?? 'Cliente'}</span>
+                          </span>
+                        ))}
+                        {dayReservations.length > 2 && <span className="calendar-more">+{dayReservations.length - 2} más</span>}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="calendar-day-detail" aria-live="polite">
+            <div className="calendar-detail-heading">
+              <div>
+                <p className="eyebrow">{loading ? 'Cargando agenda' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
+                <h3>{selectedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+              </div>
+              {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}
+            </div>
+
+            {attendanceError && <p className="calendar-message calendar-message--error" role="alert">{attendanceError}</p>}
+
+            {loading ? (
+              <p className="calendar-message" role="status">Cargando tus turnos…</p>
+            ) : selectedReservations.length > 0 ? (
+              <div className="calendar-appointments">
+                {selectedReservations.map(reservation => {
+                  const date = new Date(reservation.starts_at)
+                  const clientName = reservation.clients?.name ?? 'Cliente'
+                  const isCompleted = reservation.status === 'completed'
+                  const canMarkAttended = date.getTime() <= Date.now()
+                  return (
+                    <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}`} key={reservation.id}>
+                      <time>{date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+                      <span className="calendar-appointment-marker" aria-hidden="true" />
+                      <div>
+                        <strong>{clientName}</strong>
+                        <span>{reservation.services?.name ?? 'Servicio'}</span>
+                      </div>
+                      {reservation.services && <b>{formatPrice(Number(reservation.services.price))}</b>}
+                      <button
+                        type="button"
+                        className="calendar-attendance"
+                        aria-label={isCompleted ? `Desmarcar como atendido: ${clientName}` : `Marcar como atendido: ${clientName}`}
+                        aria-pressed={isCompleted}
+                        disabled={pendingAttendance.has(reservation.id) || (!isCompleted && !canMarkAttended)}
+                        onClick={() => void toggleAttendance(reservation)}
+                      >
+                        <Check size={14} />
+                        <span>{isCompleted ? 'Atendido' : 'Marcar atendido'}</span>
+                      </button>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="calendar-message">
+                {reservations.length === 0
+                  ? 'No hay turnos para mostrar.'
+                  : 'No hay turnos para este día. Elegí otro día del calendario.'}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 function ServicesSection({ businessId }: { businessId: string }) {
   const [services, setServices] = useState<Service[]>([])
   const [error, setError] = useState<string | null>(null)
+  const shouldReduceMotion = useReducedMotion()
 
   async function reload() { setServices(await listServices(businessId)) }
   useEffect(() => { void reload() }, [businessId])
@@ -293,20 +754,86 @@ function ServicesSection({ businessId }: { businessId: string }) {
   }
 
   return <section className="agenda-card">
-    <div className="card-heading"><div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div></div>
-    <div className="setup-services">
-      {services.map(svc => (
-        <div key={svc.id} className="service-row">
-          <input value={svc.name} onChange={e => updateLocal(svc.id, { name: e.target.value })} onBlur={() => persist(svc)} />
-          <input type="number" min={5} step={5} value={svc.duration_min}
-            onChange={e => updateLocal(svc.id, { duration_min: parseInt(e.target.value) || 0 })} onBlur={() => persist(svc)} />
-          <input type="number" min={0} step={100} value={svc.price}
-            onChange={e => updateLocal(svc.id, { price: parseInt(e.target.value) || 0 })} onBlur={() => persist(svc)} />
-          <button className="service-remove" onClick={() => void deleteService(svc.id).then(err => { if (err) setError(err); else void reload() })}>Eliminar</button>
-        </div>
-      ))}
+    <div className="services-heading">
+      <div className="services-heading-mark"><Sparkles size={18} /></div>
+      <div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div>
+      <span className="services-count">{services.length} {services.length === 1 ? 'servicio' : 'servicios'}</span>
+    </div>
+    <div className="services-editor">
+      <div className="services-list">
+        <AnimatePresence initial={false}>
+          {services.map(svc => (
+            <motion.div
+              key={svc.id}
+              className="service-row"
+              layout="position"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
+              transition={shouldReduceMotion ? { duration: 0.1 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <span className="service-row-mark" aria-hidden="true"><Sparkles size={16} /></span>
+              <label className="service-name">
+                <span>Nombre del servicio</span>
+                <input
+                  aria-label={`Nombre del servicio ${svc.name || ''}`.trim()}
+                  value={svc.name}
+                  onChange={e => updateLocal(svc.id, { name: e.target.value })}
+                  onBlur={() => persist(svc)}
+                />
+              </label>
+              <label className="service-value service-duration">
+                <span><Clock3 size={13} /> Duración</span>
+                <span className="service-value-input">
+                  <input
+                    aria-label={`Duración de ${svc.name || 'servicio'} en minutos`}
+                    type="number"
+                    min={5}
+                    step={5}
+                    value={svc.duration_min}
+                    onChange={e => updateLocal(svc.id, { duration_min: parseInt(e.target.value) || 0 })}
+                    onBlur={() => persist(svc)}
+                  />
+                  <small>min</small>
+                </span>
+              </label>
+              <label className="service-value service-price">
+                <span><DollarSign size={13} /> Precio</span>
+                <span className="service-value-input">
+                  <small>$</small>
+                  <input
+                    aria-label={`Precio de ${svc.name || 'servicio'} en pesos`}
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={svc.price}
+                    onChange={e => updateLocal(svc.id, { price: parseInt(e.target.value) || 0 })}
+                    onBlur={() => persist(svc)}
+                  />
+                </span>
+              </label>
+              <button
+                type="button"
+                className="service-remove"
+                aria-label={`Eliminar ${svc.name || 'servicio'}`}
+                onClick={() => void deleteService(svc.id).then(err => { if (err) setError(err); else void reload() })}
+              >
+                <Trash2 size={15} /><span>Eliminar</span>
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {services.length === 0 && (
+          <div className="services-empty">
+            <span><Sparkles size={17} /></span>
+            <div><strong>Todavía no hay servicios</strong><small>Sumá lo que ofrecés y definí cuánto dura y cuánto cuesta.</small></div>
+          </div>
+        )}
+      </div>
       <div className="add-service">
-        <button onClick={() => void createService(businessId, { name: 'Nuevo servicio', duration_min: 30, price: 0 }).then(err => { if (err) setError(err); else void reload() })}>+ Agregar servicio</button>
+        <button type="button" onClick={() => void createService(businessId, { name: 'Nuevo servicio', duration_min: 30, price: 0 }).then(err => { if (err) setError(err); else void reload() })}>
+          <Plus size={15} /> Agregar servicio
+        </button>
       </div>
       {error && <p className="form-error">{error}</p>}
     </div>

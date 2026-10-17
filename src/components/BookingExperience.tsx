@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
-import { formatPrice } from '../data/demo'
+import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
+import { demoServices, formatPrice } from '../data/demo'
 import { bookPublic, getFirstPublicBusiness, getPublicSlots, listPublicServices, type PublicBusiness, type PublicService } from '../lib/db'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
@@ -13,7 +13,24 @@ const fullDayLabel = (d: Date) =>
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 
-export function BookingExperience({ onBack }: { onBack: () => void }) {
+const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio' }
+const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
+  id,
+  business_slug: demoBusiness.slug,
+  name,
+  duration_min: duration,
+  price,
+}))
+
+function previewSlots(date: Date) {
+  return [[9, 30], [10, 30], [11, 30], [13, 0], [14, 30]].map(([hour, minute]) => {
+    const slot = new Date(date)
+    slot.setHours(hour, minute, 0, 0)
+    return slot.toISOString()
+  }).filter(slot => new Date(slot).getTime() > Date.now())
+}
+
+export function BookingExperience({ onBack, demo = false }: { onBack: () => void; demo?: boolean }) {
   const [step, setStep] = useState(1)
   const [business, setBusiness] = useState<PublicBusiness | null>(null)
   const [services, setServices] = useState<PublicService[]>([])
@@ -45,6 +62,13 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      if (demo) {
+        setBusiness(demoBusiness)
+        setServices(previewServices)
+        setService(previewServices[0] ?? null)
+        setLoadingServices(false)
+        return
+      }
       const { business: biz, failed } = await getFirstPublicBusiness()
       if (cancelled) return
       if (failed) { setLoadFailed(true); setLoadingServices(false); return }
@@ -59,11 +83,18 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
       setLoadingServices(false)
     })()
     return () => { cancelled = true }
-  }, [retryCount])
+  }, [demo, retryCount])
 
   useEffect(() => {
     if (!business || !service) return
     let cancelled = false
+    if (demo) {
+      setSlots(previewSlots(date))
+      setSlotsFailed(false)
+      setLoadingSlots(false)
+      setTime('')
+      return () => { cancelled = true }
+    }
     setLoadingSlots(true)
     setTime('')
     setSlotsFailed(false)
@@ -74,18 +105,23 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
       setLoadingSlots(false)
     })
     return () => { cancelled = true }
-  }, [business, service, date, slotsRetry])
+  }, [business, service, date, slotsRetry, demo])
 
   const save = async () => {
-    if (!time || !business || !service || !name.trim()) return
+    if (!time || !business || !service || !name.trim() || !email.trim()) return
     setSaving(true)
     setError('')
+    if (demo) {
+      setSaving(false)
+      setCompleted(true)
+      return
+    }
     const { error: bookError } = await bookPublic({
       slug: business.slug,
       serviceId: service.id,
       startsAt: time,
       name: name.trim(),
-      email: email.trim() || undefined,
+      email: email.trim(),
     })
     setSaving(false)
     if (bookError) { setError(bookError); return }
@@ -131,19 +167,21 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
     <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 190, damping: 20 }}>
       <motion.div className="success-orbit" animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}><span /></motion.div>
       <span className="success-icon"><Check size={34} strokeWidth={2.5} /></span>
-      <p className="eyebrow">Reserva confirmada</p><h1>Todo listo, {name.trim().split(' ')[0]}.</h1>
-      <p className="success-copy">Tu turno en {business.name} quedó reservado para el <strong>{fullDayLabel(date)}</strong> a las <strong>{timeLabel(time)}</strong>.</p>
-      <div className="booking-receipt"><span>{service.name}</span><strong>{formatPrice(service.price)}</strong><span>{service.duration_min} minutos</span><span>Confirmada</span></div>
-      {email.trim() && <p className="success-note"><Mail size={15} /> Te enviamos la confirmación a tu correo.</p>}
-      <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>
+      <p className="eyebrow">{demo ? 'Vista previa' : 'Reserva confirmada'}</p><h1>{demo ? `Así se vería tu reserva, ${name.trim().split(' ')[0]}.` : `Todo listo, ${name.trim().split(' ')[0]}.`}</h1>
+      <p className="success-copy">{demo ? 'Este es el último paso de la demostración. No se creó ningún turno real.' : <>Tu turno en {business.name} quedó reservado para el <strong>{fullDayLabel(date)}</strong> a las <strong>{timeLabel(time)}</strong>.</>}</p>
+      <div className="booking-receipt"><span>{service.name}</span><strong>{formatPrice(service.price)}</strong><span>{service.duration_min} minutos</span><span>{demo ? 'Solo demostración' : 'Confirmada'}</span></div>
+      {demo
+        ? <p className="success-note"><CirclePlay size={15} /> No se guardó en la agenda del negocio.</p>
+        : <p className="success-note"><Mail size={15} /> La reserva quedó asociada a tu correo.</p>}
+      {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
       <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
     </motion.div>
   </section>
 
   return <section className="booking-shell">
-    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button><span className="booking-business">{business.name}</span></div>
+    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo ? <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span> : <span className="booking-business">{business.name}</span>}</div>
     <div className="booking-layout">
-      <aside className="booking-intro"><span className="mini-logo">{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">Reserva online</p><h1>Un momento para vos.</h1><p>Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.</p><div className="booking-side-info"><Clock3 size={17} /><span>Sin esperas. Sin llamadas.</span></div></aside>
+      <aside className="booking-intro"><span className="mini-logo">{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : 'Reserva online'}</p><h1>Un momento para vos.</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.'}</p><div className="booking-side-info"><Clock3 size={17} /><span>{demo ? 'Probá los pasos sin guardar datos.' : 'Sin esperas. Sin llamadas.'}</span></div></aside>
       <div className="booking-card">
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
@@ -172,15 +210,15 @@ export function BookingExperience({ onBack }: { onBack: () => void }) {
                 : <div className="time-grid">{slots.map((iso) => <button key={iso} className={time === iso ? 'is-selected' : ''} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
             <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ChevronRight size={18} /></button>
           </motion.div>}
-          {step === 3 && service && <motion.div key="review" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-            <button className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
-            <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input value={name} onChange={e => setName(e.target.value)} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(opcional)</small></span><div><Mail size={17} /><input value={email} onChange={e => setEmail(e.target.value)} type="email" aria-label="Correo electrónico (opcional)" /></div></label></div>
+          {step === 3 && service && <motion.form key="review" onSubmit={event => { event.preventDefault(); void save() }} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
+            <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
+            <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div><div className="review-total"><span>Total</span><strong>{formatPrice(service.price)}</strong></div></div>
-            <button className="button button--primary button--full" onClick={save} disabled={saving || !name.trim()}>{saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
+            <button type="submit" className="button button--primary button--full" disabled={saving}>{saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
               ? <p className="form-note" role="alert">{error}</p>
-              : <p className="form-note">Si dejás tu correo, te mandamos la confirmación con todos los detalles.</p>}
-          </motion.div>}
+              : <p className="form-note">Lo usamos para identificar tu reserva.</p>}
+          </motion.form>}
         </AnimatePresence>
       </div>
     </div>

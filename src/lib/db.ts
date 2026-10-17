@@ -64,13 +64,17 @@ export async function createBusinessWithSetup(
     if (svcError) return svcError.message
   }
 
-  // availability: Record<dayName, boolean[24]> → filas (day_of_week 0=domingo … 6=sábado)
+  // Los borradores anteriores guardaban horas completas; cada una se expande
+  // a dos intervalos para conservar la disponibilidad al migrar a medias horas.
   const dayIndex: Record<string, number> = {
     domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6
   }
-  const rows = Object.entries(input.availability).flatMap(([day, hours]) =>
-    hours.flatMap((on, hour) => on ? [{ business_id: businessId, day_of_week: dayIndex[day], hour }] : [])
-  )
+  const rows = Object.entries(input.availability).flatMap(([day, daySlots]) => {
+    const slots = daySlots.length === 24 ? daySlots.flatMap(open => [open, open]) : daySlots
+    return slots.flatMap((open, slotIndex) =>
+      open ? [{ business_id: businessId, day_of_week: dayIndex[day], slot_index: slotIndex }] : [],
+    )
+  })
   if (rows.length > 0) {
     const { error: avError } = await supabase.from('availability').insert(rows)
     if (avError) return avError.message
@@ -127,6 +131,96 @@ export async function listReservations(businessId: string): Promise<Reservation[
   return (data ?? []) as unknown as Reservation[]
 }
 
+export async function listAgendaReservations(
+  businessId: string,
+): Promise<{ reservations: Reservation[]; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) {
+    return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
+  }
+
+  const reservations: Reservation[] = []
+  const pageSize = 500
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, starts_at, status, clients(name), services(name, price)')
+      .eq('business_id', businessId)
+      .neq('status', 'cancelled')
+      .order('starts_at', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+
+    if (error) return { reservations: [], error: error.message }
+
+    const page = (data ?? []) as unknown as Reservation[]
+    reservations.push(...page)
+    if (page.length < pageSize) break
+  }
+
+  return { reservations, error: null }
+}
+
+export async function updateReservationStatus(
+  id: string,
+  status: Extract<Reservation['status'], 'confirmed' | 'completed'>,
+): Promise<string | null> {
+  const owned = await ownedBusinessIds()
+  if (owned.length === 0) return 'No se pudo validar el acceso al negocio.'
+
+  const { data, error } = await supabase
+    .from('reservations')
+    .update({ status })
+    .eq('id', id)
+    .in('business_id', owned)
+    .select('id')
+    .maybeSingle()
+
+  if (error) return error.message
+  if (!data) return 'No encontramos ese turno para actualizarlo.'
+  return null
+}
+
+export async function listReservationServices(
+  businessId: string,
+): Promise<{ services: Service[]; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) {
+    return { services: [], error: 'No tenés permiso sobre este negocio.' }
+  }
+  const { data, error } = await supabase
+    .from('services')
+    .select('id, business_id, name, duration_min, price, is_active')
+    .eq('business_id', businessId)
+    .eq('is_active', true)
+    .order('name')
+  if (error) return { services: [], error: error.message }
+  return { services: data ?? [], error: null }
+}
+
+export async function createOwnerReservation(input: {
+  businessId: string
+  serviceId: string
+  startsAt: string
+  name: string
+  email: string
+  phone?: string
+}): Promise<{ id: string | null; error: string | null }> {
+  if (!(await ownsBusiness(input.businessId))) {
+    return { id: null, error: 'No tenés permiso sobre este negocio.' }
+  }
+  const { data, error } = await supabase.rpc('create_owner_reservation', {
+    p_business_id: input.businessId,
+    p_service_id: input.serviceId,
+    p_starts_at: input.startsAt,
+    p_name: input.name.trim(),
+    p_email: input.email.trim(),
+    p_phone: input.phone?.trim() || null,
+  })
+  if (error) return { id: null, error: error.message }
+  const result = data as { id?: string } | null
+  if (!result?.id) return { id: null, error: 'No pudimos confirmar el alta de la reserva.' }
+  return { id: result.id, error: null }
+}
+
 // --- API pública (Fases 3 y 5): la usa la página de reserva sin sesión ---
 
 export type PublicBusiness = { slug: string; name: string }
@@ -175,6 +269,7 @@ export async function getPublicSlots(slug: string, serviceId: string, date: Date
 // reemplaza por un fallback amable y el detalle queda en consola.
 const BOOK_PUBLIC_KNOWN_ERRORS = [
   'El nombre es obligatorio',
+  'El correo electrónico es obligatorio',
   'La reserva tiene que ser a futuro',
   'Negocio no encontrado',
   'El negocio no tiene recursos configurados',
@@ -191,7 +286,7 @@ export async function bookPublic(input: {
   serviceId: string
   startsAt: string
   name: string
-  email?: string
+  email: string
   phone?: string
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('book_public', {
@@ -199,7 +294,7 @@ export async function bookPublic(input: {
     p_service_id: input.serviceId,
     p_starts_at: input.startsAt,
     p_name: input.name,
-    p_email: input.email || null,
+    p_email: input.email.trim(),
     p_phone: input.phone || null,
   })
   if (!error) return { error: null }
@@ -243,8 +338,8 @@ export async function updateBusiness(id: string, input: { name: string; slug: st
 export async function getAvailability(businessId: string): Promise<Set<string>> {
   if (!(await ownsBusiness(businessId))) return new Set()
   const { data } = await supabase
-    .from('availability').select('day_of_week, hour').eq('business_id', businessId)
-  return new Set((data ?? []).map(r => `${r.day_of_week}-${r.hour}`))
+    .from('availability').select('day_of_week, slot_index').eq('business_id', businessId)
+  return new Set((data ?? []).map(r => `${r.day_of_week}-${r.slot_index}`))
 }
 
 export async function setAvailability(businessId: string, slots: Set<string>) {
@@ -253,8 +348,8 @@ export async function setAvailability(businessId: string, slots: Set<string>) {
   if (delError) return delError.message
   if (slots.size === 0) return null
   const rows = [...slots].map(key => {
-    const [day, hour] = key.split('-').map(Number)
-    return { business_id: businessId, day_of_week: day, hour }
+    const [day, slotIndex] = key.split('-').map(Number)
+    return { business_id: businessId, day_of_week: day, slot_index: slotIndex }
   })
   const { error } = await supabase.from('availability').insert(rows)
   return error ? error.message : null

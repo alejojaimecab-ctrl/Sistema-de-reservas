@@ -1,4 +1,4 @@
-import { Copy, Plus, X } from 'lucide-react'
+import { Check, Copy, Plus, X } from 'lucide-react'
 
 export type AvailabilityDay = { id: string; name: string }
 export type AvailabilityMap = Record<string, boolean[]>
@@ -11,17 +11,22 @@ type AvailabilityEditorProps = {
   onChange: (availability: AvailabilityMap) => void
 }
 
-const hours = Array.from({ length: 24 }, (_, hour) => hour)
-const endHours = Array.from({ length: 24 }, (_, hour) => hour + 1)
+const timeSlots = Array.from({ length: 48 }, (_, slot) => slot)
+const endSlots = Array.from({ length: 48 }, (_, slot) => slot + 1)
 
-function rangesFromHours(dayHours: boolean[] = []): TimeRange[] {
+function formatTime(slot: number) {
+  const minutes = slot * 30
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+
+function rangesFromSlots(daySlots: boolean[] = []): TimeRange[] {
   const ranges: TimeRange[] = []
   let start: number | null = null
 
-  for (let hour = 0; hour <= 24; hour += 1) {
-    if (dayHours[hour] && start === null) start = hour
-    if (!dayHours[hour] && start !== null) {
-      ranges.push({ start, end: hour })
+  for (let slot = 0; slot <= 48; slot += 1) {
+    if (daySlots[slot] && start === null) start = slot
+    if (!daySlots[slot] && start !== null) {
+      ranges.push({ start, end: slot })
       start = null
     }
   }
@@ -29,70 +34,79 @@ function rangesFromHours(dayHours: boolean[] = []): TimeRange[] {
   return ranges
 }
 
-function hoursFromRanges(ranges: TimeRange[]): boolean[] {
-  const dayHours = Array.from({ length: 24 }, () => false)
+function slotsFromRanges(ranges: TimeRange[]): boolean[] {
+  const daySlots = Array.from({ length: 48 }, () => false)
   ranges.forEach(({ start, end }) => {
-    for (let hour = Math.max(0, start); hour < Math.min(24, end); hour += 1) {
-      dayHours[hour] = true
+    for (let slot = Math.max(0, start); slot < Math.min(48, end); slot += 1) {
+      daySlots[slot] = true
     }
   })
-  return dayHours
+  return daySlots
 }
 
 export function availabilityFromSlots(days: AvailabilityDay[], slots: Set<string>): AvailabilityMap {
   return Object.fromEntries(days.map(day => [
     day.id,
-    hours.map(hour => slots.has(`${day.id}-${hour}`)),
+    timeSlots.map(slot => slots.has(`${day.id}-${slot}`)),
   ]))
 }
 
 export function availabilitySlotsFromMap(availability: AvailabilityMap): Set<string> {
   return new Set(Object.entries(availability).flatMap(([day, dayHours]) =>
-    dayHours.flatMap((open, hour) => open ? [`${day}-${hour}`] : [])
+    dayHours.flatMap((open, slot) => open ? [`${day}-${slot}`] : [])
   ))
 }
 
 function defaultAvailability(days: AvailabilityDay[], weekdaysOnly: boolean): AvailabilityMap {
   return Object.fromEntries(days.map((day, index) => [
     day.id,
-    hours.map(hour => (weekdaysOnly ? index < 5 : true) && hour >= 9 && hour < 18),
+    timeSlots.map(slot => (weekdaysOnly ? index < 5 : true) && slot >= 18 && slot < 36),
   ]))
 }
 
 function findAdditionalRange(ranges: TimeRange[]): TimeRange | null {
-  const available = hours.map(hour => !ranges.some(range => hour >= range.start && hour < range.end))
-  for (let start = 14; start < 24; start += 1) {
-    const end = Math.min(start + 4, 24)
-    const separated = ranges.every(range => end < range.start || start > range.end)
-    if (end - start >= 2 && separated && available.slice(start, end).every(Boolean)) return { start, end }
+  const occupied = timeSlots.map(slot => ranges.some(range => slot >= range.start && slot < range.end))
+  let bestRange: TimeRange | null = null
+  let slot = 0
+
+  while (slot < timeSlots.length) {
+    if (occupied[slot]) {
+      slot += 1
+      continue
+    }
+
+    const start = slot
+    while (slot < timeSlots.length && !occupied[slot]) slot += 1
+
+    const end = Math.min(start + 8, slot)
+    if (!bestRange || end - start > bestRange.end - bestRange.start) {
+      bestRange = { start, end }
+    }
   }
-  for (let start = 9; start < 14; start += 1) {
-    const end = Math.min(start + 4, 24)
-    const separated = ranges.every(range => end < range.start || start > range.end)
-    if (end - start >= 2 && separated && available.slice(start, end).every(Boolean)) return { start, end }
-  }
-  return null
+
+  return bestRange
 }
 
 export function AvailabilityEditor({ days, availability, onChange }: AvailabilityEditorProps) {
   function setDayRanges(dayId: string, ranges: TimeRange[]) {
-    onChange({ ...availability, [dayId]: hoursFromRanges(ranges) })
+    onChange({ ...availability, [dayId]: slotsFromRanges(ranges) })
   }
 
   function copyFirstDayToWeekdays() {
-    const sourceRanges = rangesFromHours(availability[days[0]?.id])
+    const sourceRanges = rangesFromSlots(availability[days[0]?.id])
     if (sourceRanges.length === 0) return
 
     const next = { ...availability }
     days.slice(1, 5).forEach(day => {
-      next[day.id] = hoursFromRanges(sourceRanges)
+      next[day.id] = slotsFromRanges(sourceRanges)
     })
     onChange(next)
   }
 
-  const openDayCount = days.filter(day => rangesFromHours(availability[day.id]).length > 0).length
-  const openHourCount = days.reduce((total, day) =>
+  const openDayCount = days.filter(day => rangesFromSlots(availability[day.id]).length > 0).length
+  const openHalfHourCount = days.reduce((total, day) =>
     total + (availability[day.id] ?? []).filter(Boolean).length, 0)
+  const openHours = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(openHalfHourCount / 2)
 
   const renderEditor = () => (
     <div className="availability-editor">
@@ -106,7 +120,7 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
         <button
           type="button"
           className="availability-copy"
-          disabled={rangesFromHours(availability[days[0]?.id]).length === 0}
+          disabled={rangesFromSlots(availability[days[0]?.id]).length === 0}
           onClick={copyFirstDayToWeekdays}
         >
           <Copy size={14} /> Copiar lunes a días hábiles
@@ -115,7 +129,7 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
 
       <div className="availability-days">
         {days.map(day => {
-          const ranges = rangesFromHours(availability[day.id])
+          const ranges = rangesFromSlots(availability[day.id])
           const isOpen = ranges.length > 0
 
           return (
@@ -127,9 +141,12 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
                   aria-label={`${isOpen ? 'Cerrar' : 'Abrir'} ${day.name}`}
                   onChange={event => setDayRanges(
                     day.id,
-                    event.target.checked ? [{ start: 9, end: 18 }] : [],
+                    event.target.checked ? [{ start: 18, end: 36 }] : [],
                   )}
                 />
+                <span className="availability-day-check" aria-hidden="true">
+                  <Check size={15} strokeWidth={3} />
+                </span>
                 <span>{day.name}</span>
               </label>
 
@@ -149,8 +166,8 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
                             setDayRanges(day.id, nextRanges)
                           }}
                         >
-                          {hours.map(hour => (
-                            <option key={hour} value={hour}>{`${String(hour).padStart(2, '0')}:00`}</option>
+                          {timeSlots.map(slot => (
+                            <option key={slot} value={slot}>{formatTime(slot)}</option>
                           ))}
                         </select>
                       </label>
@@ -166,8 +183,8 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
                             setDayRanges(day.id, nextRanges)
                           }}
                         >
-                          {endHours.map(hour => (
-                            <option key={hour} value={hour}>{`${String(hour).padStart(2, '0')}:00`}</option>
+                          {endSlots.map(slot => (
+                            <option key={slot} value={slot}>{formatTime(slot)}</option>
                           ))}
                         </select>
                       </label>
@@ -206,7 +223,7 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
       <p className="availability-summary" aria-live="polite">
         {openDayCount === 0
           ? 'Todavía no hay días ni horarios habilitados.'
-          : `${openDayCount} ${openDayCount === 1 ? 'día abierto' : 'días abiertos'} · ${openHourCount} ${openHourCount === 1 ? 'hora disponible' : 'horas disponibles'} por semana`}
+          : `${openDayCount} ${openDayCount === 1 ? 'día abierto' : 'días abiertos'} · ${openHours} ${openHalfHourCount === 2 ? 'hora disponible' : 'horas disponibles'} por semana`}
       </p>
     </div>
   )

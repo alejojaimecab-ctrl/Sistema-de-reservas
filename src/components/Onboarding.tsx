@@ -29,14 +29,16 @@ const days: AvailabilityDay[] = [
 ]
 
 function emptyAvailability(): AvailabilityMap {
-  return Object.fromEntries(days.map(day => [day.id, Array.from({ length: 24 }, () => false)]))
+  return Object.fromEntries(days.map(day => [day.id, Array.from({ length: 48 }, () => false)]))
 }
 
 function isAvailabilityMap(value: unknown): value is AvailabilityMap {
   if (!value || typeof value !== 'object') return false
   return days.every(day => {
     const hours = (value as Record<string, unknown>)[day.id]
-    return Array.isArray(hours) && hours.length === 24 && hours.every(hour => typeof hour === 'boolean')
+    return Array.isArray(hours)
+      && (hours.length === 24 || hours.length === 48)
+      && hours.every(hour => typeof hour === 'boolean')
   })
 }
 
@@ -74,7 +76,16 @@ function readOnboardingDraft(): { draft: OnboardingDraft | null; error: string |
       return { draft: null, error: 'El borrador guardado está incompleto o dañado.' }
     }
 
-    return { draft: value as unknown as OnboardingDraft, error: null }
+    const storedAvailability = value.availability as AvailabilityMap
+    const availability = Object.fromEntries(days.map(day => {
+      const daySlots = storedAvailability[day.id]
+      return [day.id, daySlots.length === 24 ? daySlots.flatMap(open => [open, open]) : daySlots]
+    }))
+
+    return {
+      draft: { ...value, availability } as unknown as OnboardingDraft,
+      error: null,
+    }
   } catch (error) {
     console.warn('No se pudo recuperar el borrador de onboarding:', error)
     return {

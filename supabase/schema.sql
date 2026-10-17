@@ -12,7 +12,7 @@ create table businesses (
   owner_id uuid not null references profiles(id) on delete cascade,
   name text not null,
   slug text not null unique,
-  -- Zona horaria IANA del negocio: availability.hour se interpreta en esta
+  -- Zona horaria IANA del negocio: availability.slot_index se interpreta en esta
   -- zona (ver migración 007). Default: mercado objetivo.
   timezone text not null default 'America/Argentina/Buenos_Aires',
   created_at timestamptz not null default now()
@@ -31,8 +31,8 @@ create table availability (
   id uuid primary key default gen_random_uuid(),
   business_id uuid not null references businesses(id) on delete cascade,
   day_of_week smallint not null check (day_of_week between 0 and 6), -- 0=domingo
-  hour smallint not null check (hour between 0 and 23),
-  unique (business_id, day_of_week, hour)
+  slot_index smallint not null check (slot_index between 0 and 47),
+  unique (business_id, day_of_week, slot_index)
 );
 
 create table clients (
