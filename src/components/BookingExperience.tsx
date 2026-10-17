@@ -275,7 +275,9 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
               : slotsFailed
                 ? <p className="section-description" role="alert">No pudimos cargar los horarios. <button type="button" className="text-button" onClick={() => { setSlotsFailed(false); setLoadingSlots(true); setSlotsRetry(c => c + 1) }}>Reintentar</button></p>
                 : slots.length === 0
-                ? <p className="section-description">No quedan turnos este día. Probá con otro.</p>
+                ? <p className="section-description">{date.toDateString() === new Date().toDateString() && (business?.min_notice_hours ?? 0) > 0
+                  ? `Para hoy ya no quedan turnos disponibles: este negocio pide reservar con al menos ${business!.min_notice_hours} ${business!.min_notice_hours === 1 ? 'hora' : 'horas'} de anticipación. Probá con otro día.`
+                  : 'No quedan turnos este día. Probá con otro.'}</p>
                 : <div className="time-grid">{slots.map((iso) => <button key={iso} className={time === iso ? 'is-selected' : ''} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
             <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ChevronRight size={18} /></button>
           </motion.div>}
