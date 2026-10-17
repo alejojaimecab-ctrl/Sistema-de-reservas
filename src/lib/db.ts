@@ -260,6 +260,11 @@ export async function listPublicServices(slug: string): Promise<{ services: Publ
 // timestamptz; la UI los muestra en hora local.
 export type PublicProfessional = { id: string; name: string }
 
+export async function listPublicResourceServices(slug: string): Promise<ResourceService[]> {
+  const { data } = await supabase.from('public_resource_services').select('resource_id, service_id').eq('business_slug', slug)
+  return data ?? []
+}
+
 export async function listPublicProfessionals(slug: string): Promise<{ professionals: PublicProfessional[]; failed: boolean }> {
   const { data, error } = await supabase
     .from('public_resources').select('id, name')
@@ -294,6 +299,7 @@ const BOOK_PUBLIC_KNOWN_ERRORS = [
   'Ese horario no está dentro de la disponibilidad del negocio',
   'Ese horario acaba de ocuparse, elegí otro',
   'Ese profesional no está disponible',
+  'Ese profesional no ofrece este servicio',
   'Demasiadas reservas con ese email, probá más tarde',
   'Demasiadas reservas desde esta conexión, probá más tarde',
 ]
@@ -431,6 +437,36 @@ export async function updateProfessional(
     .from('resources').update(patch).eq('id', id).in('business_id', owned).select('id').maybeSingle()
   if (error) return error.message
   return data ? null : 'No encontramos ese profesional.'
+}
+
+// Qué servicios ofrece cada profesional (resource_services)
+export type ResourceService = { resource_id: string; service_id: string }
+
+export async function listResourceServices(businessId: string): Promise<ResourceService[]> {
+  if (!(await ownsBusiness(businessId))) return []
+  const { data } = await supabase.from('resource_services').select('resource_id, service_id').eq('business_id', businessId)
+  return data ?? []
+}
+
+export async function setProfessionalServices(businessId: string, resourceId: string, serviceIds: string[]): Promise<string | null> {
+  if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
+  const { data, error } = await supabase.from('resource_services').select('service_id').eq('resource_id', resourceId)
+  if (error) return error.message
+  const current = new Set((data ?? []).map(row => row.service_id as string))
+  const wanted = new Set(serviceIds)
+  const toAdd = serviceIds.filter(id => !current.has(id))
+  const toRemove = [...current].filter(id => !wanted.has(id))
+  if (toAdd.length > 0) {
+    const { error: addError } = await supabase.from('resource_services')
+      .insert(toAdd.map(serviceId => ({ resource_id: resourceId, service_id: serviceId, business_id: businessId })))
+    if (addError) return addError.message
+  }
+  if (toRemove.length > 0) {
+    const { error: removeError } = await supabase.from('resource_services')
+      .delete().eq('resource_id', resourceId).in('service_id', toRemove)
+    if (removeError) return removeError.message
+  }
+  return null
 }
 
 export async function getAvailability(businessId: string, resourceId: string): Promise<Set<string>> {

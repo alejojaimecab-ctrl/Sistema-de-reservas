@@ -10,7 +10,7 @@ import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
   listAgendaReservations, listReservationServices, listReservations, listServices, updateBusiness, updateReservationStatus, updateService,
-  listProfessionals, type DashboardStats, type Professional, type Reservation, type Service,
+  listProfessionals, listResourceServices, type DashboardStats, type Professional, type Reservation, type ResourceService, type Service,
 } from '../lib/db'
 
 type OwnerDashboardProps = { onExit: () => void }
@@ -367,6 +367,7 @@ function ManualReservationForm({
   const [services, setServices] = useState<Service[]>([])
   const [serviceId, setServiceId] = useState('')
   const [resourceId, setResourceId] = useState('') // '' = cualquier profesional
+  const [offers, setOffers] = useState<ResourceService[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -395,6 +396,17 @@ function ManualReservationForm({
     })
     return () => { active = false }
   }, [businessId])
+
+  useEffect(() => {
+    listResourceServices(businessId).then(setOffers).catch(() => setOffers([]))
+  }, [businessId])
+
+  // Solo los profesionales que ofrecen el servicio elegido
+  const serviceProfessionals = professionals.filter(p =>
+    offers.some(o => o.resource_id === p.id && o.service_id === serviceId))
+  useEffect(() => {
+    if (resourceId && !serviceProfessionals.some(p => p.id === resourceId)) setResourceId('')
+  }, [serviceProfessionals.map(p => p.id).join(','), resourceId])
 
   useEffect(() => {
     if (!serviceId || !date) {
@@ -494,11 +506,11 @@ function ManualReservationForm({
                 {services.map(service => <option key={service.id} value={service.id}>{service.name} · {service.duration_min} min · {formatPrice(Number(service.price))}</option>)}
               </select>
             </label>
-            {professionals.length > 1 && <label>
+            {serviceProfessionals.length > 1 && <label>
               <span>Profesional</span>
               <select value={resourceId} onChange={event => setResourceId(event.target.value)}>
                 <option value="">Cualquiera disponible</option>
-                {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {serviceProfessionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>}
             <label>

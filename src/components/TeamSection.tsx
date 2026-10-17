@@ -7,7 +7,10 @@ import {
   type AvailabilityDay,
   type AvailabilityMap,
 } from './AvailabilityEditor'
-import { createProfessional, getAvailability, setAvailability, updateProfessional, type Professional } from '../lib/db'
+import {
+  createProfessional, getAvailability, listResourceServices, listServices, setAvailability,
+  setProfessionalServices, updateProfessional, type Professional, type Service,
+} from '../lib/db'
 
 export function TeamSection({ businessId, days, professionals, onChanged }: {
   businessId: string
@@ -21,6 +24,8 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const [newName, setNewName] = useState('')
   const [name, setName] = useState('')
   const [availability, setAvailabilityMap] = useState<AvailabilityMap>(() => availabilityFromSlots(days, new Set()))
+  const [services, setServices] = useState<Service[]>([])
+  const [offered, setOffered] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -34,8 +39,17 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     setMessage(null)
     setLoading(true)
     setLoadFailed(false)
-    getAvailability(businessId, selected.id)
-      .then(slots => { if (active) setAvailabilityMap(availabilityFromSlots(days, slots)) })
+    Promise.all([
+      getAvailability(businessId, selected.id),
+      listServices(businessId),
+      listResourceServices(businessId),
+    ])
+      .then(([slots, allServices, pairs]) => {
+        if (!active) return
+        setAvailabilityMap(availabilityFromSlots(days, slots))
+        setServices(allServices.filter(service => service.is_active))
+        setOffered(new Set(pairs.filter(pair => pair.resource_id === selected.id).map(pair => pair.service_id)))
+      })
       .catch(() => {
         if (!active) return
         setLoadFailed(true)
@@ -66,10 +80,30 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     setBusy(true)
     setMessage(null)
     const nameError = name.trim() !== selected.name ? await updateProfessional(selected.id, { name }) : null
-    const error = nameError ?? await setAvailability(businessId, selected.id, availabilitySlotsFromMap(availability))
+    const availabilityError = nameError ?? await setAvailability(businessId, selected.id, availabilitySlotsFromMap(availability))
+    const error = availabilityError ?? await setProfessionalServices(businessId, selected.id, [...offered])
     if (!error) await onChanged()
     setBusy(false)
     setMessage(error ?? 'Cambios guardados ✓')
+  }
+
+  async function copyHoursFrom(otherId: string) {
+    if (!otherId) return
+    setMessage(null)
+    try {
+      setAvailabilityMap(availabilityFromSlots(days, await getAvailability(businessId, otherId)))
+      setMessage('Horarios copiados. Revisalos y tocá "Guardar cambios".')
+    } catch {
+      setMessage('No pudimos copiar los horarios. Probá de nuevo.')
+    }
+  }
+
+  function toggleService(serviceId: string) {
+    setOffered(current => {
+      const next = new Set(current)
+      if (!next.delete(serviceId)) next.add(serviceId)
+      return next
+    })
   }
 
   async function toggleActive() {
@@ -106,7 +140,23 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       <label className="onboarding-field">Nombre
         <input value={name} onChange={e => setName(e.target.value)} />
       </label>
+      <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece {selected.name}</p>
+      {services.length === 0
+        ? <p className="form-note">Primero cargá tus servicios en la sección Servicios.</p>
+        : <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', margin: '8px 0 4px' }}>
+          {services.map(service => <label key={service.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            <input type="checkbox" checked={offered.has(service.id)} onChange={() => toggleService(service.id)} />
+            {service.name}
+          </label>)}
+        </div>}
+      {offered.size === 0 && services.length > 0 && <p className="form-note">Sin servicios asignados, nadie va a poder reservar con {selected.name}.</p>}
       <p className="eyebrow" style={{ marginTop: 20 }}>Horarios de {selected.name}</p>
+      {professionals.length > 1 && <label className="onboarding-field" style={{ marginBottom: 8 }}>Copiar los horarios de
+        <select value="" onChange={e => void copyHoursFrom(e.target.value)}>
+          <option value="">Elegí un profesional…</option>
+          {professionals.filter(p => p.id !== selected.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </label>}
       {loading && <p className="form-note" role="status">Cargando horarios…</p>}
       <AvailabilityEditor days={days} availability={availability} onChange={setAvailabilityMap} />
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
