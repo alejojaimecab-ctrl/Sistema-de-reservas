@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Brush, CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, formatPrice } from '../data/demo'
-import { bookPublic, getPublicBusiness, getPublicSlots, listPublicServices, type PublicBusiness, type PublicService } from '../lib/db'
+import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService } from '../lib/db'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
 
@@ -14,6 +14,7 @@ const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 
 const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio' }
+const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín' }, { id: 'demo-2', name: 'Sofía' }]
 const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
   id,
   business_slug: demoBusiness.slug,
@@ -36,6 +37,9 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [services, setServices] = useState<PublicService[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
   const [service, setService] = useState<PublicService | null>(null)
+  const [professionals, setProfessionals] = useState<PublicProfessional[]>([])
+  const [professionalId, setProfessionalId] = useState('') // '' = cualquiera
+  const [bookedWith, setBookedWith] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [dateIndex, setDateIndex] = useState(0)
@@ -65,6 +69,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       if (demo) {
         setBusiness(demoBusiness)
         setServices(previewServices)
+        setProfessionals(demoProfessionals)
         setService(previewServices[0] ?? null)
         setLoadingServices(false)
         return
@@ -78,8 +83,11 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         const { services: svcs, failed: servicesFailed } = await listPublicServices(biz.slug)
         if (cancelled) return
         if (servicesFailed) { setLoadFailed(true); setLoadingServices(false); return }
+        const { professionals: team } = await listPublicProfessionals(biz.slug)
+        if (cancelled) return
         setServices(svcs)
         setService(svcs[0] ?? null)
+        setProfessionals(team)
       }
       setLoadingServices(false)
     })()
@@ -99,14 +107,14 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     setLoadingSlots(true)
     setTime('')
     setSlotsFailed(false)
-    getPublicSlots(business.slug, service.id, date).then(({ slots: found, failed }) => {
+    getPublicSlots(business.slug, service.id, date, professionalId || null).then(({ slots: found, failed }) => {
       if (cancelled) return
       setSlots(found)
       setSlotsFailed(failed)
       setLoadingSlots(false)
     })
     return () => { cancelled = true }
-  }, [business, service, date, slotsRetry, demo])
+  }, [business, service, professionalId, date, slotsRetry, demo])
 
   const save = async () => {
     if (!time || !business || !service || !name.trim() || !email.trim()) return
@@ -117,15 +125,17 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       setCompleted(true)
       return
     }
-    const { error: bookError } = await bookPublic({
+    const { professionalName, error: bookError } = await bookPublic({
       slug: business.slug,
       serviceId: service.id,
       startsAt: time,
       name: name.trim(),
       email: email.trim(),
+      resourceId: professionalId || null,
     })
     setSaving(false)
     if (bookError) { setError(bookError); return }
+    setBookedWith(professionalName)
     setCompleted(true)
   }
 
@@ -170,7 +180,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       <span className="success-icon"><Check size={34} strokeWidth={2.5} /></span>
       <p className="eyebrow">{demo ? 'Vista previa' : 'Reserva confirmada'}</p><h1>{demo ? `Así se vería tu reserva, ${name.trim().split(' ')[0]}.` : `Todo listo, ${name.trim().split(' ')[0]}.`}</h1>
       <p className="success-copy">{demo ? 'Este es el último paso de la demostración. No se creó ningún turno real.' : <>Tu turno en {business.name} quedó reservado para el <strong>{fullDayLabel(date)}</strong> a las <strong>{timeLabel(time)}</strong>.</>}</p>
-      <div className="booking-receipt"><span>{service.name}</span><strong>{formatPrice(service.price)}</strong><span>{service.duration_min} minutos</span><span>{demo ? 'Solo demostración' : 'Confirmada'}</span></div>
+      <div className="booking-receipt"><span>{service.name}</span><strong>{formatPrice(service.price)}</strong><span>{service.duration_min} minutos</span>{(bookedWith || professionals.find(p => p.id === professionalId)) && <span>Con {bookedWith ?? professionals.find(p => p.id === professionalId)?.name}</span>}<span>{demo ? 'Solo demostración' : 'Confirmada'}</span></div>
       {demo
         ? <p className="success-note"><CirclePlay size={15} /> No se guardó en la agenda del negocio.</p>
         : <p className="success-note"><Mail size={15} /> La reserva quedó asociada a tu correo.</p>}
@@ -192,6 +202,11 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2><p className="section-description">El precio y la duración son claros desde el inicio.</p>
             <div className="service-list">{services.map((item, i) => { const Icon = serviceIcons[i % serviceIcons.length]; return <button type="button" className={`service-option ${service?.id === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => setService(item)}><span className="service-icon"><Icon size={19} /></span><span><strong>{item.name}</strong><small>{item.duration_min} min</small></span><b>{formatPrice(item.price)}</b></button> })}</div>
+            {professionals.length > 1 && <><p className="section-description">¿Con quién querés atenderte?</p>
+            <div className="service-list">
+              <button type="button" className={`service-option ${professionalId === '' ? 'is-selected' : ''}`} onClick={() => setProfessionalId('')}><span className="service-icon"><UserRound size={19} /></span><span><strong>Cualquiera</strong><small>El primero que esté libre</small></span></button>
+              {professionals.map(p => <button type="button" key={p.id} className={`service-option ${professionalId === p.id ? 'is-selected' : ''}`} onClick={() => setProfessionalId(p.id)}><span className="service-icon"><UserRound size={19} /></span><span><strong>{p.name}</strong></span></button>)}
+            </div></>}
             <button className="button button--primary button--full" disabled={!service} onClick={() => setStep(2)}>Continuar <ChevronRight size={18} /></button>
           </motion.div>}
           {step === 2 && <motion.div key="schedule" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
@@ -214,7 +229,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           {step === 3 && service && <motion.form key="review" onSubmit={event => { event.preventDefault(); void save() }} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
             <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
-            <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div><div className="review-total"><span>Total</span><strong>{formatPrice(service.price)}</strong></div></div>
+            <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && <div><span>Profesional</span><strong>{professionals.find(p => p.id === professionalId)?.name ?? 'El primero disponible'}</strong></div>}<div className="review-total"><span>Total</span><strong>{formatPrice(service.price)}</strong></div></div>
             <button type="submit" className="button button--primary button--full" disabled={saving}>{saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
               ? <p className="form-note" role="alert">{error}</p>

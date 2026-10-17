@@ -5,23 +5,18 @@ import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { bookingUrl, slugify } from '../lib/routes'
+import { TeamSection } from './TeamSection'
+import type { AvailabilityDay } from './AvailabilityEditor'
 import {
-  AvailabilityEditor,
-  availabilityFromSlots,
-  availabilitySlotsFromMap,
-  type AvailabilityDay,
-  type AvailabilityMap,
-} from './AvailabilityEditor'
-import {
-  createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getAvailability, getDashboardStats, getPublicSlots,
-  listAgendaReservations, listReservationServices, listReservations, listServices, setAvailability, updateBusiness, updateReservationStatus, updateService,
-  type DashboardStats, type Reservation, type Service,
+  createBusiness, createBusinessWithSetup, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
+  listAgendaReservations, listReservationServices, listReservations, listServices, updateBusiness, updateReservationStatus, updateService,
+  listProfessionals, type DashboardStats, type Professional, type Reservation, type Service,
 } from '../lib/db'
 
 type OwnerDashboardProps = { onExit: () => void }
 
-const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Configuración']
-const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, Settings2]
+const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Equipo', 'Configuración']
+const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, UserRound, Settings2]
 
 const days: AvailabilityDay[] = [
   { id: '1', name: 'Lunes' }, { id: '2', name: 'Martes' }, { id: '3', name: 'Miércoles' },
@@ -53,9 +48,15 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [agendaError, setAgendaError] = useState<string | null>(null)
   const [showNewReservation, setShowNewReservation] = useState(false)
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
+  const [professionals, setProfessionals] = useState<Professional[]>([])
+  const activeProfessionals = professionals.filter(p => p.is_active)
+  const reloadProfessionals = async () => {
+    if (business) setProfessionals(await listProfessionals(business.id))
+  }
 
   useEffect(() => {
     if (!business) return
+    void reloadProfessionals()
     getDashboardStats(business.id).then(setStats)
     listReservations(business.id).then(setReservations)
     let active = true
@@ -120,13 +121,14 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         </section>
         <section className="dashboard-grid"><div className="agenda-card">
           <div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations} />
+          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} />
         </div></section>
       </>}
 
       {active === 'Agenda' && (
         <AgendaCalendar
           reservations={upcomingReservations}
+          showProfessional={activeProfessionals.length > 1}
           loading={agendaLoading}
           error={agendaError}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
@@ -141,6 +143,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           {showNewReservation && <ManualReservationForm
             businessId={business.id}
             businessSlug={business.slug}
+            professionals={activeProfessionals}
             onCancel={() => setShowNewReservation(false)}
             onCreated={reservation => {
               setReservations(current => [...current, reservation].sort((a, b) =>
@@ -155,11 +158,12 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             }}
           />}
           {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
-          <ReservationList reservations={reservations} />
+          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} />
         </section>
       )}
 
       {active === 'Servicios' && <ServicesSection businessId={business.id} />}
+      {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
     </main>
   </div>
@@ -312,7 +316,7 @@ function CreateBusinessCard() {
   </section>
 }
 
-function ReservationList({ reservations }: { reservations: Reservation[] }) {
+function ReservationList({ reservations, showProfessional }: { reservations: Reservation[]; showProfessional: boolean }) {
   if (reservations.length === 0) {
     return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
@@ -323,7 +327,7 @@ function ReservationList({ reservations }: { reservations: Reservation[] }) {
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
       <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
       <span className={`avatar avatar--${colors[index % colors.length]}`}>{initials(clientName)}</span>
-      <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}</small></span>
+      <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
       <button aria-label={`Acciones para ${clientName}`}><Ellipsis size={19} /></button>
     </motion.div>
@@ -333,16 +337,19 @@ function ReservationList({ reservations }: { reservations: Reservation[] }) {
 function ManualReservationForm({
   businessId,
   businessSlug,
+  professionals,
   onCancel,
   onCreated,
 }: {
   businessId: string
   businessSlug: string
+  professionals: Professional[]
   onCancel: () => void
   onCreated: (reservation: Reservation) => void
 }) {
   const [services, setServices] = useState<Service[]>([])
   const [serviceId, setServiceId] = useState('')
+  const [resourceId, setResourceId] = useState('') // '' = cualquier profesional
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -383,7 +390,7 @@ function ManualReservationForm({
     setLoadingSlots(true)
     setSlotsFailed(false)
     setStartsAt('')
-    getPublicSlots(businessSlug, serviceId, new Date(`${date}T12:00:00`))
+    getPublicSlots(businessSlug, serviceId, new Date(`${date}T12:00:00`), resourceId || null)
       .then(result => {
         if (!active) return
         setSlots(result.slots)
@@ -399,7 +406,7 @@ function ManualReservationForm({
         if (active) setLoadingSlots(false)
       })
     return () => { active = false }
-  }, [businessSlug, serviceId, date, retrySlots])
+  }, [businessSlug, serviceId, resourceId, date, retrySlots])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -415,6 +422,7 @@ function ManualReservationForm({
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
+        resourceId: resourceId || null,
       })
       if (result.error || !result.id) {
         setError(result.error ?? 'No pudimos guardar la reserva.')
@@ -426,6 +434,7 @@ function ManualReservationForm({
         status: 'confirmed',
         clients: { name: name.trim() },
         services: { name: selectedService.name, price: selectedService.price },
+        resources: professionals.find(p => p.id === resourceId) ? { name: professionals.find(p => p.id === resourceId)!.name } : null,
       })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'No pudimos guardar la reserva.')
@@ -468,6 +477,13 @@ function ManualReservationForm({
                 {services.map(service => <option key={service.id} value={service.id}>{service.name} · {service.duration_min} min · {formatPrice(Number(service.price))}</option>)}
               </select>
             </label>
+            {professionals.length > 1 && <label>
+              <span>Profesional</span>
+              <select value={resourceId} onChange={event => setResourceId(event.target.value)}>
+                <option value="">Cualquiera disponible</option>
+                {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>}
             <label>
               <span>Fecha</span>
               <input type="date" required min={localDateInputValue(new Date())} value={date} onChange={event => setDate(event.target.value)} />
@@ -546,8 +562,9 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, loading, error, onStatusChange }: {
   reservations: Reservation[]
+  showProfessional: boolean
   loading: boolean
   error: string | null
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed'>) => void
@@ -705,7 +722,7 @@ function AgendaCalendar({ reservations, loading, error, onStatusChange }: {
                       <span className="calendar-appointment-marker" aria-hidden="true" />
                       <div>
                         <strong>{clientName}</strong>
-                        <span>{reservation.services?.name ?? 'Servicio'}</span>
+                        <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
                       </div>
                       {reservation.services && <b>{formatPrice(Number(reservation.services.price))}</b>}
                       <button
@@ -845,39 +862,15 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const { business } = useAuth()
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
-  const [availability, setAvailabilityMap] = useState<AvailabilityMap>(() => availabilityFromSlots(days, new Set()))
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [loadingAvailability, setLoadingAvailability] = useState(true)
-  const [availabilityLoadFailed, setAvailabilityLoadFailed] = useState(false)
-
-  useEffect(() => {
-    let active = true
-    setLoadingAvailability(true)
-    setAvailabilityLoadFailed(false)
-    getAvailability(businessId)
-      .then(slots => {
-        if (active) setAvailabilityMap(availabilityFromSlots(days, slots))
-      })
-      .catch(loadError => {
-        if (!active) return
-        setAvailabilityLoadFailed(true)
-        setMessage(`No pudimos cargar los horarios: ${loadError instanceof Error ? loadError.message : 'error inesperado'}. Recargá la página para volver a intentar.`)
-      })
-      .finally(() => {
-        if (active) setLoadingAvailability(false)
-      })
-    return () => { active = false }
-  }, [businessId])
 
   async function save() {
-    if (loadingAvailability || availabilityLoadFailed) return
     setBusy(true)
     setMessage(null)
-    const bizError = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug) })
-    const avError = bizError ?? await setAvailability(businessId, availabilitySlotsFromMap(availability))
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug) })
     setBusy(false)
-    if (avError) { setMessage(avError.includes('duplicate') ? 'Ese enlace ya está en uso.' : avError); return }
+    if (error) { setMessage(error.includes('duplicate') ? 'Ese enlace ya está en uso.' : error); return }
     await onSaved()
     setMessage('Cambios guardados ✓')
   }
@@ -888,14 +881,12 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
       <input value={name} onChange={e => setName(e.target.value)} />
     </label>
     <label className="onboarding-field">Tu enlace de RESER
-      <div className="url-field"><span>reser.com.ar/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
+      <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
     </label>
-    <p className="eyebrow" style={{ marginTop: 20 }}>Disponibilidad</p>
-    {loadingAvailability && <p className="form-note" role="status">Cargando tus horarios…</p>}
-    <AvailabilityEditor days={days} availability={availability} onChange={setAvailabilityMap} />
+    <p className="form-note">Los horarios se editan en la sección Equipo.</p>
     {message && <p className="form-note">{message}</p>}
-    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy || loadingAvailability || availabilityLoadFailed} onClick={() => void save()}>
-      {busy ? 'Guardando…' : loadingAvailability ? 'Cargando horarios…' : 'Guardar cambios'}
+    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
+      {busy ? 'Guardando…' : 'Guardar cambios'}
     </button>
   </section>
 }
