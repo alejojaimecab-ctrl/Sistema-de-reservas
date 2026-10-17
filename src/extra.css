@@ -290,3 +290,18 @@
 .service-options select { height: 34px; min-width: 190px; padding: 0 10px; color: #dcecf1; background: #13232b; border: 1px solid #28414c; border-radius: 8px; font-size: 12px; }
 .service-options select:focus-visible { outline: 2px solid #60d7ff; outline-offset: 2px; }
 .service-options small { flex: 1 1 100%; color: #7f9aa5; font-size: 11px; }
+/* Pantalla de reserva confirmada */
+.success-badge { position: relative; width: 132px; height: 132px; margin: -6px auto 14px; }
+.success-badge svg { position: absolute; inset: 0; overflow: visible; filter: drop-shadow(0 0 18px #6ce6bb40); }
+.success-badge .halo { position: absolute; inset: -18px; border-radius: 50%; background: radial-gradient(circle, #6ce6bb33 0, #7be5ff14 45%, transparent 70%); }
+.success-badge .ripple { position: absolute; left: 50%; top: 50%; width: 88px; height: 88px; margin: -44px 0 0 -44px; border: 2px solid #6ce6bb; border-radius: 50%; }
+.success-badge .particle { position: absolute; left: 50%; top: 50%; border-radius: 50%; }
+.eyebrow--ok { color: #6ce6bb; }
+.booking-success .success-notes { display: grid; gap: 10px; justify-items: center; margin: 0 0 6px; }
+.booking-success .success-note { display: flex; align-items: flex-start; gap: 8px; max-width: 100%; margin: 0; text-align: left; font-size: 11.5px; line-height: 1.55; color: #9db6c0; }
+.booking-success .success-note svg { flex: 0 0 auto; margin-top: 2px; color: #7ce1fb; }
+.booking-success .success-note a { color: #8fdcf5; text-decoration: underline; text-underline-offset: 3px; }
+.booking-success .success-note a:hover { color: #d7f3fb; }
+.success-actions { display: grid; gap: 14px; margin-top: 28px; }
+.success-actions .button { width: 100%; justify-content: center; text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .success-badge .halo { display: none; } }

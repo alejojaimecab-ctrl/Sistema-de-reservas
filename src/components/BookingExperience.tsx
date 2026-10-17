@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Brush, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
 import { demoServices, priceLabel } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
+import { SuccessCheck } from './SuccessCheck'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
@@ -14,6 +15,13 @@ const fullDayLabel = (d: Date) =>
   d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+// Entrada escalonada de la pantalla de reserva confirmada (arranca cuando termina el tilde)
+const successStagger = { hidden: {}, show: { transition: { delayChildren: 0.7, staggerChildren: 0.09 } } }
+const successRise = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
+}
 
 const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60, phone: null, address: null, logo_path: null }
 const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín', whatsapp: null }, { id: 'demo-2', name: 'Sofía', whatsapp: null }]
@@ -60,6 +68,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [slotsFailed, setSlotsFailed] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [slotsRetry, setSlotsRetry] = useState(0)
+  const reduceMotion = useReducedMotion()
 
   // Ventana de 5 días; weekOffset la desplaza de a 5 días hacia adelante/atrás
   const dates = useMemo(() => Array.from({ length: 5 }, (_, i) => {
@@ -212,18 +221,24 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
 
   if (completed && service) return <section className="booking-shell booking-shell--success">
     <motion.div className="booking-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 190, damping: 20 }}>
-      <motion.div className="success-orbit" animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}><span /></motion.div>
-      <span className="success-icon"><Check size={34} strokeWidth={2.5} /></span>
-      <p className="eyebrow">{demo ? 'Vista previa' : 'Reserva confirmada'}</p><h1>{demo ? `Así se vería tu reserva, ${name.trim().split(' ')[0]}.` : `Todo listo, ${name.trim().split(' ')[0]}.`}</h1>
-      <p className="success-copy">{demo ? 'Este es el último paso de la demostración. No se creó ningún turno real.' : <>Tu turno en {business.name} quedó reservado para el <strong>{fullDayLabel(date)}</strong> a las <strong>{timeLabel(time)}</strong>.</>}</p>
-      <div className="booking-receipt"><span>{service.name}</span><strong>{priceLabel(service.price, service.price_mode)}</strong><span>{service.duration_min} minutos</span>{professionals.length > 1 && bookedWith && <span>Con {bookedWith}</span>}<span>{demo ? 'Solo demostración' : 'Confirmada'}</span></div>
-      {demo
-        ? <p className="success-note"><CirclePlay size={15} /> No se guardó en la agenda del negocio.</p>
-        : <p className="success-note"><Mail size={15} /> La reserva quedó asociada a tu correo.</p>}
-      {!demo && business.address && <p className="success-note"><MapPin size={15} /> Te esperamos en {business.address}.</p>}
-      {!demo && cancelToken && <p className="success-note"><Mail size={15} /> Si no podés asistir, cancelá desde <a href={cancelUrl(cancelToken)}>este enlace</a>{business.cancel_min_hours > 0 ? ` (hasta ${business.cancel_min_hours} hs antes)` : ''}. Guardalo.</p>}
-      {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
-      <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
+      <SuccessCheck />
+      <motion.div variants={successStagger} initial={reduceMotion ? 'show' : 'hidden'} animate="show">
+        <motion.p variants={successRise} className="eyebrow eyebrow--ok">{demo ? 'Vista previa' : 'Reserva confirmada'}</motion.p>
+        <motion.h1 variants={successRise}>{demo ? `Así se vería tu reserva, ${name.trim().split(' ')[0]}.` : `Todo listo, ${name.trim().split(' ')[0]}.`}</motion.h1>
+        <motion.p variants={successRise} className="success-copy">{demo ? 'Este es el último paso de la demostración. No se creó ningún turno real.' : <>Tu turno en {business.name} quedó reservado para el <strong>{fullDayLabel(date)}</strong> a las <strong>{timeLabel(time)}</strong>.</>}</motion.p>
+        <motion.div variants={successRise} className="booking-receipt"><span>{service.name}</span><strong>{priceLabel(service.price, service.price_mode)}</strong><span>{service.duration_min} minutos</span>{professionals.length > 1 && bookedWith && <span>Con {bookedWith}</span>}<span>{demo ? 'Solo demostración' : 'Confirmada'}</span></motion.div>
+        <motion.div variants={successRise} className="success-notes">
+          {demo
+            ? <p className="success-note"><CirclePlay size={15} /> <span>No se guardó en la agenda del negocio.</span></p>
+            : <p className="success-note"><Mail size={15} /> <span>La reserva quedó asociada a tu correo.</span></p>}
+          {!demo && business.address && <p className="success-note"><MapPin size={15} /> <span>Te esperamos en {business.address}.</span></p>}
+          {!demo && cancelToken && <p className="success-note"><Mail size={15} /> <span>Si no podés asistir, cancelá desde <a href={cancelUrl(cancelToken)}>este enlace</a>{business.cancel_min_hours > 0 ? ` (hasta ${business.cancel_min_hours} hs antes)` : ''}. Guardalo.</span></p>}
+        </motion.div>
+        <motion.div variants={successRise} className="success-actions">
+          {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
+          <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
+        </motion.div>
+      </motion.div>
     </motion.div>
   </section>
 
