@@ -190,7 +190,13 @@
 .calendar-day-events, .calendar-month-events { display: grid; align-content: start; gap: 4px; min-width: 0; }
 .calendar-week-event { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 4px 5px; color: #bfeeff; background: #163b49; border: 1px solid #255568; border-radius: 5px; font-size: 9px; line-height: 1.2; }
 .calendar-week-event.is-completed, .calendar-month-event.is-completed { color: #b9f3d9; background: #16372f; border-color: #2a604d; }
+.calendar-week-event.is-noshow, .calendar-month-event.is-noshow { color: #ffd2d6; background: #3a1d22; border-color: #7a3a45; }
 .calendar-week-event time { flex: 0 0 auto; color: #83dbf3; font-variant-numeric: tabular-nums; }
+.calendar-week-event.is-completed time { color: #8be9c0; }
+.calendar-week-event.is-noshow time { color: #f5a3ac; }
+.calendar-completed-count, .calendar-noshow-count { padding: 1px 4px; font-size: 8px; font-weight: 700; }
+.calendar-completed-count { color: #8be9c0; }
+.calendar-noshow-count { color: #f5a3ac; }
 .calendar-week-event > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-free { padding: 3px 2px; color: #6f8994; font-size: 9px; }
 .calendar-month-events { gap: 3px; }

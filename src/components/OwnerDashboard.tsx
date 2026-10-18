@@ -715,6 +715,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                 const key = dateKey(date)
                 const dayReservations = reservationsByDate.get(key) ?? []
                 const completedCount = dayReservations.filter(reservation => reservation.status === 'completed').length
+                const noShowCount = dayReservations.filter(reservation => reservation.status === 'no_show').length
                 const isCurrentMonth = date.getMonth() === selectedDate.getMonth()
                 const isSelected = key === dateKey(selectedDate)
                 const isToday = key === dateKey(today)
@@ -725,7 +726,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                     key={key}
                     className={`calendar-day${isCurrentMonth ? '' : ' is-outside'}${isSelected ? ' is-selected' : ''}${isToday ? ' is-today' : ''}${dayReservations.length ? ' has-reservations' : ''}`}
                     aria-pressed={isSelected}
-                    aria-label={`${date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${dayReservations.length} ${dayReservations.length === 1 ? 'turno' : 'turnos'}${completedCount ? `, ${completedCount} atendidos` : ''}`}
+                    aria-label={`${date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${dayReservations.length} ${dayReservations.length === 1 ? 'turno' : 'turnos'}${completedCount ? `, ${completedCount} atendidos` : ''}${noShowCount ? `, ${noShowCount} no vinieron` : ''}`}
                     onClick={() => setSelectedDate(date)}
                   >
                     {mode === 'week' && <span className="calendar-day-weekday">{date.toLocaleDateString('es-AR', { weekday: 'short' })}</span>}
@@ -733,19 +734,20 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                     {mode === 'week' ? (
                       <span className="calendar-day-events">
                         {dayReservations.slice(0, 3).map(reservation => (
-                          <span className={`calendar-week-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
+                          <span className={`calendar-week-event${reservation.status === 'completed' ? ' is-completed' : ''}${reservation.status === 'no_show' ? ' is-noshow' : ''}`} key={reservation.id}>
                             <time>{new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
                             <span>{reservation.clients?.name ?? 'Cliente'}</span>
                           </span>
                         ))}
                         {dayReservations.length > 3 && <span className="calendar-more">+{dayReservations.length - 3} más</span>}
                         {dayReservations.length === 0 && <span className="calendar-free">Libre</span>}
-                        {completedCount > 0 && <span className="calendar-completed-count">{completedCount} atendidos</span>}
+                        {completedCount > 0 && <span className="calendar-completed-count">{completedCount} {completedCount === 1 ? 'atendido' : 'atendidos'}</span>}
+                        {noShowCount > 0 && <span className="calendar-noshow-count">{noShowCount} no vino</span>}
                       </span>
                     ) : (
                       <span className="calendar-month-events">
                         {dayReservations.slice(0, 2).map(reservation => (
-                          <span className={`calendar-month-event${reservation.status === 'completed' ? ' is-completed' : ''}`} key={reservation.id}>
+                          <span className={`calendar-month-event${reservation.status === 'completed' ? ' is-completed' : ''}${reservation.status === 'no_show' ? ' is-noshow' : ''}`} key={reservation.id}>
                             {new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}
                             <span>{reservation.clients?.name ?? 'Cliente'}</span>
                           </span>
