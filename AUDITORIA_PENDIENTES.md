@@ -71,17 +71,23 @@ Solo se encontraron dos (de más de 100):
 - Código muerto: estilos de componentes ya eliminados (`insight-card`, `activity-card`, `activity-event`,
   `proof-avatars`, `success-orbit`), import `Ellipsis` sin uso.
 
-## 6. Avisos de Supabase
-Seguridad:
-- 4 vistas `public_*` marcadas "SECURITY DEFINER" (nivel ERROR del linter): son **intencionales** (permiten leer
-  solo las columnas públicas sin dar acceso a las tablas); documentar o migrar.
-- 12 funciones (triggers) ejecutables por `anon` y 14 por `authenticated` vía RPC: no son invocables en la práctica
-  (son triggers), pero conviene `revoke execute`.
-- `stamp_reservation_cancelled` sin `search_path` fijo.
-- Extensiones `btree_gist` y `pg_net` en el esquema `public`.
-- Protección contra contraseñas filtradas desactivada (Auth; suele requerir plan Pro).
-Rendimiento (irrelevante hoy, importa con volumen):
-- 9 políticas RLS evalúan `auth.uid()` por fila (usar `(select auth.uid())`), 5 claves foráneas sin índice, 2 índices sin uso.
+## 6. Avisos de Supabase (limpiados el 2026-10-18, migraciones 027 y 028)
+Resuelto: se quitó el acceso por API a las funciones de disparador, se fijó el `search_path` de
+`stamp_reservation_cancelled`, `btree_gist` y `pg_net` salieron del esquema `public`, las 9 políticas RLS usan
+`(select auth.uid())` y se agregaron los 4 índices de claves foráneas que faltaban. Se probó con los roles reales
+(dueño y visitante anónimo): reservas públicas, reservas del dueño, cancelaciones, disparadores y envío de mails siguen
+funcionando.
+
+Lo que queda, y **es intencional o no se puede resolver desde el código**:
+- 4 vistas `public_*` "SECURITY DEFINER" (nivel ERROR del linter): dan a los visitantes solo las columnas públicas sin
+  abrirles las tablas. Documentado con `comment on view`. Cambiarlas obligaría a reemplazarlas por funciones.
+- 4 funciones ejecutables por visitantes (`book_public`, `public_slots`, `get_reservation_by_token`,
+  `cancel_reservation_by_token`) y 2 más por usuarios con sesión (`create_owner_reservation`,
+  `cancel_reservation_owner`): son la API de la app y validan todo adentro.
+- `app_config` y `book_rate_log` con RLS y sin políticas: a propósito (solo las toca el servidor).
+- **Protección contra contraseñas filtradas desactivada**: se activa en el panel de Supabase (Authentication → Sign In /
+  Providers → Password security); en general requiere plan Pro. No se puede hacer por código.
+- "Índices sin uso" (informativo): normal con tan poco tráfico; no se borran.
 
 ## Prioridad sugerida
 1. Servicios: desactivar en vez de borrar. 2. Campana: quitarla o implementarla de verdad.
