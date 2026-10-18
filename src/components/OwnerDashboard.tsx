@@ -8,6 +8,8 @@ import { bookingUrl, slugify } from '../lib/routes'
 import { Eye, EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
+import { ReservationsSection } from './ReservationsSection'
+import { useConfirm } from './ConfirmDialog'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -51,23 +53,40 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [showNewReservation, setShowNewReservation] = useState(false)
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
   const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [historyVersion, setHistoryVersion] = useState(0)
   const [cancelNotice, setCancelNotice] = useState<{ text: string; isError: boolean } | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
   const activeProfessionals = professionals.filter(p => p.is_active)
   const reloadProfessionals = async () => {
     if (business) setProfessionals(await listProfessionals(business.id))
   }
 
-  async function cancelReservation(reservation: Reservation) {
-    if (!business) return
+  // true si se canceló (la sección Reservas lo usa para actualizar su lista)
+  async function cancelReservation(reservation: Reservation): Promise<boolean> {
+    if (!business) return false
     const who = reservation.clients?.name ?? 'el cliente'
-    if (!window.confirm(`¿Cancelar el turno de ${who}? El horario va a quedar libre.`)) return
+    const accepted = await confirm({
+      title: `¿Cancelar el turno de ${who}?`,
+      message: 'El horario va a quedar libre y se le avisa por mail.',
+      confirmLabel: 'Sí, cancelar turno',
+      cancelLabel: 'No, mantenerlo',
+      danger: true,
+    })
+    if (!accepted) return false
     setCancelNotice(null)
     const cancelError = await cancelOwnerReservation(reservation.id)
-    if (cancelError) { setCancelNotice({ text: `No pudimos cancelar el turno: ${cancelError}`, isError: true }); return }
+    if (cancelError) { setCancelNotice({ text: `No pudimos cancelar el turno: ${cancelError}`, isError: true }); return false }
     setUpcomingReservations(current => current.filter(item => item.id !== reservation.id))
     void listReservations(business.id).then(setReservations)
     void getDashboardStats(business.id).then(setStats)
     setCancelNotice({ text: `Cancelaste el turno de ${who}.`, isError: false })
+    return true
+  }
+
+  // Se marcó atendida / no vino desde la sección Reservas: la Agenda y las estadísticas se ponen al día
+  function reservationStatusChanged(id: string, status: 'confirmed' | 'completed' | 'no_show') {
+    setUpcomingReservations(current => current.map(item => item.id === id ? { ...item, status } : item))
+    if (business) void getDashboardStats(business.id).then(setStats)
   }
 
   useEffect(() => {
@@ -129,6 +148,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       </header>
 
       {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
+      {confirmDialog}
 
       {active === 'Resumen' && <>
         <section className="dashboard-stats">
@@ -157,7 +177,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
       {active === 'Reservas' && (
         <section className="agenda-card">
-          <div className="card-heading"><div><p className="eyebrow">Reservas</p><h2>Próximas reservas</h2></div>{!showNewReservation && <button type="button" className="button button--primary button--small" onClick={() => { setReservationNotice(null); setShowNewReservation(true) }}><Plus size={15} /> Nueva reserva</button>}</div>
+          <div className="card-heading"><div><p className="eyebrow">Reservas</p><h2>Todas tus reservas</h2></div>{!showNewReservation && <button type="button" className="button button--primary button--small" onClick={() => { setReservationNotice(null); setShowNewReservation(true) }}><Plus size={15} /> Nueva reserva</button>}</div>
           {showNewReservation && <ManualReservationForm
             businessId={business.id}
             businessSlug={business.slug}
@@ -171,12 +191,19 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
                 new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
               ))
               setReservationNotice('La reserva se agregó correctamente.')
+              setHistoryVersion(version => version + 1)
               setShowNewReservation(false)
               void getDashboardStats(business.id).then(setStats)
             }}
           />}
           {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
-          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
+          <ReservationsSection
+            businessId={business.id}
+            professionals={professionals}
+            reloadKey={historyVersion}
+            onCancel={cancelReservation}
+            onStatusChanged={reservationStatusChanged}
+          />
         </section>
       )}
 
@@ -808,6 +835,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
   const [offers, setOffers] = useState<ResourceService[]>([])
   const [error, setError] = useState<string | null>(null)
   const shouldReduceMotion = useReducedMotion()
+  const { confirm, dialog } = useConfirm()
 
   async function reload() {
     const [loadedServices, loadedTeam, loadedOffers] = await Promise.all([
@@ -830,7 +858,14 @@ function ServicesSection({ businessId }: { businessId: string }) {
   }
 
   async function removeService(svc: Service) {
-    if (!window.confirm(`¿Eliminar "${svc.name || 'este servicio'}" para siempre? Solo se puede si todavía no tiene reservas; si las tiene, desactivalo.`)) return
+    const accepted = await confirm({
+      title: `¿Eliminar "${svc.name || 'este servicio'}" para siempre?`,
+      message: 'Solo se puede si todavía no tiene reservas; si las tiene, desactivalo.',
+      confirmLabel: 'Sí, eliminar',
+      cancelLabel: 'No, conservarlo',
+      danger: true,
+    })
+    if (!accepted) return
     setError(null)
     const err = await deleteService(svc.id)
     if (err) setError(err); else void reload()
@@ -855,6 +890,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
   }
 
   return <section className="agenda-card">
+    {dialog}
     <div className="services-heading">
       <div className="services-heading-mark"><Sparkles size={18} /></div>
       <div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div>

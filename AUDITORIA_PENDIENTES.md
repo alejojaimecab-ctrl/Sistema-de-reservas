@@ -10,6 +10,12 @@ sección, consultas a la base y los avisos de seguridad/rendimiento de Supabase.
 - **Teléfono del cliente y email opcional**: **descartado por ahora**: todo el sistema funciona por mail. Queda como
   limitación conocida que la reserva manual del dueño pide el email del cliente.
 
+- **Reservas** (punto 4): la sección ahora muestra **todas** las reservas con búsqueda (cliente, email, servicio,
+  profesional; sin importar tildes ni mayúsculas), filtros (próximas/pasadas/todas, estado, profesional, servicio),
+  paginación ("Ver más") y acciones (Atendida / No vino / Deshacer / Cancelar). Los avisos de confirmación ya no usan el
+  cuadro nativo del navegador (algunos navegadores lo descartan y el botón parecía no hacer nada): se reemplazó por
+  `ConfirmDialog` en cancelar turno, eliminar servicio y habilitar días libres.
+
 ## 1. Botones sin función
 Solo se encontraron dos (de más de 100):
 - **Campana "Notificaciones"** (`OwnerDashboard.tsx`, encabezado del panel): no hace nada. Además tiene un

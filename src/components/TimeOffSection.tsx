@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CalendarOff, X } from 'lucide-react'
 import { createTimeOff, deleteTimeOff, listTimeOff, type Professional, type TimeOff } from '../lib/db'
+import { useConfirm } from './ConfirmDialog'
 
 const parseDay = (key: string) => {
   const [y, m, d] = key.split('-').map(Number)
@@ -24,6 +25,7 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
   const [resourceId, setResourceId] = useState('') // '' = todo el negocio
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null)
+  const { confirm, dialog } = useConfirm()
 
   async function reload() {
     setItems(await listTimeOff(businessId))
@@ -59,7 +61,13 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
   }
 
   async function remove(item: TimeOff) {
-    if (!window.confirm(`¿Volver a habilitar ${rangeLabel(item)}?`)) return
+    const accepted = await confirm({
+      title: `¿Volver a habilitar ${rangeLabel(item)}?`,
+      message: 'Esos días van a poder reservarse otra vez desde tu enlace.',
+      confirmLabel: 'Sí, habilitar',
+      cancelLabel: 'No, dejarlo',
+    })
+    if (!accepted) return
     const error = await deleteTimeOff(item.id)
     if (error) { setMessage({ text: error, isError: true }); return }
     await reload()
@@ -67,6 +75,7 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
   }
 
   return <section className="agenda-card">
+    {dialog}
     <div className="card-heading"><div><p className="eyebrow">Días libres</p><h2>Feriados y vacaciones</h2></div></div>
     <p className="section-description">Los días que marques acá no aparecen en tu enlace de reservas. Sirve para feriados, vacaciones o un día que no atendés.</p>
 

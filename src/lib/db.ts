@@ -171,6 +171,43 @@ export async function listAgendaReservations(
   return { reservations, error: null }
 }
 
+// Historial completo de reservas del negocio (pasadas, futuras y canceladas) para la sección Reservas.
+export type HistoryReservation = Reservation & {
+  ends_at: string
+  cancelled_by: 'client' | 'owner' | null
+  service_id: string
+  resource_id: string
+  clients: { name: string; email: string | null } | null
+}
+
+export async function listAllReservations(
+  businessId: string,
+): Promise<{ reservations: HistoryReservation[]; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) {
+    return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
+  }
+
+  const reservations: HistoryReservation[] = []
+  const pageSize = 500
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, starts_at, ends_at, status, cancelled_by, service_id, resource_id, clients(name, email), services(name, price), resources(name)')
+      .eq('business_id', businessId)
+      .order('starts_at', { ascending: false })
+      .range(offset, offset + pageSize - 1)
+
+    if (error) return { reservations: [], error: error.message }
+
+    const page = (data ?? []) as unknown as HistoryReservation[]
+    reservations.push(...page)
+    if (page.length < pageSize) break
+  }
+
+  return { reservations, error: null }
+}
+
 export async function updateReservationStatus(
   id: string,
   status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>,
