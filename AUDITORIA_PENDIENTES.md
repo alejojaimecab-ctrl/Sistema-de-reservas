@@ -16,6 +16,19 @@ sección, consultas a la base y los avisos de seguridad/rendimiento de Supabase.
   cuadro nativo del navegador (algunos navegadores lo descartan y el botón parecía no hacer nada): se reemplazó por
   `ConfirmDialog` en cancelar turno, eliminar servicio y habilitar días libres.
 
+- **ErrorBoundary** (punto 5): si una pantalla falla ya no queda en blanco. Hay un aviso de pantalla completa para
+  toda la app ("Recargar página" / "Ir al inicio"; con texto propio cuando hay una versión nueva publicada) y uno por
+  sección dentro del panel (las demás secciones y el menú siguen funcionando; se recupera al cambiar de sección).
+  Los errores quedan en la consola del navegador: falta un servicio de monitoreo (ej. Sentry).
+- **SEO básico** (punto 5): título y descripción por página (en la página de cada negocio, con su nombre); las pantallas
+  privadas (panel, login, cancelar turno, nueva contraseña) y los negocios inexistentes llevan `noindex`; favicon,
+  ícono de iOS y de 192/512 px; imagen para compartir (`public/brand/og-image.png`); `robots.txt`; aviso si el navegador
+  no tiene JavaScript. Al compilar con `VITE_SITE_URL` se agregan además `canonical`, `og:url`, `og:image` absoluta y
+  `sitemap.xml` (ver `vite.config.js`).
+  **Para el lanzamiento:** definir `VITE_SITE_URL` (ej. `https://reser.com.ar`) en el hosting apenas haya dominio.
+  Sigue pendiente que el enlace de cada negocio muestre su nombre/imagen al compartirlo por WhatsApp (requiere
+  prerender o una función en el borde, porque esos buscadores no ejecutan JavaScript).
+
 ## 1. Botones sin función
 Solo se encontraron dos (de más de 100):
 - **Campana "Notificaciones"** (`OwnerDashboard.tsx`, encabezado del panel): no hace nada. Además tiene un

@@ -5,12 +5,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#080d13" />
-  <meta name="description" content="RESER — Sistema de reservas para negocios." />
-  <title>RESER — Sistema de reservas</title>
+  <title>RESER — Sistema de reservas online para tu negocio</title>
+  <meta name="description" content="RESER organiza los turnos de tu negocio: tus clientes reservan online desde un enlace, reciben confirmación por mail y vos ves toda la agenda en un solo lugar." />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Íconos -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Al compartir el enlace (WhatsApp, redes). og:url, og:image y canonical se agregan al compilar con VITE_SITE_URL (ver vite.config.js) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="RESER" />
+  <meta property="og:locale" content="es_AR" />
+  <meta property="og:title" content="RESER — Sistema de reservas online para tu negocio" />
+  <meta property="og:description" content="Tus clientes reservan online desde un enlace y vos ves toda tu agenda en un solo lugar." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="RESER — Sistema de reservas online para tu negocio" />
+  <meta name="twitter:description" content="Tus clientes reservan online desde un enlace y vos ves toda tu agenda en un solo lugar." />
 </head>
 
 <body>
   <div id="root"></div>
+  <noscript>
+    <p style="margin:0;padding:24px;font:16px/1.6 sans-serif;color:#e8f1f7;background:#080d13">
+      RESER necesita JavaScript para funcionar. Activalo en tu navegador para reservar un turno o administrar tu agenda.
+    </p>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

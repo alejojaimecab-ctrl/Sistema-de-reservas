@@ -6,8 +6,20 @@ import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
 import { AuthProvider, useAuth } from './lib/auth'
 import { cancelTokenFromPath, goTo, legalDocFromPath, slugFromPath } from './lib/routes'
+import { HOME_TITLE, usePageMeta, type PageMeta } from './lib/pageMeta'
 
 type View = 'home' | 'public-booking' | 'cancel' | 'legal' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
+
+// public-booking (usa el nombre del negocio) y legal (cada documento) declaran su propio título
+const PAGE_META: Partial<Record<View, PageMeta>> = {
+  home: { title: HOME_TITLE },
+  'demo-booking': { title: 'Ejemplo de reserva · RESER', noindex: true },
+  cancel: { title: 'Cancelar turno · RESER', noindex: true },
+  dashboard: { title: 'Panel · RESER', noindex: true },
+  login: { title: 'Iniciar sesión · RESER', noindex: true },
+  onboarding: { title: 'Crear mi negocio · RESER', noindex: true },
+}
+const RESET_PASSWORD_META: PageMeta = { title: 'Nueva contraseña · RESER', noindex: true }
 
 const BookingExperience = lazy(() =>
   import('./components/BookingExperience').then(module => ({ default: module.BookingExperience })),
@@ -61,6 +73,9 @@ function Root() {
   const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : publicSlug ? 'public-booking' : 'home')
   const { session, loading, recovering } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
+  // Lo que se ve depende también de la sesión: "login" con sesión muestra el panel y "dashboard" sin sesión muestra el login
+  const shownView: View = view === 'login' && session ? 'dashboard' : view === 'dashboard' && !session ? 'login' : view
+  usePageMeta(loading ? null : recovering && session ? RESET_PASSWORD_META : PAGE_META[shownView] ?? null)
 
   // Botones atrás/adelante del navegador: la URL manda sobre la vista pública.
   useEffect(() => {

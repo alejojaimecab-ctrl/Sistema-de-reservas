@@ -2,6 +2,7 @@ import { Fragment, useEffect } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { Brand } from './Brand'
 import { LEGAL, LEGAL_DOCS, type LegalDocId } from '../lib/legal'
+import { usePageMeta } from '../lib/pageMeta'
 
 // Los datos del titular que todavía no se cargaron ("COMPLETAR: ...") se resaltan.
 function withPlaceholders(text: string) {
@@ -19,11 +20,8 @@ export function LegalPage({ doc, onBack, onOpen }: {
   const content = LEGAL_DOCS[doc]
   const other: LegalDocId = doc === 'terminos' ? 'privacidad' : 'terminos'
 
-  useEffect(() => {
-    document.title = `${content.title} · RESER`
-    window.scrollTo(0, 0)
-    return () => { document.title = 'RESER — Sistema de reservas' }
-  }, [content.title])
+  usePageMeta({ title: `${content.title} · RESER`, description: content.intro })
+  useEffect(() => { window.scrollTo(0, 0) }, [content.title])
 
   return <main className="legal-page">
     <header className="legal-header">

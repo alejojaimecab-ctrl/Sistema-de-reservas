@@ -10,6 +10,7 @@ import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
 import { ReservationsSection } from './ReservationsSection'
 import { useConfirm } from './ConfirmDialog'
+import { ErrorBoundary } from './ErrorBoundary'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -150,6 +151,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
       {confirmDialog}
 
+      {/* Si una sección falla, solo ella muestra el error: el menú y el resto del panel siguen funcionando */}
+      <ErrorBoundary variant="section" resetKey={active}>
       {active === 'Resumen' && <>
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
@@ -211,6 +214,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
+      </ErrorBoundary>
     </main>
   </div>
 }

@@ -361,3 +361,13 @@
 @keyframes confirm-fade { from { opacity: 0; } }
 @keyframes confirm-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .confirm-backdrop, .confirm-dialog { animation: none; } }
+
+/* Pantalla de error (ErrorBoundary) */
+.error-screen { display: grid; place-items: center; min-height: 100vh; padding: 24px; background: radial-gradient(circle at 50% 0, #123b52 0, transparent 38%), #080d13; }
+.error-card { width: min(100%, 440px); padding: 36px 32px; text-align: center; background: #0f1b22; border: 1px solid #2c4e5c; border-radius: 18px; box-shadow: 0 30px 80px #020609; }
+.error-card img { display: block; margin: 0 auto 22px; filter: brightness(1.55); }
+.error-card h1, .error-section h2 { margin: 0 0 8px; color: #eefaff; font-size: 22px; letter-spacing: -.04em; }
+.error-card p, .error-section p { margin: 0; color: #93abb6; font-size: 13px; line-height: 1.7; }
+.error-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.error-section { text-align: center; padding: 40px 24px; }
+.error-section h2 { font-size: 18px; }

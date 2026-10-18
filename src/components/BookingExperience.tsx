@@ -7,6 +7,7 @@ import { logoUrl } from '../lib/db'
 import { SuccessCheck } from './SuccessCheck'
 import { GreenWipe } from './GreenWipe'
 import { useReduceMotion } from '../lib/motion'
+import { usePageMeta } from '../lib/pageMeta'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
@@ -75,6 +76,11 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const cardRef = useRef<HTMLDivElement>(null)
   // Transición verde al confirmar: nace en el botón, llena la tarjeta y se recoge hacia el tilde
   const [wipe, setWipe] = useState<{ x: number; y: number; phase: 'cover' | 'reveal' } | null>(null)
+
+  // La pestaña y los buscadores muestran el nombre del negocio; si no existe o no cargó, no se indexa
+  usePageMeta(demo || loadingServices ? null : business
+    ? { title: `${business.name} · Reservá tu turno`, description: `Reservá tu turno online en ${business.name}. Elegí el servicio, el profesional y el horario que te quede mejor.` }
+    : { title: 'Reservá tu turno · RESER', noindex: true })
 
   // Ventana de 5 días; weekOffset la desplaza de a 5 días hacia adelante/atrás
   const dates = useMemo(() => Array.from({ length: 5 }, (_, i) => {
