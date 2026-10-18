@@ -519,15 +519,15 @@ function ManualReservationForm({
           <div className="manual-reservation-fields">
             <label>
               <span>Nombre del cliente</span>
-              <div><UserRound size={16} /><input required autoComplete="name" value={name} onChange={event => setName(event.target.value)} /></div>
+              <div><UserRound size={16} /><input required autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></div>
             </label>
             <label>
               <span>Correo electrónico</span>
-              <div><Mail size={16} /><input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></div>
+              <div><Mail size={16} /><input required type="email" autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} /></div>
             </label>
             <label>
               <span>Teléfono <small>(opcional)</small></span>
-              <div><Phone size={16} /><input type="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} /></div>
+              <div><Phone size={16} /><input type="tel" autoComplete="off" value={phone} onChange={event => setPhone(event.target.value)} /></div>
             </label>
             <label>
               <span>Servicio</span>
