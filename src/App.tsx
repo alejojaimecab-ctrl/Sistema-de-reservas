@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
-import { ArrowRight, BellRing, CalendarCheck2, CirclePlay, Clock3, Layers3, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ArrowRight, BellRing, CalendarCheck2, ChevronRight, CirclePlay, Clock3, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
@@ -47,26 +47,29 @@ const Login = lazy(() =>
   import('./components/Login').then(module => ({ default: module.Login })),
 )
 
+// Funciones de la portada, según el diseño del dueño: etiqueta, título con serif, texto y un fragmento de la interfaz
 const features = [
-  { icon: CalendarCheck2, title: 'Agenda sin cruces', text: 'RESER muestra únicamente horarios realmente disponibles.', fragment: 'agenda' },
-  { icon: BellRing, title: 'Recordatorios que llegan', text: 'Confirmaciones y avisos para que no se te escape ningún turno.', fragment: 'mail' },
-  { icon: Layers3, title: 'Hecho para tu negocio', text: 'Servicios, precios y horarios con tu propia forma de trabajar.', fragment: 'services' },
+  { label: 'Agenda', title: 'Agenda sin cruces', text: 'RESER muestra únicamente horarios realmente disponibles.', fragment: 'agenda' },
+  { label: 'Recordatorios', title: 'Recordatorios que llegan', text: 'Confirmaciones y avisos para que no se te escape ningún turno.', fragment: 'mail' },
+  { label: 'Mis turnos', title: 'Hecho para tu negocio', text: 'Servicios, precios y horarios con tu propia forma de trabajar.', fragment: 'services' },
 ] as const
 
 // Fragmentos de la interfaz real (con datos de ejemplo) que acompañan cada función de la portada
 function FeatureFragment({ kind }: { kind: (typeof features)[number]['fragment'] }) {
   if (kind === 'agenda') return <div className="fragment fragment-agenda" aria-hidden="true">
-    {[['09:00', 'taken'], ['09:30', ''], ['10:00', 'picked'], ['10:30', 'taken'], ['11:00', ''], ['11:30', ''], ['12:00', 'taken'], ['12:30', '']].map(([time, state]) =>
-      <span key={time} className={state ? `is-${state}` : undefined}>{time}</span>)}
+    <div className="fragment-slots">
+      {['08:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30'].map(time =>
+        <span key={time} className={time === '10:00' ? 'is-picked' : undefined}>{time}</span>)}
+    </div>
     <small>Los horarios ocupados no se ofrecen</small>
   </div>
   if (kind === 'mail') return <div className="fragment fragment-mail" aria-hidden="true">
-    <div className="fragment-mail-head"><span className="mini-logo">R</span><span><strong>RESER</strong><small>Recordatorio · hace un momento</small></span></div>
+    <div className="fragment-mail-head"><span className="fragment-avatar">R</span><span><strong>RESER</strong><small>Recordatorio · hace un momento</small></span></div>
     <p><strong>Tu turno es en 1 hora</strong><span>Servicio 1 · hoy, 10:30</span></p>
   </div>
   return <div className="fragment fragment-services" aria-hidden="true">
     {[['Servicio 1', '30 min', '$ 15.000'], ['Servicio 2', '45 min', '$ 20.000'], ['Servicio 3', 'Por WhatsApp', 'A consultar']].map(([name, detail, price]) =>
-      <span key={name}><strong>{name}</strong><small>{detail}</small><b>{price}</b></span>)}
+      <span key={name}><strong>{name}</strong><small>{detail}</small><b>{price}</b><ChevronRight size={16} /></span>)}
   </div>
 }
 
@@ -198,7 +201,7 @@ function Root() {
         </div>
       </div>
     </section>
-    <section id="como-funciona" className="feature-section"><Reveal><p className="eyebrow">Pensado para que funcione solo</p><h2>Menos coordinación.<br />Más tiempo para tu trabajo.</h2></Reveal><div className="feature-grid feature-grid--bento">{features.map(({ icon: Icon, title, text, fragment }, index) => <Reveal key={title} delay={index * 0.08}><article className={`feature-card feature-card--${fragment}`}><span><Icon size={22} /></span><h3>{title}</h3><p>{text}</p><FeatureFragment kind={fragment} /></article></Reveal>)}</div></section>
+    <section id="como-funciona" className="feature-section"><Reveal><p className="eyebrow">Pensado para que funcione solo</p><h2>Menos coordinación.<br />Más tiempo para tu trabajo.</h2></Reveal><div className="feature-grid feature-grid--bento">{features.map(({ label, title, text, fragment }, index) => <Reveal key={title} delay={index * 0.08}><article className={`feature-panel feature-panel--${fragment}`}><div className="feature-panel-copy"><p className="feature-panel-label">{label}</p><h3>{title}</h3><p>{text}</p></div><FeatureFragment kind={fragment} /></article></Reveal>)}</div></section>
     <section className="cta-section"> <Reveal><div><p className="eyebrow">Tu agenda, a tu manera</p><h2>Tu negocio merece<br /><em>una mejor reserva.</em></h2><p>Configurá RESER en minutos y compartí tu enlace cuando estás listo.</p><button className="button button--primary button--large" onClick={() => setView('onboarding')}>Crear mi negocio <ArrowRight size={18} /></button></div></Reveal><span className="cta-decoration" aria-hidden="true"><CalendarCheck2 size={160} /></span></section>
     <footer><Brand compact inverse /><span>© 2026 RESER. Hecho para negocios que valoran su tiempo.<span className="site-footer-links"><a href="/terminos">Términos</a><a href="/privacidad">Privacidad</a></span></span></footer>
   </main>

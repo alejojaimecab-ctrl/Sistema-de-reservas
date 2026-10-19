@@ -1,8 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
 /* RESER Noir · tokens (ver DESIGN_UX.md) */
 :root {
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Serif editorial: solo para los títulos de los paneles de funciones de la portada (diseño del dueño) */
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --bg: #0a0a0b; --surface: #121214; --surface-2: #18181b; --surface-sel: #1f1f23; --surface-hover: #1c1c20;
   --border: #26262b; --border-hover: #3a3a41; --border-strong: #e4e4e7;
   --text: #fafafa; --text-2: #a1a1aa; --text-3: #82828b; --disabled: #3f3f46;

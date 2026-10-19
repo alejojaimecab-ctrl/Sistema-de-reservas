@@ -10,7 +10,7 @@
 ::selection { color: var(--on-accent); background: rgb(255 255 255 / .88); }
 
 /* ── Tarjetas: borde de luz (más claro arriba), brillo en la cara, grano y sombra en capas ── */
-.agenda-card, .metric, .feature-card, .booking-card, .onboarding-card, .cta-section, .confirm-dialog, .showcase-window {
+.agenda-card, .metric, .booking-card, .onboarding-card, .cta-section, .confirm-dialog, .showcase-window {
   border: 1px solid transparent;
   background:
     var(--sheen) padding-box,
@@ -20,8 +20,8 @@
     linear-gradient(var(--border), var(--border)) border-box;
   box-shadow: var(--hl), var(--elev-2);
 }
-.feature-card, .metric { transition: box-shadow .3s var(--ease-out), transform .3s var(--ease-out); }
-.feature-card:hover, .metric:hover {
+.metric { transition: box-shadow .3s var(--ease-out), transform .3s var(--ease-out); }
+.metric:hover {
   background:
     var(--sheen) padding-box,
     var(--grain) padding-box,
@@ -30,7 +30,7 @@
     linear-gradient(var(--border-hover), var(--border-hover)) border-box;
   box-shadow: var(--hl-strong), 0 2px 4px rgb(0 0 0 / .45), 0 22px 44px -18px rgb(0 0 0 / .95);
 }
-.metric-icon, .feature-card > span { background: var(--sheen), var(--surface-2); box-shadow: var(--hl), var(--elev-1); }
+.metric-icon { background: var(--sheen), var(--surface-2); box-shadow: var(--hl), var(--elev-1); }
 .floating-card { background: var(--sheen), var(--surface-2); box-shadow: var(--hl-strong), var(--shadow-pop); }
 
 /* Superficies dentro de una tarjeta: un escalón de luz, sin borde de luz propio (no son tarjetas anidadas) */
@@ -115,7 +115,7 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   .onboarding-card { transition: none; }
-  .button, .button svg, .service-option, .date-picker button, .time-grid button, .feature-card, .metric, .text-button, .link-button { transition-duration: .01ms; }
+  .button, .button svg, .service-option, .date-picker button, .time-grid button, .metric, .text-button, .link-button { transition-duration: .01ms; }
   .button:hover:not(:disabled), .button:active:not(:disabled), .button--pill:hover:not(:disabled) { transform: none; }
   .service-option.is-selected .option-check { animation: none; }
   .slot-skeleton { animation: none; }

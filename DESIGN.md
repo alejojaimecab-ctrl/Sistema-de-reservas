@@ -20,6 +20,12 @@ colors:
   danger: "#e5737f"
   warn: "#d4a85a"
 typography:
+  editorial:
+    fontFamily: "Source Serif 4, Georgia, serif"
+    fontSize: "clamp(28px, 2.6vw, 34px)"
+    fontWeight: 400
+    lineHeight: 1.12
+    letterSpacing: "-0.01em"
   display:
     fontFamily: "Inter, system-ui, sans-serif"
     fontSize: "clamp(40px, 5vw, 56px)"
@@ -99,7 +105,7 @@ Negro profundo, grises neutros sin tinte y un único acento blanco que marca dó
 - los campos van hundidos;
 - los botones suben al pasar el mouse y se hunden al presionarlos.
 
-Nada de glows ni colores. Una sola familia (Inter), con a lo sumo tres pesos.
+Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única excepción son los títulos de los paneles de funciones de la portada, que usan **Source Serif 4** (400), por un diseño del dueño del producto. Esos paneles son planos: borde fino, etiqueta en mayúsculas arriba, título con serif y un fragmento de la interfaz.
 
 ## Reglas clave
 

@@ -99,7 +99,8 @@
 
 ## 2. Tipografía
 
-- **Una sola familia:** `Inter`, sans-serif neo-grotesca. Se carga desde Google Fonts con los pesos 400, 500, 600 y 700.
+- **Familia principal:** `Inter`, sans-serif neo-grotesca. Se carga desde Google Fonts con los pesos 400, 500, 600 y 700.
+- **Serif editorial (excepción, diseño del dueño, 2026-10-19):** `Source Serif 4` 400 (token `--font-serif`). Va **solo** en los títulos de los paneles de funciones de la portada (`.feature-panel h3`) y en la inicial del remitente del mail de ejemplo. No se usa en el panel ni en la reserva.
 - `font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;`
 - **No se usan** serif, cursivas decorativas ni monoespaciadas.
 - **Números** (precios, horas, fechas y contadores): `font-variant-numeric: tabular-nums;`
@@ -266,7 +267,7 @@ Es el patrón central de la captura.
 
 - Azul, celeste, cian o cualquier color de marca saturado.
 - Degradés de color, glows y sombras de color. Los degradés neutros de luz (§4) sí se usan.
-- Serif, cursivas decorativas y monoespaciadas.
+- Cursivas decorativas y monoespaciadas. Serif solo en la excepción de §2 (títulos de los paneles de funciones de la portada).
 - Más de un CTA blanco por pantalla.
 - HEX sueltos en componentes. Todo va por tokens.
 - Texto legible de menos de 11px o en `--disabled`.
