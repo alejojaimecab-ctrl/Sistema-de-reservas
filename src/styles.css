@@ -54,13 +54,14 @@
 .scroll-brand__mark { display: block; width: 56px; height: 60px; flex: none; }
 .scroll-brand__copy { display: grid; gap: 3px; line-height: 1; white-space: nowrap; }
 .scroll-brand__copy strong { color: var(--text); font-size: 28px; font-weight: 600; letter-spacing: .2em; }
-.scroll-brand__copy small { color: var(--text-3); font-size: 9px; letter-spacing: .16em; }
+.scroll-brand__copy small { color: var(--text-3); font-size: 11px; letter-spacing: .06em; }
 @media (max-width: 800px) {
  .site-nav { height: 74px; }
  .scroll-brand { gap: 5px; }
  .scroll-brand__mark { width: 47px; height: 52px; }
  .scroll-brand__copy strong { font-size: 22px; }
- .scroll-brand__copy small { font-size: 7px; }
+ /* A 11px no entra al lado del logo chico: en el celular queda solo "RESER" (el enlace ya dice "sistema de reservas") */
+ .scroll-brand__copy small { display: none; }
 }
 select, textarea { font: inherit; }
 a:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

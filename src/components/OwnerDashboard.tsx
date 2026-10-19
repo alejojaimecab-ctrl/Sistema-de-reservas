@@ -220,7 +220,10 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     </aside>
     <main className="dashboard-main">
       <header className="dashboard-header">
-        <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
+        {/* El título nombra la sección en la que estás; el saludo queda solo en el Resumen */}
+        <div><p className="eyebrow">{todayLabel()}</p><h1>{active === 'Resumen'
+          ? <>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></>
+          : sections.find(section => section.key === active)?.label ?? active}</h1></div>
         <AlertsToggle alerts={alerts} />
       </header>
 
