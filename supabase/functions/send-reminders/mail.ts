@@ -57,12 +57,12 @@ function layout(heading: string, intro: string, rows: Array<[string, string]>, e
     .map(([label, value]) => `<p style="margin: 0 0 6px;"><strong>${esc(label)}:</strong> ${esc(value)}</p>`)
     .join('')
   return `
-  <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #1a2b33;">
+  <div style="font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #18181b;">
     <h2 style="margin-bottom: 4px;">${esc(heading)}</h2>
-    <p style="color: #4a5f6a;">${intro}</p>
-    <div style="background: #f2f8fb; border-radius: 12px; padding: 16px 20px; margin: 16px 0;">${detail}</div>
+    <p style="color: #52525b;">${intro}</p>
+    <div style="background: #f4f4f5; border-radius: 12px; padding: 16px 20px; margin: 16px 0;">${detail}</div>
     ${extra}
-    <p style="color: #8a9aa3; font-size: 12px; margin-top: 24px;">Enviado con RESER</p>
+    <p style="color: #71717a; font-size: 12px; margin-top: 24px;">Enviado con RESER</p>
   </div>`
 }
 
@@ -71,8 +71,8 @@ function cancelBlock(r: MailReservation, ctx: MailContext): string {
   const policy = hours > 0 ? `Podés cancelar hasta ${hours} hs antes del turno.` : 'Podés cancelar cuando quieras.'
   const url = `${ctx.appUrl}/cancelar/${r.cancel_token}`
   return `
-    <p style="color: #4a5f6a; font-size: 14px;">Si no podés asistir, avisanos para liberar el horario. ${esc(policy)}</p>
-    <p><a href="${esc(url)}" style="display: inline-block; background: #1a2b33; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 14px;">Cancelar mi turno</a></p>`
+    <p style="color: #52525b; font-size: 14px;">Si no podés asistir, avisanos para liberar el horario. ${esc(policy)}</p>
+    <p><a href="${esc(url)}" style="display: inline-block; background: #18181b; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-size: 14px;">Cancelar mi turno</a></p>`
 }
 
 function rowsFor(r: MailReservation): Array<[string, string]> {
@@ -125,7 +125,7 @@ export function clientReminder(r: MailReservation, ctx: MailContext): Mail {
 // Al cliente, si el negocio cancela
 export function clientCancelledByBusiness(r: MailReservation, ctx: MailContext): Mail {
   const bookAgain = r.businesses?.slug
-    ? `<p><a href="${esc(`${ctx.appUrl}/${r.businesses.slug}`)}" style="color: #1a2b33;">Reservar otro horario</a></p>`
+    ? `<p><a href="${esc(`${ctx.appUrl}/${r.businesses.slug}`)}" style="color: #18181b;">Reservar otro horario</a></p>`
     : ''
   return {
     subject: `${oneLine(business(r))} canceló tu turno`,
