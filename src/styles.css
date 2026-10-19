@@ -38,7 +38,7 @@
 .site-shell { overflow-x: clip; overflow-y: visible; background: radial-gradient(ellipse at 75% 10%, rgba(255, 255, 255, .045) 0, transparent 45%), var(--bg); }
 .site-nav { position: sticky; top: 0; z-index: 20; width: 100vw; max-width: none; margin: 0; padding-left: max(18px, calc((100vw - 1180px) / 2 + 28px)); padding-right: max(18px, calc((100vw - 1180px) / 2 + 28px)); background: color-mix(in srgb, var(--bg) 58%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--border) 16%, transparent); box-shadow: none; backdrop-filter: blur(13px); }
 .scroll-brand { display: inline-flex; align-items: center; gap: 8px; flex: none; color: var(--text); text-decoration: none; user-select: none; }
-.scroll-brand__mark { display: block; width: 56px; height: 60px; flex: none; filter: grayscale(1) brightness(2.6); }
+.scroll-brand__mark { display: block; width: 56px; height: 60px; flex: none; }
 .scroll-brand__copy { display: grid; gap: 3px; line-height: 1; white-space: nowrap; }
 .scroll-brand__copy strong { color: var(--text); font-size: 28px; font-weight: 600; letter-spacing: .2em; }
 .scroll-brand__copy small { color: var(--text-3); font-size: 9px; letter-spacing: .16em; }

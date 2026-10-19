@@ -281,5 +281,5 @@ Cada pantalla migrada tiene que cumplir todo esto antes del commit:
 | Panel: equipo | `TeamSection.tsx` | hecho |
 | Panel: mis horarios y días libres | `MyScheduleSection.tsx`, `TimeOffSection.tsx` | hecho |
 | Confirmación y error | `ConfirmDialog.tsx`, `ErrorBoundary.tsx` | hecho |
-| Logo y marca | `Brand.tsx`, `ScrollBrand.tsx`, `public/` | provisorio: filtro CSS en blanco; faltan PNG en monocromo |
+| Logo y marca | `Brand.tsx`, `ScrollBrand.tsx`, `public/` | hecho (PNG en monocromo) |
 | Mail de recordatorio | `supabase/functions/send-reminders/mail.ts` | colores listos en local; falta desplegar |
