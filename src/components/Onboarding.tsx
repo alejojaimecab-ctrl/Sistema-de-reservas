@@ -4,8 +4,10 @@ import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from '
 import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
 import { createBusinessWithSetup } from '../lib/db'
 import { slugify } from '../lib/routes'
+import * as field from '../lib/fieldRules'
 
 type SetupService = { name: string; duration: number; price: number }
 type OnboardingDraft = {
@@ -207,7 +209,8 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     }
     if (targetStep === 4) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Ingresá un email válido.'
-      if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres.'
+      const weak = passwordProblem(password)
+      if (weak) return weak
       if (!acceptedLegal) return 'Para crear tu cuenta tenés que aceptar los Términos y la Política de privacidad.'
     }
     return null
@@ -273,9 +276,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       }
       if (signUpError) {
         setBusy(false)
-        setError(signUpError.includes('already registered')
-          ? 'Ese email ya tiene una cuenta. Iniciá sesión.'
-          : signUpError)
+        setError(authErrorMessage(signUpError))
         return
       }
 
@@ -401,15 +402,15 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         <h1 ref={stepHeadingRef} tabIndex={-1}>Empecemos por tu negocio.</h1>
         <p>Este nombre va a aparecer en tu página de reservas.</p>
         <label className="onboarding-field">Tu nombre
-          <input required autoComplete="name" placeholder="Ej: Nicolás" value={ownerName} onChange={e => setOwnerName(e.target.value)} />
+          <input required autoComplete="name" placeholder="Ej: Nicolás" value={ownerName} autoCapitalize="words" onChange={e => setOwnerName(field.personName(e.target.value))} />
         </label>
         <label className="onboarding-field">Nombre del negocio
-          <input required autoComplete="organization" placeholder="Ej: Peluquería López" value={businessName} onChange={e => setBusinessName(e.target.value)} />
+          <input required autoComplete="organization" placeholder="Ej: Peluquería López" value={businessName} onChange={e => setBusinessName(field.freeText(e.target.value))} />
         </label>
         <label className="onboarding-field">Tu enlace de RESER
           <div className="url-field">
             <span>reser.com.ar/</span>
-            <input required autoComplete="off" placeholder="tu-negocio" value={slug} onChange={e => setSlug(e.target.value)} />
+            <input required autoComplete="off" placeholder="tu-negocio" value={slug} onChange={e => setSlug(field.slugText(e.target.value))} />
           </div>
         </label>
       </>)}
@@ -428,7 +429,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
                   placeholder="Ej: Corte de pelo"
                   value={service.name}
                   onChange={event => setServices(current => current.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, name: event.target.value } : item))}
+                    itemIndex === index ? { ...item, name: field.freeText(event.target.value) } : item))}
                 />
               </label>
               <div className="setup-service-details">
@@ -439,6 +440,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
                     min={5}
                     step={5}
                     value={service.duration}
+                    onKeyDown={field.digitsOnlyKeys}
                     onChange={event => setServices(current => current.map((item, itemIndex) =>
                       itemIndex === index ? { ...item, duration: Number(event.target.value) } : item))}
                   />
@@ -450,6 +452,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
                     min={0}
                     step={100}
                     value={service.price}
+                    onKeyDown={field.digitsOnlyKeys}
                     onChange={event => setServices(current => current.map((item, itemIndex) =>
                       itemIndex === index ? { ...item, price: Number(event.target.value) } : item))}
                   />
@@ -490,11 +493,12 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
           <span><strong>Configuración lista</strong><small>Podés cambiar tus servicios y horarios desde el panel.</small></span>
         </div>
         <label className="onboarding-field">Email de tu cuenta
-          <input required type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+          <input required type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(field.email(e.target.value))} />
         </label>
         <label className="onboarding-field">Contraseña
-          <input required type="password" minLength={6} autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} />
+          <input required type="password" minLength={6} autoComplete="new-password" placeholder="Ej: Turnos2026" value={password} onChange={e => setPassword(e.target.value)} />
         </label>
+        <p className="form-note" style={{ margin: '-4px 0 10px' }}>{PASSWORD_HINT}</p>
         <label className="legal-consent">
           <input type="checkbox" checked={acceptedLegal} onChange={e => setAcceptedLegal(e.target.checked)} />
           <span>Leí y acepto los <a href="/terminos" target="_blank" rel="noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>. Entiendo que, como negocio, voy a tratar datos de mis clientes.</span>

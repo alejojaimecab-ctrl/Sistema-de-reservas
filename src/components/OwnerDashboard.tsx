@@ -4,11 +4,15 @@ import { CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRig
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
+import { copyText } from '../lib/clipboard'
+import * as field from '../lib/fieldRules'
 import { bookingUrl, slugify } from '../lib/routes'
 import { Eye, EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
 import { ReservationsSection } from './ReservationsSection'
+import { MyScheduleSection } from './MyScheduleSection'
+import { PendingInviteCard, readPendingInvite } from './JoinTeam'
 import { useConfirm } from './ConfirmDialog'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { AvailabilityDay } from './AvailabilityEditor'
@@ -20,8 +24,24 @@ import {
 
 type OwnerDashboardProps = { onExit: () => void }
 
-const sections = ['Resumen', 'Agenda', 'Reservas', 'Servicios', 'Equipo', 'Días libres', 'Configuración']
-const sectionIcons = [LayoutDashboard, CalendarDays, UsersRound, Sparkles, UserRound, CalendarOff, Settings2]
+type SectionKey = 'Resumen' | 'Agenda' | 'Reservas' | 'Servicios' | 'Equipo' | 'Días libres' | 'Configuración' | 'Mis horarios'
+type SectionItem = { key: SectionKey; label: string; icon: typeof LayoutDashboard }
+
+const OWNER_SECTIONS: SectionItem[] = [
+  { key: 'Resumen', label: 'Resumen', icon: LayoutDashboard },
+  { key: 'Agenda', label: 'Agenda', icon: CalendarDays },
+  { key: 'Reservas', label: 'Reservas', icon: UsersRound },
+  { key: 'Servicios', label: 'Servicios', icon: Sparkles },
+  { key: 'Equipo', label: 'Equipo', icon: UserRound },
+  { key: 'Días libres', label: 'Días libres', icon: CalendarOff },
+  { key: 'Configuración', label: 'Configuración', icon: Settings2 },
+]
+// Un profesional con cuenta solo ve lo suyo: sin estadísticas, servicios, equipo, días libres ni configuración.
+const STAFF_SECTIONS: SectionItem[] = [
+  { key: 'Agenda', label: 'Mi agenda', icon: CalendarDays },
+  { key: 'Reservas', label: 'Mis reservas', icon: UsersRound },
+  { key: 'Mis horarios', label: 'Mis horarios', icon: Clock3 },
+]
 
 const days: AvailabilityDay[] = [
   { id: '1', name: 'Lunes' }, { id: '2', name: 'Martes' }, { id: '3', name: 'Miércoles' },
@@ -44,8 +64,13 @@ function initials(name: string) {
 }
 
 export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
-  const { profile, business, signOut, refreshBusiness } = useAuth()
-  const [active, setActive] = useState('Resumen')
+  const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
+  const isStaff = role === 'staff'
+  const sections = isStaff ? STAFF_SECTIONS : OWNER_SECTIONS
+  const [selectedSection, setActive] = useState<SectionKey>(isStaff ? 'Agenda' : 'Resumen')
+  // Si cambia el rol (por ejemplo, al aceptar una invitación) se muestra una sección que exista para ese rol
+  const active = sections.some(section => section.key === selectedSection) ? selectedSection : sections[0].key
+  const [pendingInvite, setPendingInvite] = useState(readPendingInvite)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([])
@@ -78,8 +103,10 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     const cancelError = await cancelOwnerReservation(reservation.id)
     if (cancelError) { setCancelNotice({ text: `No pudimos cancelar el turno: ${cancelError}`, isError: true }); return false }
     setUpcomingReservations(current => current.filter(item => item.id !== reservation.id))
-    void listReservations(business.id).then(setReservations)
-    void getDashboardStats(business.id).then(setStats)
+    if (!isStaff) {
+      void listReservations(business.id).then(setReservations)
+      void getDashboardStats(business.id).then(setStats)
+    }
     setCancelNotice({ text: `Cancelaste el turno de ${who}.`, isError: false })
     return true
   }
@@ -87,14 +114,17 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   // Se marcó atendida / no vino desde la sección Reservas: la Agenda y las estadísticas se ponen al día
   function reservationStatusChanged(id: string, status: 'confirmed' | 'completed' | 'no_show') {
     setUpcomingReservations(current => current.map(item => item.id === id ? { ...item, status } : item))
-    if (business) void getDashboardStats(business.id).then(setStats)
+    if (business && !isStaff) void getDashboardStats(business.id).then(setStats)
   }
 
   useEffect(() => {
     if (!business) return
     void reloadProfessionals()
-    getDashboardStats(business.id).then(setStats)
-    listReservations(business.id).then(setReservations)
+    // Las estadísticas y el Resumen son solo del dueño
+    if (!isStaff) {
+      getDashboardStats(business.id).then(setStats)
+      listReservations(business.id).then(setReservations)
+    }
     let active = true
     setAgendaLoading(true)
     setAgendaError(null)
@@ -113,7 +143,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         if (active) setAgendaLoading(false)
       })
     return () => { active = false }
-  }, [business])
+  }, [business, isStaff])
 
   if (!business) {
     return <div className="dashboard">
@@ -128,7 +158,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <header className="dashboard-header">
           <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
         </header>
-        <CreateBusinessCard />
+        {pendingInvite
+          ? <PendingInviteCard token={pendingInvite} onDiscard={() => setPendingInvite(null)} />
+          : <CreateBusinessCard />}
       </main>
     </div>
   }
@@ -140,7 +172,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
         <CopyLinkButton slug={business.slug} />
       </div>
-      <nav>{sections.map((item, index) => { const Icon = sectionIcons[index]; return <button className={active === item ? 'is-active' : ''} key={item} onClick={() => setActive(item)}><Icon size={18} />{item}</button> })}</nav>
+      <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} key={key} onClick={() => setActive(key)}><Icon size={18} />{label}</button>)}</nav>
       <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
     <main className="dashboard-main">
@@ -185,6 +217,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             businessId={business.id}
             businessSlug={business.slug}
             professionals={activeProfessionals}
+            fixedResourceId={isStaff ? staffResource?.id : undefined}
             onCancel={() => setShowNewReservation(false)}
             onCreated={reservation => {
               setReservations(current => [...current, reservation].sort((a, b) =>
@@ -196,7 +229,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
               setReservationNotice('La reserva se agregó correctamente.')
               setHistoryVersion(version => version + 1)
               setShowNewReservation(false)
-              void getDashboardStats(business.id).then(setStats)
+              if (!isStaff) void getDashboardStats(business.id).then(setStats)
             }}
           />}
           {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
@@ -214,6 +247,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
+      {active === 'Mis horarios' && staffResource && <MyScheduleSection businessId={business.id} resourceId={staffResource.id} days={days} />}
       </ErrorBoundary>
     </main>
   </div>
@@ -354,10 +388,10 @@ function CreateBusinessCard() {
       </div>
     )}
     <label className="onboarding-field">Nombre del negocio
-      <input placeholder="Ej: Peluquería López" value={name} onChange={e => setName(e.target.value)} />
+      <input placeholder="Ej: Peluquería López" value={name} onChange={e => setName(field.freeText(e.target.value))} />
     </label>
     <label className="onboarding-field">Tu enlace de RESER
-      <div className="url-field"><span>reser.com.ar/</span><input placeholder="tu-negocio" value={slug} onChange={e => setSlug(e.target.value)} /></div>
+      <div className="url-field"><span>reser.com.ar/</span><input placeholder="tu-negocio" value={slug} onChange={e => setSlug(field.slugText(e.target.value))} /></div>
     </label>
     {error && <p className="form-error">{error}</p>}
     <button className="button button--primary" style={{ marginTop: 8 }} disabled={busy || Boolean(pendingState.error)} onClick={() => void create()}>
@@ -388,18 +422,20 @@ function ManualReservationForm({
   businessId,
   businessSlug,
   professionals,
+  fixedResourceId,
   onCancel,
   onCreated,
 }: {
   businessId: string
   businessSlug: string
   professionals: Professional[]
+  fixedResourceId?: string // profesional con cuenta: solo carga turnos en su propia agenda
   onCancel: () => void
   onCreated: (reservation: Reservation) => void
 }) {
   const [services, setServices] = useState<Service[]>([])
   const [serviceId, setServiceId] = useState('')
-  const [resourceId, setResourceId] = useState('') // '' = cualquier profesional
+  const [resourceId, setResourceId] = useState(fixedResourceId ?? '') // '' = cualquier profesional
   const [offers, setOffers] = useState<ResourceService[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -416,11 +452,16 @@ function ManualReservationForm({
 
   useEffect(() => {
     let active = true
-    listReservationServices(businessId).then(result => {
+    Promise.all([listReservationServices(businessId), listResourceServices(businessId)]).then(([result, pairs]) => {
       if (!active) return
-      setServices(result.services)
+      // En la agenda de un profesional, solo los servicios que ofrece él
+      const usable = fixedResourceId
+        ? result.services.filter(service => pairs.some(o => o.resource_id === fixedResourceId && o.service_id === service.id))
+        : result.services
+      setServices(usable)
+      setOffers(pairs)
       setError(result.error)
-      setServiceId(result.services[0]?.id ?? '')
+      setServiceId(usable[0]?.id ?? '')
     }).catch(loadError => {
       if (!active) return
       setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los servicios.')
@@ -428,18 +469,15 @@ function ManualReservationForm({
       if (active) setLoadingServices(false)
     })
     return () => { active = false }
-  }, [businessId])
-
-  useEffect(() => {
-    listResourceServices(businessId).then(setOffers).catch(() => setOffers([]))
-  }, [businessId])
+  }, [businessId, fixedResourceId])
 
   // Solo los profesionales que ofrecen el servicio elegido
   const serviceProfessionals = professionals.filter(p =>
     offers.some(o => o.resource_id === p.id && o.service_id === serviceId))
   useEffect(() => {
+    if (fixedResourceId) return
     if (resourceId && !serviceProfessionals.some(p => p.id === resourceId)) setResourceId('')
-  }, [serviceProfessionals.map(p => p.id).join(','), resourceId])
+  }, [serviceProfessionals.map(p => p.id).join(','), resourceId, fixedResourceId])
 
   useEffect(() => {
     if (!serviceId || !date) {
@@ -515,7 +553,9 @@ function ManualReservationForm({
         <p className="manual-reservation-message" role="status">Cargando servicios…</p>
       ) : services.length === 0 ? (
         <div className="manual-reservation-message">
-          <p>{error ?? 'Todavía no hay servicios activos para reservar.'}</p>
+          <p>{error ?? (fixedResourceId
+            ? 'Todavía no tenés servicios asignados para reservar. El dueño del negocio los asigna en la sección Equipo.'
+            : 'Todavía no hay servicios activos para reservar.')}</p>
           <button type="button" className="link-button" onClick={onCancel}>Cerrar</button>
         </div>
       ) : (
@@ -523,15 +563,15 @@ function ManualReservationForm({
           <div className="manual-reservation-fields">
             <label>
               <span>Nombre del cliente</span>
-              <div><UserRound size={16} /><input required autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></div>
+              <div><UserRound size={16} /><input required autoComplete="off" autoCapitalize="words" value={name} onChange={event => setName(field.personName(event.target.value))} /></div>
             </label>
             <label>
               <span>Correo electrónico</span>
-              <div><Mail size={16} /><input required type="email" autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} /></div>
+              <div><Mail size={16} /><input required type="email" autoComplete="off" value={email} onChange={event => setEmail(field.email(event.target.value))} /></div>
             </label>
             <label>
               <span>Teléfono <small>(opcional)</small></span>
-              <div><Phone size={16} /><input type="tel" autoComplete="off" value={phone} onChange={event => setPhone(event.target.value)} /></div>
+              <div><Phone size={16} /><input type="tel" inputMode="tel" maxLength={40} autoComplete="off" value={phone} onChange={event => setPhone(field.phone(event.target.value))} /></div>
             </label>
             <label>
               <span>Servicio</span>
@@ -539,7 +579,7 @@ function ManualReservationForm({
                 {services.map(service => <option key={service.id} value={service.id}>{service.name} · {service.duration_min} min · {formatPrice(Number(service.price))}</option>)}
               </select>
             </label>
-            {serviceProfessionals.length > 1 && <label>
+            {!fixedResourceId && serviceProfessionals.length > 1 && <label>
               <span>Profesional</span>
               <select value={resourceId} onChange={event => setResourceId(event.target.value)}>
                 <option value="">Cualquiera disponible</option>
@@ -921,7 +961,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                 <input
                   aria-label={`Nombre del servicio ${svc.name || ''}`.trim()}
                   value={svc.name}
-                  onChange={e => updateLocal(svc.id, { name: e.target.value })}
+                  onChange={e => updateLocal(svc.id, { name: field.freeText(e.target.value) })}
                   onBlur={() => persist(svc)}
                 />
               </label>
@@ -934,6 +974,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                     min={5}
                     step={5}
                     value={svc.duration_min}
+                    onKeyDown={field.digitsOnlyKeys}
                     onChange={e => updateLocal(svc.id, { duration_min: parseInt(e.target.value) || 0 })}
                     onBlur={() => persist(svc)}
                   />
@@ -950,6 +991,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                     min={0}
                     step={100}
                     value={svc.price}
+                    onKeyDown={field.digitsOnlyKeys}
                     onChange={e => updateLocal(svc.id, { price: parseInt(e.target.value) || 0 })}
                     onBlur={() => persist(svc)}
                   />
@@ -1062,10 +1104,10 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   return <section className="agenda-card">
     <div className="card-heading"><div><p className="eyebrow">Configuración</p><h2>Tu negocio</h2></div></div>
     <label className="onboarding-field">Nombre del negocio
-      <input value={name} onChange={e => setName(e.target.value)} />
+      <input value={name} onChange={e => setName(field.freeText(e.target.value))} />
     </label>
     <label className="onboarding-field">Tu enlace de RESER
-      <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(e.target.value)} /></div>
+      <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(field.slugText(e.target.value))} /></div>
     </label>
     <p className="eyebrow" style={{ marginTop: 20 }}>Lo que ven tus clientes</p>
     <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '8px 0 14px', flexWrap: 'wrap' }}>
@@ -1082,10 +1124,10 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
       </div>
     </div>
     <label className="onboarding-field">Teléfono <small>(opcional)</small>
-      <input type="tel" maxLength={40} autoComplete="off" placeholder="11 5555 5555" value={phone} onChange={e => setPhone(e.target.value)} />
+      <input type="tel" inputMode="tel" maxLength={40} autoComplete="off" placeholder="11 5555 5555" value={phone} onChange={e => setPhone(field.phone(e.target.value))} />
     </label>
     <label className="onboarding-field">Dirección <small>(opcional)</small>
-      <input maxLength={160} autoComplete="off" placeholder="Calle 123, Ciudad" value={address} onChange={e => setAddress(e.target.value)} />
+      <input maxLength={160} autoComplete="off" placeholder="Calle 123, Ciudad" value={address} onChange={e => setAddress(field.address(e.target.value))} />
     </label>
     <label className="onboarding-field">Tus clientes pueden reservar con una anticipación mínima de
       <select value={minNotice} onChange={e => setMinNotice(Number(e.target.value))}>
@@ -1113,11 +1155,10 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
 function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(bookingUrl(slug))
+    if (await copyText(bookingUrl(slug))) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
-    } catch {
+    } else {
       window.prompt('Copiá el enlace de reservas:', bookingUrl(slug))
     }
   }

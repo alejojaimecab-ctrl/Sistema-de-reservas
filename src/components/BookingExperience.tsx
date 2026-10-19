@@ -9,6 +9,7 @@ import { GreenWipe } from './GreenWipe'
 import { useReduceMotion } from '../lib/motion'
 import { usePageMeta } from '../lib/pageMeta'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
+import { email as cleanEmail, personName } from '../lib/fieldRules'
 
 const serviceIcons = [Scissors, Brush, Sparkles]
 
@@ -320,7 +321,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           </motion.div>}
           {step === 3 && service && <motion.form key="review" onSubmit={event => { event.preventDefault(); void save() }} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
-            <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(e.target.value)} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
+            <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(personName(e.target.value))} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && serviceProfessionals.length > 0 && <div><span>Profesional</span><strong>{serviceProfessionals.find(p => p.id === professionalId)?.name ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : 'Quien esté libre')}</strong></div>}<div className="review-total"><span>{service.price_mode === 'fixed' ? 'Total' : 'Precio'}</span><strong>{priceLabel(service.price, service.price_mode)}</strong></div></div>
             <button ref={confirmRef} type="submit" className="button button--primary button--full" disabled={saving}>{wipe ? <>¡Reservado! <Check size={18} /></> : saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error

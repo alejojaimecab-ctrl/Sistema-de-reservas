@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CalendarOff, X } from 'lucide-react'
 import { createTimeOff, deleteTimeOff, listTimeOff, type Professional, type TimeOff } from '../lib/db'
+import { freeText } from '../lib/fieldRules'
 import { useConfirm } from './ConfirmDialog'
 
 const parseDay = (key: string) => {
@@ -95,7 +96,7 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
         </label>
       </div>
       <label className="onboarding-field">Motivo <small>(opcional, solo lo ves vos)</small>
-        <input value={reason} maxLength={80} placeholder="Feriado, vacaciones…" onChange={e => setReason(e.target.value)} />
+        <input value={reason} maxLength={80} placeholder="Feriado, vacaciones…" onChange={e => setReason(freeText(e.target.value))} />
       </label>
       <div><button type="submit" className="button button--primary" disabled={busy || !startsOn}>{busy ? 'Guardando…' : 'Bloquear días'}</button></div>
     </form>

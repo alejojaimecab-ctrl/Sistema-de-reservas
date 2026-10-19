@@ -29,6 +29,36 @@ sección, consultas a la base y los avisos de seguridad/rendimiento de Supabase.
   Sigue pendiente que el enlace de cada negocio muestre su nombre/imagen al compartirlo por WhatsApp (requiere
   prerender o una función en el borde, porque esos buscadores no ejecutan JavaScript).
 
+- **Cuentas para los profesionales** (2026-10-18, migración 029): el dueño invita a cada profesional desde
+  Equipo → "Acceso al panel" con un enlace (`/unirme/<token>`, vence a los 7 días; se puede copiar o mandar por
+  WhatsApp). El profesional crea su cuenta (o entra con la que tiene) y queda vinculado a su agenda. Puede: ver su
+  agenda y sus reservas con el nombre y el email de sus clientes, marcar atendido / no vino, cancelar sus turnos,
+  cargar reservas a mano solo en su agenda, editar sus horarios y ver los servicios con sus precios. No puede: ver
+  estadísticas (Resumen), ni a los demás profesionales, ni tocar servicios, equipo, días libres (los ve, no los cambia)
+  ni configuración. El permiso lo aplica la base (RLS + funciones), no solo la pantalla. El dueño puede quitar el
+  acceso en cualquier momento; la agenda y las reservas del profesional no se tocan.
+  **Pendiente / a decidir:** cuántas cuentas de profesional incluye cada plan; si al dueño le llega un mail cuando un
+  profesional cancela un turno (hoy no, solo al cliente); cambiar de contraseña o email desde adentro (igual que el dueño).
+- **Eliminar profesionales** (2026-10-18, migración 030): botón "Eliminar profesional" en Equipo. Si nunca tuvo
+  reservas se borra del todo; si tiene historial se archiva (`resources.deleted_at`): desaparece del equipo, de la
+  página de reservas y del panel, y sus reservas pasadas siguen en el historial con su nombre. No deja eliminar al
+  último profesional activo ni a uno con turnos confirmados a futuro (hay que cancelarlos antes). "Desactivar" sigue
+  existiendo para pausas temporales.
+- **Enlace de equipo** (2026-10-18, migración 031): en Equipo → "Sumar un profesional" el dueño crea un solo enlace
+  (vence a los 7 días, sirve para varias personas, se puede regenerar o anular). Cada persona que se une crea su cuenta
+  y aparece sola en la lista con el nombre de su cuenta, marcada "sin servicios": el dueño elige qué ofrece y, hasta
+  entonces, no aparece en la página de reservas. Sus horarios los carga desde "Mis horarios". Desde la migración 032
+  la cuenta nueva queda vinculada sola apenas confirma el email (el token viaja en los metadatos de la cuenta), aunque
+  confirme desde otro dispositivo; las cuentas que ya existían aceptan con "Unirme al equipo". La invitación por perfil
+  (para vincular a alguien que ya estaba cargado, como uno con historial) sigue en "Acceso al panel".
+- **Campos con reglas** (`src/lib/fieldRules.ts`): nombres de personas solo con letras; teléfonos y WhatsApp solo
+  números (con + opcional); duración y precio solo números; emails sin espacios; el enlace del negocio en minúsculas
+  con guiones; nombres de negocio y servicios con letras, números y signos comunes ("Corte + barba"). El profesional
+  creado sin nombre ("Principal") se muestra como "Sin nombre" con el campo vacío para completar.
+- **Copiar enlaces**: algunos navegadores bloquean el portapapeles y descartan `window.prompt` sin avisar (el botón
+  parecía no hacer nada). `src/lib/clipboard.ts` prueba también el método clásico y, si igual falla, deja el enlace
+  de invitación seleccionado con un aviso para copiarlo a mano.
+
 ## 1. Botones sin función
 Solo se encontraron dos (de más de 100):
 - **Campana "Notificaciones"** (`OwnerDashboard.tsx`, encabezado del panel): no hace nada. Además tiene un

@@ -5,16 +5,17 @@ import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
 import { AuthProvider, useAuth } from './lib/auth'
-import { cancelTokenFromPath, goTo, legalDocFromPath, slugFromPath } from './lib/routes'
+import { cancelTokenFromPath, goTo, joinTokenFromPath, legalDocFromPath, slugFromPath } from './lib/routes'
 import { HOME_TITLE, usePageMeta, type PageMeta } from './lib/pageMeta'
 
-type View = 'home' | 'public-booking' | 'cancel' | 'legal' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
+type View = 'home' | 'public-booking' | 'cancel' | 'join' | 'legal' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
 
 // public-booking (usa el nombre del negocio) y legal (cada documento) declaran su propio título
 const PAGE_META: Partial<Record<View, PageMeta>> = {
   home: { title: HOME_TITLE },
   'demo-booking': { title: 'Ejemplo de reserva · RESER', noindex: true },
   cancel: { title: 'Cancelar turno · RESER', noindex: true },
+  join: { title: 'Sumarte a un equipo · RESER', noindex: true },
   dashboard: { title: 'Panel · RESER', noindex: true },
   login: { title: 'Iniciar sesión · RESER', noindex: true },
   onboarding: { title: 'Crear mi negocio · RESER', noindex: true },
@@ -35,6 +36,9 @@ const LegalPage = lazy(() =>
 )
 const CancelBooking = lazy(() =>
   import('./components/CancelBooking').then(module => ({ default: module.CancelBooking })),
+)
+const JoinTeam = lazy(() =>
+  import('./components/JoinTeam').then(module => ({ default: module.JoinTeam })),
 )
 const Onboarding = lazy(() =>
   import('./components/Onboarding').then(module => ({ default: module.Onboarding })),
@@ -70,7 +74,8 @@ function Root() {
   const [publicSlug, setPublicSlug] = useState(() => slugFromPath(window.location.pathname))
   const [cancelToken, setCancelToken] = useState(() => cancelTokenFromPath(window.location.pathname))
   const [legalDoc, setLegalDoc] = useState(() => legalDocFromPath(window.location.pathname))
-  const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : publicSlug ? 'public-booking' : 'home')
+  const [joinToken, setJoinToken] = useState(() => joinTokenFromPath(window.location.pathname))
+  const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : joinToken ? 'join' : publicSlug ? 'public-booking' : 'home')
   const { session, loading, recovering } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
   // Lo que se ve depende también de la sesión: "login" con sesión muestra el panel y "dashboard" sin sesión muestra el login
@@ -83,10 +88,12 @@ function Root() {
       const slug = slugFromPath(window.location.pathname)
       const token = cancelTokenFromPath(window.location.pathname)
       const doc = legalDocFromPath(window.location.pathname)
+      const join = joinTokenFromPath(window.location.pathname)
       setPublicSlug(slug)
       setCancelToken(token)
       setLegalDoc(doc)
-      setView(v => doc ? 'legal' : token ? 'cancel' : slug ? 'public-booking' : (v === 'public-booking' || v === 'cancel' || v === 'legal') ? 'home' : v)
+      setJoinToken(join)
+      setView(v => doc ? 'legal' : token ? 'cancel' : join ? 'join' : slug ? 'public-booking' : (v === 'public-booking' || v === 'cancel' || v === 'join' || v === 'legal') ? 'home' : v)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -97,6 +104,7 @@ function Root() {
     setPublicSlug(null)
     setCancelToken(null)
     setLegalDoc(null)
+    setJoinToken(null)
     setView('home')
   }
 
@@ -114,6 +122,7 @@ function Root() {
   if (recovering && session) return <ResetPassword onDone={() => setView('dashboard')} />
   if (view === 'legal' && legalDoc) return <LegalPage doc={legalDoc} onBack={leavePublicBooking} onOpen={doc => { goTo(`/${doc}`); setLegalDoc(doc) }} />
   if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />
+  if (view === 'join' && joinToken) return <JoinTeam key={joinToken} token={joinToken} onBack={leavePublicBooking} onJoined={() => { goTo('/'); setJoinToken(null); setView('dashboard') }} />
   if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
   if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />
   if (view === 'dashboard') {

@@ -3,7 +3,7 @@
 
 const RESERVED_SLUGS = new Set([
   'login', 'registro', 'panel', 'dashboard', 'admin', 'api', 'assets', 'brand',
-  'demo', 'reservar', 'cancelar', 'app', 'www', 'ayuda', 'soporte', 'precios', 'terminos', 'privacidad',
+  'demo', 'reservar', 'cancelar', 'unirme', 'app', 'www', 'ayuda', 'soporte', 'precios', 'terminos', 'privacidad',
 ])
 
 export function slugify(raw: string): string {
@@ -33,11 +33,24 @@ export function slugFromPath(pathname: string): string | null {
   return RESERVED_SLUGS.has(slug) ? null : slug
 }
 
-// '/cancelar/<uuid>' → '<uuid>'; cualquier otra ruta → null
-export function cancelTokenFromPath(pathname: string): string | null {
+// '/<prefijo>/<uuid>' → '<uuid>'; cualquier otra ruta → null
+function tokenFromPath(pathname: string, prefix: string): string | null {
   const [first, token, ...rest] = pathname.split('/').filter(Boolean)
   const isUuid = !!token && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(token)
-  return first === 'cancelar' && isUuid && rest.length === 0 ? token.toLowerCase() : null
+  return first === prefix && isUuid && rest.length === 0 ? token.toLowerCase() : null
+}
+
+export function cancelTokenFromPath(pathname: string): string | null {
+  return tokenFromPath(pathname, 'cancelar')
+}
+
+// '/unirme/<uuid>': invitación para que un profesional se sume al panel del negocio
+export function joinTokenFromPath(pathname: string): string | null {
+  return tokenFromPath(pathname, 'unirme')
+}
+
+export function joinUrl(token: string): string {
+  return `${window.location.origin}/unirme/${token}`
 }
 
 // '/terminos' o '/privacidad' → documento legal; cualquier otra ruta → null

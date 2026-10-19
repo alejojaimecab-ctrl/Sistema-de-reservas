@@ -377,3 +377,44 @@
 .error-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
 .error-section { text-align: center; padding: 40px 24px; }
 .error-section h2 { font-size: 18px; }
+
+/* Equipo · servicios que ofrece cada profesional: el chip "se enciende" al elegirlo
+   (el relleno celeste entra desde la izquierda, el + gira y se convierte en un check que se dibuja). */
+.service-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+.service-chip { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; gap: 10px; min-height: 46px; padding: 6px 15px 6px 8px; color: #91a8b4; text-align: left; background: #121f27; border: 1px solid #29414c; border-radius: 10px; transition: color .16s ease, border-color .16s ease, box-shadow .2s ease, transform .12s ease; }
+.service-chip::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(100deg, #174152 0%, #11303c 100%); clip-path: inset(0 100% 0 0); transition: clip-path .16s cubic-bezier(.4, 0, 1, 1); }
+.service-chip:hover:not(:disabled) { color: #d3e5eb; border-color: #3b6576; transform: translateY(-1px); }
+.service-chip:active:not(:disabled) { transform: scale(.97); transition-duration: .08s; }
+.service-chip:focus-visible { outline: 2px solid #60d7ff; outline-offset: 3px; }
+.service-chip.is-on { color: #e4faff; border-color: #3d93ad; box-shadow: 0 10px 22px -14px #23a6d3; transition: color .22s ease, border-color .22s ease, box-shadow .3s ease, transform .12s ease; }
+.service-chip.is-on::before { clip-path: inset(0); transition: clip-path .34s cubic-bezier(.16, 1, .3, 1); }
+.service-chip.is-on:hover:not(:disabled) { color: #f2fcff; border-color: #5cc6e3; }
+.service-chip:disabled { opacity: .55; }
+.service-chip-mark { position: relative; display: grid; place-items: center; flex: 0 0 26px; height: 26px; color: #8299a4; border: 1px solid #2f4b57; border-radius: 8px; transition: border-color .16s ease, color .16s ease; }
+.service-chip-mark::before { content: ''; position: absolute; inset: -1px; border-radius: 8px; background: linear-gradient(135deg, #7be5ff, #23a6d3); opacity: 0; transform: scale(.3); transition: transform .16s ease-in, opacity .14s ease-in; }
+.service-chip-mark > svg { grid-area: 1 / 1; position: relative; z-index: 1; }
+.service-chip.is-on .service-chip-mark { color: #061117; border-color: transparent; }
+.service-chip.is-on .service-chip-mark::before { opacity: 1; transform: scale(1); transition: transform .38s cubic-bezier(.16, 1, .3, 1), opacity .16s ease-out; }
+.service-chip-plus { transition: transform .2s cubic-bezier(.16, 1, .3, 1), opacity .14s ease; }
+.service-chip.is-on .service-chip-plus { opacity: 0; transform: rotate(90deg) scale(.4); }
+.service-chip-check { opacity: 0; transition: opacity .1s ease; }
+.service-chip-check path { stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset .12s ease-in; }
+.service-chip.is-on .service-chip-check { opacity: 1; transition: opacity .1s ease .08s; }
+.service-chip.is-on .service-chip-check path { stroke-dashoffset: 0; transition: stroke-dashoffset .3s cubic-bezier(.65, 0, .35, 1) .12s; }
+.service-chip-text { display: grid; gap: 2px; min-width: 0; }
+.service-chip-text strong { font-size: 12px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
+.service-chip-text small { color: #8299a4; font-family: 'DM Mono', monospace; font-size: 9.5px; letter-spacing: .02em; font-variant-numeric: tabular-nums; transition: color .2s ease; }
+.service-chip.is-on .service-chip-text small { color: #8fd6ea; }
+@media (max-width: 560px) { .service-chip { flex: 1 1 calc(50% - 4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .service-chip, .service-chip-mark::before, .service-chip-plus, .service-chip-check path { transition-property: color, border-color, box-shadow, opacity; }
+  .service-chip::before { clip-path: none; opacity: 0; transition: opacity .2s ease; }
+  .service-chip.is-on::before { opacity: 1; }
+  .service-chip-mark::before { transform: none; }
+  .service-chip-check path { stroke-dashoffset: 0; }
+  .service-chip:hover:not(:disabled), .service-chip:active:not(:disabled) { transform: none; }
+}
+
+/* Equipo · eliminar profesional (sus reservas pasadas se conservan) */
+.team-remove { color: #f0a7b1; border-color: #50353d; }
+.team-remove:hover:not(:disabled) { color: #ffd6dc; background: #2a1a1d; border-color: #80505b; }

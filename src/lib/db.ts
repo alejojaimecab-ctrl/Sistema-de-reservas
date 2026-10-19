@@ -15,6 +15,18 @@ async function ownsBusiness(businessId: string): Promise<boolean> {
   return (await ownedBusinessIds()).includes(businessId)
 }
 
+// true si el usuario es el dueño o un profesional con cuenta del negocio (migración 029).
+// Qué ve cada uno lo limita la base: un profesional solo recibe su agenda, sus reservas y sus horarios.
+async function canUseBusiness(businessId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+  const [owned, staff] = await Promise.all([
+    supabase.from('businesses').select('id').eq('id', businessId).eq('owner_id', user.id).maybeSingle(),
+    supabase.from('staff_members').select('resource_id').eq('business_id', businessId).eq('user_id', user.id).maybeSingle(),
+  ])
+  return Boolean(owned.data || staff.data)
+}
+
 export type BookingMode = 'online' | 'whatsapp'
 
 export type Service = {
@@ -145,7 +157,7 @@ export async function listReservations(businessId: string): Promise<Reservation[
 export async function listAgendaReservations(
   businessId: string,
 ): Promise<{ reservations: Reservation[]; error: string | null }> {
-  if (!(await ownsBusiness(businessId))) {
+  if (!(await canUseBusiness(businessId))) {
     return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
   }
 
@@ -183,7 +195,7 @@ export type HistoryReservation = Reservation & {
 export async function listAllReservations(
   businessId: string,
 ): Promise<{ reservations: HistoryReservation[]; error: string | null }> {
-  if (!(await ownsBusiness(businessId))) {
+  if (!(await canUseBusiness(businessId))) {
     return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
   }
 
@@ -208,30 +220,19 @@ export async function listAllReservations(
   return { reservations, error: null }
 }
 
+// La base valida que sea el dueño o el profesional del turno (set_reservation_status, migración 029).
 export async function updateReservationStatus(
   id: string,
   status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>,
 ): Promise<string | null> {
-  const owned = await ownedBusinessIds()
-  if (owned.length === 0) return 'No se pudo validar el acceso al negocio.'
-
-  const { data, error } = await supabase
-    .from('reservations')
-    .update({ status })
-    .eq('id', id)
-    .in('business_id', owned)
-    .select('id')
-    .maybeSingle()
-
-  if (error) return error.message
-  if (!data) return 'No encontramos ese turno para actualizarlo.'
-  return null
+  const { error } = await supabase.rpc('set_reservation_status', { p_reservation_id: id, p_status: status })
+  return error ? error.message : null
 }
 
 export async function listReservationServices(
   businessId: string,
 ): Promise<{ services: Service[]; error: string | null }> {
-  if (!(await ownsBusiness(businessId))) {
+  if (!(await canUseBusiness(businessId))) {
     return { services: [], error: 'No tenés permiso sobre este negocio.' }
   }
   const { data, error } = await supabase
@@ -254,7 +255,7 @@ export async function createOwnerReservation(input: {
   phone?: string
   resourceId?: string | null
 }): Promise<{ id: string | null; error: string | null }> {
-  if (!(await ownsBusiness(input.businessId))) {
+  if (!(await canUseBusiness(input.businessId))) {
     return { id: null, error: 'No tenés permiso sobre este negocio.' }
   }
   const { data, error } = await supabase.rpc('create_owner_reservation', {
@@ -556,7 +557,7 @@ const dayKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export async function listTimeOff(businessId: string): Promise<TimeOff[]> {
-  if (!(await ownsBusiness(businessId))) return []
+  if (!(await canUseBusiness(businessId))) return []
   const { data } = await supabase.from('time_off').select('id, resource_id, starts_on, ends_on, reason')
     .eq('business_id', businessId).gte('ends_on', dayKey(new Date())).order('starts_on', { ascending: true })
   return data ?? []
@@ -600,12 +601,20 @@ export async function deleteTimeOff(id: string): Promise<string | null> {
 
 export type Professional = { id: string; name: string; is_active: boolean; whatsapp: string | null }
 
+// Un profesional con cuenta recibe solo su propia fila.
 export async function listProfessionals(businessId: string): Promise<Professional[]> {
-  if (!(await ownsBusiness(businessId))) return []
+  if (!(await canUseBusiness(businessId))) return []
   const { data } = await supabase
     .from('resources').select('id, name, is_active, whatsapp')
-    .eq('business_id', businessId).order('created_at', { ascending: true })
+    .eq('business_id', businessId).is('deleted_at', null).order('created_at', { ascending: true })
   return data ?? []
+}
+
+// Si nunca tuvo reservas se borra; si tiene historial se archiva y sus reservas conservan su nombre (migración 030).
+export async function deleteProfessional(id: string): Promise<{ archived: boolean; error: string | null }> {
+  const { data, error } = await supabase.rpc('delete_professional', { p_resource_id: id })
+  if (error) return { archived: false, error: error.message }
+  return { archived: (data as { mode?: string } | null)?.mode === 'archived', error: null }
 }
 
 export async function createProfessional(businessId: string, name: string): Promise<{ id: string | null; error: string | null }> {
@@ -637,7 +646,7 @@ export async function updateProfessional(
 export type ResourceService = { resource_id: string; service_id: string }
 
 export async function listResourceServices(businessId: string): Promise<ResourceService[]> {
-  if (!(await ownsBusiness(businessId))) return []
+  if (!(await canUseBusiness(businessId))) return []
   const { data } = await supabase.from('resource_services').select('resource_id, service_id').eq('business_id', businessId)
   return data ?? []
 }
@@ -664,7 +673,7 @@ export async function setProfessionalServices(businessId: string, resourceId: st
 }
 
 export async function getAvailability(businessId: string, resourceId: string): Promise<Set<string>> {
-  if (!(await ownsBusiness(businessId))) return new Set()
+  if (!(await canUseBusiness(businessId))) return new Set()
   const { data } = await supabase
     .from('availability').select('day_of_week, slot_index')
     .eq('business_id', businessId).eq('resource_id', resourceId)
@@ -674,7 +683,7 @@ export async function getAvailability(businessId: string, resourceId: string): P
 // Guarda solo las diferencias (no borra todo y reinserta): con guardado automático,
 // un corte a mitad de camino no puede dejar a un profesional sin horarios.
 export async function setAvailability(businessId: string, resourceId: string, slots: Set<string>) {
-  if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
+  if (!(await canUseBusiness(businessId))) return 'No tenés permiso sobre este negocio'
   const current = await getAvailability(businessId, resourceId)
   const toAdd = [...slots].filter(key => !current.has(key))
   const toRemove = [...current].filter(key => !slots.has(key))
@@ -698,4 +707,77 @@ export async function setAvailability(businessId: string, resourceId: string, sl
   })
   const { error } = await supabase.from('availability').insert(rows)
   return error ? error.message : null
+}
+
+// --- Cuentas de los profesionales (migración 029): el dueño invita con un enlace y puede quitar el acceso ---
+
+export type StaffMember = { resource_id: string; email: string | null; created_at: string }
+// resource_id null = enlace de equipo: cada persona que se une crea su propio perfil (migración 031)
+export type StaffInvite = { token: string; resource_id: string | null; expires_at: string }
+
+export async function listStaffAccess(businessId: string): Promise<{ members: StaffMember[]; invites: StaffInvite[] }> {
+  if (!(await ownsBusiness(businessId))) return { members: [], invites: [] }
+  const [members, invites] = await Promise.all([
+    supabase.from('staff_members').select('resource_id, email, created_at').eq('business_id', businessId),
+    supabase.from('staff_invites').select('token, resource_id, expires_at').eq('business_id', businessId),
+  ])
+  return { members: members.data ?? [], invites: invites.data ?? [] }
+}
+
+// Crea un enlace nuevo (el anterior de ese profesional deja de servir).
+export async function createStaffInvite(resourceId: string): Promise<{ token: string | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('create_staff_invite', { p_resource_id: resourceId })
+  if (error) return { token: null, error: error.message }
+  return { token: (data as { token?: string } | null)?.token ?? null, error: null }
+}
+
+// Enlace de equipo del negocio: sirve para varias personas; crear uno nuevo anula el anterior.
+export async function createTeamInvite(businessId: string): Promise<{ token: string | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('create_team_invite', { p_business_id: businessId })
+  if (error) return { token: null, error: error.message }
+  return { token: (data as { token?: string } | null)?.token ?? null, error: null }
+}
+
+export async function revokeStaffInvite(token: string): Promise<string | null> {
+  const owned = await ownedBusinessIds()
+  const { error } = await supabase.from('staff_invites').delete().eq('token', token).in('business_id', owned)
+  return error ? error.message : null
+}
+
+// El profesional deja de poder entrar al panel; su agenda y sus reservas no se tocan.
+export async function removeStaffAccess(resourceId: string): Promise<string | null> {
+  const owned = await ownedBusinessIds()
+  const { error } = await supabase.from('staff_members').delete().eq('resource_id', resourceId).in('business_id', owned)
+  return error ? error.message : null
+}
+
+// open: enlace de equipo (sin profesional cargado: el perfil se crea al aceptar)
+export type StaffInviteInfo = { business_name: string; professional_name: string | null; logo_path: string | null; open: boolean; expired: boolean }
+
+// Lo que ve la persona invitada antes de aceptar (funciona sin sesión).
+export async function getStaffInvite(token: string): Promise<{ invite: StaffInviteInfo | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('get_staff_invite', { p_token: token })
+  if (!error) return { invite: data as StaffInviteInfo, error: null }
+  return {
+    invite: null,
+    error: error.message.includes('ya no es válida')
+      ? 'Esta invitación ya no es válida. Pedile al dueño del negocio un enlace nuevo.'
+      : 'No pudimos abrir la invitación. Probá de nuevo en unos minutos.',
+  }
+}
+
+const ACCEPT_KNOWN_ERRORS = [
+  'Esta invitación ya no es válida',
+  'Esta invitación venció',
+  'Esta cuenta ya es dueña de un negocio',
+  'Esta cuenta ya forma parte de otro equipo',
+  'Ese profesional ya tiene una cuenta vinculada',
+]
+
+export async function acceptStaffInvite(token: string): Promise<string | null> {
+  const { error } = await supabase.rpc('accept_staff_invite', { p_token: token })
+  if (!error) return null
+  if (ACCEPT_KNOWN_ERRORS.some(msg => error.message.includes(msg))) return error.message
+  console.warn('accept_staff_invite falló con un error no mapeado:', error.message)
+  return 'No pudimos sumarte al equipo. Probá de nuevo en unos minutos.'
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { KeyRound, LogIn } from 'lucide-react'
 import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
+import { email as cleanEmail } from '../lib/fieldRules'
 
 export function Login({ onBack }: { onBack: () => void }) {
   const { signIn, requestPasswordReset } = useAuth()
@@ -43,7 +44,7 @@ export function Login({ onBack }: { onBack: () => void }) {
         {!sent && <form onSubmit={handleReset}>
           <label className="onboarding-field">Email
             <input type="email" required placeholder="tu@email.com" value={email}
-              onChange={e => setEmail(e.target.value)} />
+              onChange={e => setEmail(cleanEmail(e.target.value))} />
           </label>
           {error && <p className="form-error">{error}</p>}
           <button className="button button--primary button--full" type="submit" disabled={busy}>
@@ -61,11 +62,11 @@ export function Login({ onBack }: { onBack: () => void }) {
       <section className="onboarding-card">
         <span className="onboarding-icon"><LogIn size={25} /></span>
         <h1>Bienvenido de nuevo.</h1>
-        <p>Ingresá con el email y la contraseña de tu negocio.</p>
+        <p>Ingresá con el email y la contraseña de tu cuenta.</p>
         <form onSubmit={handleSubmit}>
           <label className="onboarding-field">Email
             <input type="email" required placeholder="tu@email.com" value={email}
-              onChange={e => setEmail(e.target.value)} />
+              onChange={e => setEmail(cleanEmail(e.target.value))} />
           </label>
           <label className="onboarding-field">Contraseña
             <input type="password" required minLength={6} placeholder="••••••••" value={password}

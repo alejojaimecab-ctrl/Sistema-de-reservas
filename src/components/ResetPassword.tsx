@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
+import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
 
 // Se muestra cuando la persona llega desde el mail de "olvidé mi contraseña".
 export function ResetPassword({ onDone }: { onDone: () => void }) {
@@ -14,12 +15,15 @@ export function ResetPassword({ onDone }: { onDone: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (password !== confirm) { setError('Las contraseñas no coinciden.'); return }
+    const weak = passwordProblem(password)
+    if (weak) { setError(weak); return }
     setBusy(true)
     setError(null)
     const err = await updatePassword(password)
     setBusy(false)
     if (err) {
-      setError(err.includes('different from the old') ? 'Elegí una contraseña distinta a la anterior.' : 'No pudimos guardar la contraseña. Pedí un enlace nuevo e intentá de nuevo.')
+      const friendly = authErrorMessage(err)
+      setError(friendly !== err ? friendly : 'No pudimos guardar la contraseña. Pedí un enlace nuevo e intentá de nuevo.')
       return
     }
     window.history.replaceState(null, '', window.location.pathname)
@@ -32,7 +36,7 @@ export function ResetPassword({ onDone }: { onDone: () => void }) {
       <section className="onboarding-card">
         <span className="onboarding-icon"><KeyRound size={25} /></span>
         <h1>Elegí tu contraseña nueva.</h1>
-        <p>Después de guardarla vas a entrar directo a tu panel.</p>
+        <p>Después de guardarla vas a entrar directo a tu panel. {PASSWORD_HINT}</p>
         <form onSubmit={handleSubmit}>
           <label className="onboarding-field">Contraseña nueva
             <input type="password" required minLength={6} autoComplete="new-password" placeholder="••••••••"
