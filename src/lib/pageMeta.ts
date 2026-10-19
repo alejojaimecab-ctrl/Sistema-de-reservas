@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 
-export const SITE_NAME = 'RESER'
 export const HOME_TITLE = 'RESER — Sistema de reservas online para tu negocio'
 export const HOME_DESCRIPTION = 'RESER organiza los turnos de tu negocio: tus clientes reservan online desde un enlace, reciben confirmación por mail y vos ves toda la agenda en un solo lugar.'
 

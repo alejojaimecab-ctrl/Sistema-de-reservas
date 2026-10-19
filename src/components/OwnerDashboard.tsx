@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, Ellipsis, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
