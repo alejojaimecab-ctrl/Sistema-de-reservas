@@ -83,6 +83,8 @@ components:
     typography: "{typography.label}"
 ---
 
+> ⚠️ **OBSOLETO.** Este documento describe la paleta anterior ("celeste río"). La fuente de verdad visual es **[`DESIGN_UX.md`](DESIGN_UX.md)** (RESER Noir). Este archivo se reescribe al terminar la migración.
+
 # Design System: RESER
 
 ## Overview
