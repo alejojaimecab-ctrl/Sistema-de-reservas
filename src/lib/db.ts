@@ -709,26 +709,15 @@ export async function setAvailability(businessId: string, resourceId: string, sl
   return error ? error.message : null
 }
 
-// --- Cuentas de los profesionales (migración 029): el dueño invita con un enlace y puede quitar el acceso ---
+// --- Cuentas de los profesionales (migraciones 029-033): el dueño invita a su equipo con un solo enlace; cada persona
+// que se registra aparece sola en Equipo. Para quitarle el acceso a alguien se lo elimina del equipo. ---
 
-export type StaffMember = { resource_id: string; email: string | null; created_at: string }
-// resource_id null = enlace de equipo: cada persona que se une crea su propio perfil (migración 031)
 export type StaffInvite = { token: string; resource_id: string | null; expires_at: string }
 
-export async function listStaffAccess(businessId: string): Promise<{ members: StaffMember[]; invites: StaffInvite[] }> {
-  if (!(await ownsBusiness(businessId))) return { members: [], invites: [] }
-  const [members, invites] = await Promise.all([
-    supabase.from('staff_members').select('resource_id, email, created_at').eq('business_id', businessId),
-    supabase.from('staff_invites').select('token, resource_id, expires_at').eq('business_id', businessId),
-  ])
-  return { members: members.data ?? [], invites: invites.data ?? [] }
-}
-
-// Crea un enlace nuevo (el anterior de ese profesional deja de servir).
-export async function createStaffInvite(resourceId: string): Promise<{ token: string | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('create_staff_invite', { p_resource_id: resourceId })
-  if (error) return { token: null, error: error.message }
-  return { token: (data as { token?: string } | null)?.token ?? null, error: null }
+export async function listStaffAccess(businessId: string): Promise<{ invites: StaffInvite[] }> {
+  if (!(await ownsBusiness(businessId))) return { invites: [] }
+  const { data } = await supabase.from('staff_invites').select('token, resource_id, expires_at').eq('business_id', businessId)
+  return { invites: data ?? [] }
 }
 
 // Enlace de equipo del negocio: sirve para varias personas; crear uno nuevo anula el anterior.
@@ -741,13 +730,6 @@ export async function createTeamInvite(businessId: string): Promise<{ token: str
 export async function revokeStaffInvite(token: string): Promise<string | null> {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('staff_invites').delete().eq('token', token).in('business_id', owned)
-  return error ? error.message : null
-}
-
-// El profesional deja de poder entrar al panel; su agenda y sus reservas no se tocan.
-export async function removeStaffAccess(resourceId: string): Promise<string | null> {
-  const owned = await ownedBusinessIds()
-  const { error } = await supabase.from('staff_members').delete().eq('resource_id', resourceId).in('business_id', owned)
   return error ? error.message : null
 }
 

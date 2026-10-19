@@ -3,7 +3,7 @@ import { Check, Copy, MessageCircle, Plus, Trash2, UsersRound } from 'lucide-rea
 import { useAuth } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import { personName, phone } from '../lib/fieldRules'
-import { joinUrl, whatsappHref } from '../lib/routes'
+import { joinUrl } from '../lib/routes'
 import { useConfirm } from './ConfirmDialog'
 import { priceLabel } from '../data/demo'
 import {
@@ -14,9 +14,9 @@ import {
   type AvailabilityMap,
 } from './AvailabilityEditor'
 import {
-  createProfessional, createStaffInvite, createTeamInvite, deleteProfessional, getAvailability, listResourceServices, listServices, listStaffAccess,
-  removeStaffAccess, revokeStaffInvite, setAvailability, setProfessionalServices, updateProfessional,
-  type Professional, type Service, type StaffInvite, type StaffMember,
+  createProfessional, createTeamInvite, deleteProfessional, getAvailability, listResourceServices, listServices, listStaffAccess,
+  revokeStaffInvite, setAvailability, setProfessionalServices, updateProfessional,
+  type Professional, type Service, type StaffInvite,
 } from '../lib/db'
 
 // Lo que se guarda de un profesional: nombre, horarios y servicios que ofrece.
@@ -333,7 +333,6 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       {onlyWhatsapp
         ? <p className="form-note">Todo lo que ofrece este profesional se coordina por WhatsApp: no hace falta cargar horarios en RESER.</p>
         : <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />}
-      <StaffAccess businessId={businessId} professional={selected} />
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
         <button type="button" className="button button--secondary" disabled={busy} onClick={() => void toggleActive()}>
           {selected.is_active ? 'Desactivar profesional' : 'Reactivar profesional'}
@@ -355,81 +354,6 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     {message && <p className="form-note" role="status">{message}</p>}
     {dialog}
   </section>
-}
-
-// Cuenta propia del profesional (migración 029): ve solo su agenda y sus reservas, nunca las estadísticas
-// ni la configuración. El dueño lo invita con un enlace y le puede quitar el acceso cuando quiera.
-function StaffAccess({ businessId, professional }: { businessId: string; professional: Professional }) {
-  const { business } = useAuth()
-  const { confirm, dialog } = useConfirm()
-  const [member, setMember] = useState<StaffMember | null>(null)
-  const [invite, setInvite] = useState<StaffInvite | null>(null)
-  const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const who = nameInText(professional.name)
-
-  async function reload() {
-    const access = await listStaffAccess(businessId)
-    setMember(access.members.find(m => m.resource_id === professional.id) ?? null)
-    setInvite(access.invites.find(i => i.resource_id === professional.id) ?? null)
-    setLoaded(true)
-  }
-  useEffect(() => {
-    setLoaded(false)
-    setError(null)
-    void reload()
-  }, [businessId, professional.id])
-
-  async function run(action: () => Promise<string | null>) {
-    setBusy(true)
-    setError(null)
-    const actionError = await action()
-    await reload()
-    setBusy(false)
-    if (actionError) setError(actionError)
-  }
-
-  const createInvite = () => run(async () => (await createStaffInvite(professional.id)).error)
-
-  async function removeAccess() {
-    const accepted = await confirm({
-      title: `¿Quitarle el acceso al panel a ${who}?`,
-      message: 'No va a poder entrar más con su cuenta. Su agenda, sus horarios y sus reservas no se tocan.',
-      confirmLabel: 'Sí, quitar acceso',
-      cancelLabel: 'No, mantenerlo',
-      danger: true,
-    })
-    if (accepted) await run(() => removeStaffAccess(professional.id))
-  }
-
-  const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : false
-  const link = invite && !expired ? joinUrl(invite.token) : null
-  const whatsapp = link && professional.whatsapp
-    ? whatsappHref(professional.whatsapp, `Hola${professional.name === UNNAMED ? '' : ` ${professional.name}`}! Te sumé a ${business?.name ?? 'nuestro negocio'} en RESER para que veas tu agenda y tus turnos. Creá tu cuenta desde este enlace: ${link}`)
-    : null
-
-  return <>
-    {dialog}
-    <p className="eyebrow" style={{ marginTop: 20 }}>Acceso al panel</p>
-    {!loaded ? <p className="form-note" role="status">Cargando…</p>
-      : member ? <>
-        <p className="form-note">Entra con <strong>{member.email ?? 'su cuenta'}</strong></p>
-        <button type="button" className="button button--secondary button--small" style={{ marginTop: 8 }} disabled={busy} onClick={() => void removeAccess()}>Quitar acceso</button>
-      </>
-      : link ? <>
-        <p className="form-note">Invitación pendiente · vence el {new Date(invite!.expires_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}</p>
-        <InviteLink link={link} whatsappUrl={whatsapp} />
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          <button type="button" className="text-button" disabled={busy} onClick={() => void createInvite()}>Generar un enlace nuevo</button>
-          <button type="button" className="text-button" disabled={busy} onClick={() => void run(() => revokeStaffInvite(invite!.token))}>Anular invitación</button>
-        </div>
-      </>
-      : <button type="button" className="button button--secondary button--small" style={{ marginTop: 8 }} disabled={busy} onClick={() => void createInvite()}>
-        {expired ? 'Generar un enlace nuevo' : 'Invitar a su panel'}
-      </button>}
-    {error && <p className="form-error" role="alert">{error}</p>}
-  </>
 }
 
 // Enlace de equipo (migración 031): un solo enlace para varias personas. Cada una crea su cuenta y aparece sola

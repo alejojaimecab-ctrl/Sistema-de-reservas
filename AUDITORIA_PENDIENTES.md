@@ -29,14 +29,13 @@ sección, consultas a la base y los avisos de seguridad/rendimiento de Supabase.
   Sigue pendiente que el enlace de cada negocio muestre su nombre/imagen al compartirlo por WhatsApp (requiere
   prerender o una función en el borde, porque esos buscadores no ejecutan JavaScript).
 
-- **Cuentas para los profesionales** (2026-10-18, migración 029): el dueño invita a cada profesional desde
-  Equipo → "Acceso al panel" con un enlace (`/unirme/<token>`, vence a los 7 días; se puede copiar o mandar por
-  WhatsApp). El profesional crea su cuenta (o entra con la que tiene) y queda vinculado a su agenda. Puede: ver su
+- **Cuentas para los profesionales** (2026-10-18, migración 029): el dueño invita a su equipo desde
+  Equipo → "Sumar un profesional" con el enlace de equipo (`/unirme/<token>`, ver abajo). Puede: ver su
   agenda y sus reservas con el nombre y el email de sus clientes, marcar atendido / no vino, cancelar sus turnos,
   cargar reservas a mano solo en su agenda, editar sus horarios y ver los servicios con sus precios. No puede: ver
   estadísticas (Resumen), ni a los demás profesionales, ni tocar servicios, equipo, días libres (los ve, no los cambia)
-  ni configuración. El permiso lo aplica la base (RLS + funciones), no solo la pantalla. El dueño puede quitar el
-  acceso en cualquier momento; la agenda y las reservas del profesional no se tocan.
+  ni configuración. El permiso lo aplica la base (RLS + funciones), no solo la pantalla. Para quitarle el acceso,
+  el dueño elimina al profesional del equipo; sus reservas pasadas se conservan.
   **Pendiente / a decidir:** cuántas cuentas de profesional incluye cada plan; si al dueño le llega un mail cuando un
   profesional cancela un turno (hoy no, solo al cliente); cambiar de contraseña o email desde adentro (igual que el dueño).
 - **Eliminar profesionales** (2026-10-18, migración 030): botón "Eliminar profesional" en Equipo. Si nunca tuvo
@@ -49,8 +48,9 @@ sección, consultas a la base y los avisos de seguridad/rendimiento de Supabase.
   y aparece sola en la lista con el nombre de su cuenta, marcada "sin servicios": el dueño elige qué ofrece y, hasta
   entonces, no aparece en la página de reservas. Sus horarios los carga desde "Mis horarios". Desde la migración 032
   la cuenta nueva queda vinculada sola apenas confirma el email (el token viaja en los metadatos de la cuenta), aunque
-  confirme desde otro dispositivo; las cuentas que ya existían aceptan con "Unirme al equipo". La invitación por perfil
-  (para vincular a alguien que ya estaba cargado, como uno con historial) sigue en "Acceso al panel".
+  confirme desde otro dispositivo; las cuentas que ya existían aceptan con "Unirme al equipo". Desde la migración 033
+  es la única forma de invitar (se quitó "Acceso al panel", la invitación atada a un perfil ya cargado). Para quitarle
+  el acceso a alguien se lo elimina del equipo; sus reservas pasadas se conservan.
 - **Campos con reglas** (`src/lib/fieldRules.ts`): nombres de personas solo con letras; teléfonos y WhatsApp solo
   números (con + opcional); duración y precio solo números; emails sin espacios; el enlace del negocio en minúsculas
   con guiones; nombres de negocio y servicios con letras, números y signos comunes ("Corte + barba"). El profesional
