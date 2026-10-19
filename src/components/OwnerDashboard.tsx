@@ -1024,7 +1024,6 @@ function ServicesSection({ businessId }: { businessId: string }) {
                 <button type="button" className="service-toggle" aria-label={svc.is_active ? `Desactivar ${svc.name || 'servicio'}` : `Reactivar ${svc.name || 'servicio'}`} title={svc.is_active ? 'Tus clientes dejan de verlo; las reservas se conservan' : 'Vuelve a mostrarse a tus clientes'} onClick={() => void toggleActive(svc)}>
                   {svc.is_active ? <EyeOff size={14} /> : <Eye size={14} />}{svc.is_active ? 'Desactivar' : 'Reactivar'}
                 </button>
-                {svc.booking_mode === 'whatsapp' && <small>El cliente verá un botón para escribirle al profesional que elija. Cargá su WhatsApp en la sección Equipo.</small>}
                 {svc.booking_mode === 'whatsapp' && !business?.phone?.trim() && (() => {
                   const missing = team
                     .filter(p => p.is_active && !p.whatsapp?.trim() && offers.some(o => o.resource_id === p.id && o.service_id === svc.id))
@@ -1144,7 +1143,6 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
         {cancelOptions.map(h => <option key={h} value={h}>{h === 0 ? 'Hasta el momento del turno' : `Hasta ${h} ${h === 1 ? 'hora' : 'horas'} antes`}</option>)}
       </select>
     </label>
-    <p className="form-note">Pasado ese límite, el cliente tiene que comunicarse con vos. Vos siempre podés cancelar desde tu panel. Los horarios se editan en la sección Equipo.</p>
     {message && <p className="form-note">{message}</p>}
     <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
       {busy ? 'Guardando…' : 'Guardar cambios'}

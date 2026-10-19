@@ -101,7 +101,6 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
 
   return <section className="agenda-card">
     <div className="card-heading"><div><p className="eyebrow">Mis horarios</p><h2>Cuándo atendés</h2></div></div>
-    <p className="section-description">Tus clientes solo pueden reservar con vos en estos horarios. Los cambios se guardan solos.</p>
 
     <p
       role="status" aria-live="polite"
@@ -127,6 +126,5 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
         {item.resource_id === null ? ' · todo el negocio' : ''}
       </li>)}
     </ul>}
-    <p className="form-note">Los días libres los carga el dueño del negocio. Si necesitás uno, pedíselo.</p>
   </section>
 }

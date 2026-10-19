@@ -78,7 +78,6 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
   return <section className="agenda-card">
     {dialog}
     <div className="card-heading"><div><p className="eyebrow">Días libres</p><h2>Feriados y vacaciones</h2></div></div>
-    <p className="section-description">Los días que marques acá no aparecen en tu enlace de reservas. Sirve para feriados, vacaciones o un día que no atendés.</p>
 
     <form onSubmit={e => void add(e)} style={{ display: 'grid', gap: 12, margin: '16px 0 20px' }}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
