@@ -1,4 +1,4 @@
-# RESER Noir · Sistema de diseño y UX
+hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |# RESER Noir · Sistema de diseño y UX
 
 > **Fuente de verdad visual del sistema.** Reemplaza la paleta "celeste río" documentada en `DESIGN.md`.
 > Se derivó de la captura de referencia del panel de reservas (barbería, "Reservá tu turno online") y se aplica a **todo** el sistema: landing, reserva pública, acceso, onboarding y panel del dueño/profesional.
@@ -109,7 +109,7 @@
 | Logo (wordmark) | Según el contexto | 300–400 | 1 | ~0.3em | "RESER" |
 
 - **Cómo se arma la jerarquía:** con tamaño y gris. En todo el sistema hay como máximo 3 pesos: 400, 500/600 y 700, y el 700 queda solo para display.
-- **Tamaño mínimo:** ningún texto legible baja de **11px**.
+- **Tamaño mínimo:** ningún texto legible baja de **11px**. La única excepción es el calendario mensual denso (y el calendario en móvil), que usa 10px.
 
 ---
 
@@ -268,18 +268,18 @@ Cada pantalla migrada tiene que cumplir todo esto antes del commit:
 
 | Pantalla | Archivo(s) | Estado |
 |---|---|---|
-| Landing | `App.tsx` | pendiente |
-| Reserva pública (pasos y éxito) | `BookingExperience.tsx`, `SuccessCheck.tsx` | pendiente |
-| Cancelar reserva | `CancelBooking.tsx` | pendiente |
-| Login y recuperar contraseña | `Login.tsx`, `ResetPassword.tsx` | pendiente |
-| Unirse al equipo | `JoinTeam.tsx` | pendiente |
-| Onboarding y disponibilidad | `Onboarding.tsx`, `AvailabilityEditor.tsx` | pendiente |
-| Páginas legales | `LegalPage.tsx` | pendiente |
-| Panel: shell, métricas, agenda y calendario | `OwnerDashboard.tsx` | pendiente |
-| Panel: reservas | `ReservationsSection.tsx` | pendiente |
-| Panel: servicios y configuración | `OwnerDashboard.tsx` | pendiente |
-| Panel: equipo | `TeamSection.tsx` | pendiente |
-| Panel: mis horarios y días libres | `MyScheduleSection.tsx`, `TimeOffSection.tsx` | pendiente |
-| Confirmación y error | `ConfirmDialog.tsx`, `ErrorBoundary.tsx` | pendiente |
-| Logo y marca | `Brand.tsx`, `ScrollBrand.tsx`, `public/` | pendiente |
-| Mail de recordatorio | `supabase/functions/send-reminders/mail.ts` | pendiente |
+| Landing | `App.tsx` | hecho |
+| Reserva pública (pasos y éxito) | `BookingExperience.tsx`, `SuccessCheck.tsx` | hecho |
+| Cancelar reserva | `CancelBooking.tsx` | hecho |
+| Login y recuperar contraseña | `Login.tsx`, `ResetPassword.tsx` | hecho |
+| Unirse al equipo | `JoinTeam.tsx` | hecho |
+| Onboarding y disponibilidad | `Onboarding.tsx`, `AvailabilityEditor.tsx` | hecho |
+| Páginas legales | `LegalPage.tsx` | hecho |
+| Panel: shell, métricas, agenda y calendario | `OwnerDashboard.tsx` | hecho |
+| Panel: reservas | `ReservationsSection.tsx` | hecho |
+| Panel: servicios y configuración | `OwnerDashboard.tsx` | hecho |
+| Panel: equipo | `TeamSection.tsx` | hecho |
+| Panel: mis horarios y días libres | `MyScheduleSection.tsx`, `TimeOffSection.tsx` | hecho |
+| Confirmación y error | `ConfirmDialog.tsx`, `ErrorBoundary.tsx` | hecho |
+| Logo y marca | `Brand.tsx`, `ScrollBrand.tsx`, `public/` | provisorio: filtro CSS en blanco; faltan PNG en monocromo |
+| Mail de recordatorio | `supabase/functions/send-reminders/mail.ts` | colores listos en local; falta desplegar |
