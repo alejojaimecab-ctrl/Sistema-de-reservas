@@ -14,7 +14,7 @@ export function ScrollBrand() {
   const shape=(draw:(c:CanvasRenderingContext2D)=>void)=>{
    const layer=document.createElement('canvas');layer.width=W;layer.height=H
    const c=layer.getContext('2d',{willReadFrequently:true})!
-   c.strokeStyle='#176f99';c.lineWidth=3.2;c.lineCap='round';c.lineJoin='round';draw(c)
+   c.strokeStyle='#e4e4e7';c.lineWidth=3.2;c.lineCap='round';c.lineJoin='round';draw(c)
    const data=c.getImageData(0,0,W,H).data, pts:[number,number][]=[]
    for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(data[(y*W+x)*4+3]>70)pts.push([x,y])
    return {layer,pts}
