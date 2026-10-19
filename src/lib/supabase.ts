@@ -17,4 +17,6 @@ function readAuthLinkError(): 'expired' | 'other' | null {
 }
 export const authLinkError = readAuthLinkError()
 
-export const supabase = createClient(url, anonKey)
+// worker: el latido del tiempo real corre en un Web Worker, así Chrome no lo frena con la pestaña en segundo plano
+// y los avisos de reservas nuevas siguen llegando (ver reservationAlerts.ts).
+export const supabase = createClient(url, anonKey, { realtime: { worker: true } })

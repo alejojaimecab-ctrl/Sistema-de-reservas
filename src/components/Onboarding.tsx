@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles } from 'lucide-react'
 import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from './AvailabilityEditor'
 import { Brand } from './Brand'
@@ -397,6 +398,8 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       )}
       {!draftRead.error && draftStatus && <p className="draft-status" role="status">{draftStatus}</p>}
 
+      {/* Cada paso entra con una transición corta (sin esperar la salida del anterior, así el foco va directo al título) */}
+      <motion.div key={step} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}>
       {step === 1 && (<>
         <span className="onboarding-icon"><Store size={25} /></span>
         <h1 ref={stepHeadingRef} tabIndex={-1}>Empecemos por tu negocio.</h1>
@@ -504,6 +507,8 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
           <span>Leí y acepto los <a href="/terminos" target="_blank" rel="noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>. Entiendo que, como negocio, voy a tratar datos de mis clientes.</span>
         </label>
       </>)}
+
+      </motion.div>
 
       {error && <p ref={errorRef} className="form-error" id="onboarding-error" role="alert" tabIndex={-1}>{error}</p>}
       <div className="onboarding-actions">

@@ -92,9 +92,14 @@ components:
 
 ## Overview
 
-**Creative North Star: "Clásico y silencioso"**
+**Creative North Star: "Clásico, con luz"**
 
-Negro profundo, grises neutros sin tinte y un único acento blanco que marca dónde está la acción. La jerarquía se arma con tamaño y gris, nunca con color. La profundidad la dan los bordes finos y el salto de tono de superficie, no las sombras ni los glows. Una sola familia (Inter), con a lo sumo tres pesos.
+Negro profundo, grises neutros sin tinte y un único acento blanco que marca dónde está la acción. La jerarquía se arma con tamaño y gris, nunca con color. La profundidad la da **una sola luz que viene de arriba**:
+- las tarjetas tienen el borde más claro arriba, un brillo leve en la cara, grano fino y sombra en capas;
+- los campos van hundidos;
+- los botones suben al pasar el mouse y se hunden al presionarlos.
+
+Nada de glows ni colores. Una sola familia (Inter), con a lo sumo tres pesos.
 
 ## Reglas clave
 
@@ -102,5 +107,14 @@ Negro profundo, grises neutros sin tinte y un único acento blanco que marca dó
 - Un solo CTA blanco por pantalla. Los secundarios van con superficie y borde sutil.
 - Las opciones seleccionables usan el patrón radio-card: borde claro y check blanco al elegirlas.
 - Verde, rojo y ámbar apagados solo para estados (atendido, no vino, pendiente o error), siempre acompañados de un ícono o un texto.
-- Nada de saltos en hover (`translateY`). Las transiciones duran 150–200 ms y solo cambian color, borde y opacidad.
+- **Relieve** (tokens `--edge`, `--sheen`, `--grain`, `--hl`, `--elev-1/2`, `--inset` y `--surface-inset`; las reglas están en `src/relief.css`):
+  - las tarjetas elevadas, los campos hundidos;
+  - degradés neutros de luz de hasta un 12 %;
+  - un halo blanco tenue solo bajo el botón principal.
+- **Movimiento:**
+  - solo los botones suben 1 px en hover, y todos se comprimen al presionarlos;
+  - el indicador activo se desliza;
+  - los pasos y las secciones cambian sin saltos;
+  - las duraciones van de 80 a 420 ms con `cubic-bezier(.16, 1, .3, 1)`;
+  - se respeta "reducir movimiento".
 - Foco visible con un anillo blanco de 2 px. Contraste AA. Texto legible de 11 px como mínimo; la única excepción es el calendario mensual denso, que usa 10 px.

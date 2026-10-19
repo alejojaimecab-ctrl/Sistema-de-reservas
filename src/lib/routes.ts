@@ -53,6 +53,14 @@ export function joinUrl(token: string): string {
   return `${window.location.origin}/unirme/${token}`
 }
 
+// '/panel' → '' y '/panel/agenda' → 'agenda' (la sección del panel queda en la dirección: sobrevive al recargar
+// y el botón Atrás vuelve a la sección anterior); cualquier otra ruta → null
+export function panelSectionFromPath(pathname: string): string | null {
+  const [first, section, ...rest] = pathname.split('/').filter(Boolean)
+  if (first !== 'panel' || rest.length > 0) return null
+  return section ?? ''
+}
+
 // '/terminos' o '/privacidad' → documento legal; cualquier otra ruta → null
 export function legalDocFromPath(pathname: string): 'terminos' | 'privacidad' | null {
   const parts = pathname.split('/').filter(Boolean)

@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
-import { ArrowRight, BellRing, CalendarCheck2, CirclePlay, Clock3, Layers3, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react'
+import { MotionConfig, motion } from 'motion/react'
+import { ArrowRight, BellRing, CalendarCheck2, CirclePlay, Clock3, Layers3, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
 import { AuthProvider, useAuth } from './lib/auth'
-import { cancelTokenFromPath, goTo, joinTokenFromPath, legalDocFromPath, slugFromPath } from './lib/routes'
+import { cancelTokenFromPath, goTo, joinTokenFromPath, legalDocFromPath, panelSectionFromPath, slugFromPath } from './lib/routes'
 import { HOME_TITLE, usePageMeta, type PageMeta } from './lib/pageMeta'
 
 type View = 'home' | 'public-booking' | 'cancel' | 'join' | 'legal' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
@@ -48,17 +48,46 @@ const Login = lazy(() =>
 )
 
 const features = [
-  { icon: CalendarCheck2, title: 'Agenda sin cruces', text: 'RESER muestra únicamente horarios realmente disponibles.' },
-  { icon: BellRing, title: 'Recordatorios que llegan', text: 'Confirmaciones y avisos para que no se te escape ningún turno.' },
-  { icon: Layers3, title: 'Hecho para tu negocio', text: 'Servicios, precios y horarios con tu propia forma de trabajar.' },
+  { icon: CalendarCheck2, title: 'Agenda sin cruces', text: 'RESER muestra únicamente horarios realmente disponibles.', fragment: 'agenda' },
+  { icon: BellRing, title: 'Recordatorios que llegan', text: 'Confirmaciones y avisos para que no se te escape ningún turno.', fragment: 'mail' },
+  { icon: Layers3, title: 'Hecho para tu negocio', text: 'Servicios, precios y horarios con tu propia forma de trabajar.', fragment: 'services' },
+] as const
+
+// Fragmentos de la interfaz real (con datos de ejemplo) que acompañan cada función de la portada
+function FeatureFragment({ kind }: { kind: (typeof features)[number]['fragment'] }) {
+  if (kind === 'agenda') return <div className="fragment fragment-agenda" aria-hidden="true">
+    {[['09:00', 'taken'], ['09:30', ''], ['10:00', 'picked'], ['10:30', 'taken'], ['11:00', ''], ['11:30', ''], ['12:00', 'taken'], ['12:30', '']].map(([time, state]) =>
+      <span key={time} className={state ? `is-${state}` : undefined}>{time}</span>)}
+    <small>Los horarios ocupados no se ofrecen</small>
+  </div>
+  if (kind === 'mail') return <div className="fragment fragment-mail" aria-hidden="true">
+    <div className="fragment-mail-head"><span className="mini-logo">R</span><span><strong>RESER</strong><small>Recordatorio · hace un momento</small></span></div>
+    <p><strong>Tu turno es en 1 hora</strong><span>Servicio 1 · hoy, 10:30</span></p>
+  </div>
+  return <div className="fragment fragment-services" aria-hidden="true">
+    {[['Servicio 1', '30 min', '$ 15.000'], ['Servicio 2', '45 min', '$ 20.000'], ['Servicio 3', 'Por WhatsApp', 'A consultar']].map(([name, detail, price]) =>
+      <span key={name}><strong>{name}</strong><small>{detail}</small><b>{price}</b></span>)}
+  </div>
+}
+
+const storyChat = ['¿Tenés turno mañana a la tarde?', 'A las 17 tengo, ¿te sirve?', 'Mejor a las 18… ah, ¿ya se ocupó?', 'Sí, perdón. ¿Te anoto el jueves?']
+const storyAgenda = [
+  ['Mañana 17:00', 'Lucía F. · Servicio 1', 'Confirmada'],
+  ['Jue 10:30', 'Bruno A. · Servicio 2', 'Confirmada'],
+  ['Vie 18:00', 'Carla M. · Servicio 1', 'Recordatorio enviado'],
 ]
+const storyList = { hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }
+const storyItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } } }
 
 export default function App() {
   return (
     <AuthProvider>
-      <Suspense fallback={<AppLoading />}>
-        <Root />
-      </Suspense>
+      {/* "Reducir movimiento" del sistema: motion deja de mover y escalar (los fundidos y estados siguen) */}
+      <MotionConfig reducedMotion="user">
+        <Suspense fallback={<AppLoading />}>
+          <Root />
+        </Suspense>
+      </MotionConfig>
     </AuthProvider>
   )
 }
@@ -75,7 +104,7 @@ function Root() {
   const [cancelToken, setCancelToken] = useState(() => cancelTokenFromPath(window.location.pathname))
   const [legalDoc, setLegalDoc] = useState(() => legalDocFromPath(window.location.pathname))
   const [joinToken, setJoinToken] = useState(() => joinTokenFromPath(window.location.pathname))
-  const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : joinToken ? 'join' : publicSlug ? 'public-booking' : 'home')
+  const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : joinToken ? 'join' : publicSlug ? 'public-booking' : panelSectionFromPath(window.location.pathname) !== null ? 'dashboard' : 'home')
   const { session, loading, recovering } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
   // Lo que se ve depende también de la sesión: "login" con sesión muestra el panel y "dashboard" sin sesión muestra el login
@@ -89,11 +118,12 @@ function Root() {
       const token = cancelTokenFromPath(window.location.pathname)
       const doc = legalDocFromPath(window.location.pathname)
       const join = joinTokenFromPath(window.location.pathname)
+      const panel = panelSectionFromPath(window.location.pathname) !== null
       setPublicSlug(slug)
       setCancelToken(token)
       setLegalDoc(doc)
       setJoinToken(join)
-      setView(v => doc ? 'legal' : token ? 'cancel' : join ? 'join' : slug ? 'public-booking' : (v === 'public-booking' || v === 'cancel' || v === 'join' || v === 'legal') ? 'home' : v)
+      setView(v => doc ? 'legal' : token ? 'cancel' : join ? 'join' : slug ? 'public-booking' : panel ? 'dashboard' : (v === 'public-booking' || v === 'cancel' || v === 'join' || v === 'legal' || v === 'dashboard') ? 'home' : v)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -118,6 +148,15 @@ function Root() {
     prevSession.current = session
   }, [session, loading])
 
+  // El panel vive en /panel (la sección la agrega OwnerDashboard): así recargar no lo saca del panel.
+  // Al salir del panel a la portada, la dirección vuelve a "/".
+  useEffect(() => {
+    if (loading) return
+    const inPanel = panelSectionFromPath(window.location.pathname) !== null
+    if (shownView === 'dashboard' && !inPanel) goTo('/panel')
+    else if (shownView === 'home' && inPanel) goTo('/')
+  }, [shownView, loading])
+
   if (loading) return null
   if (recovering && session) return <ResetPassword onDone={() => setView('dashboard')} />
   if (view === 'legal' && legalDoc) return <LegalPage doc={legalDoc} onBack={leavePublicBooking} onOpen={doc => { goTo(`/${doc}`); setLegalDoc(doc) }} />
@@ -136,13 +175,31 @@ function Root() {
   if (view === 'onboarding') return <Onboarding onBack={() => setView('home')} onFinish={() => setView('dashboard')} />
 
   return <main className="site-shell">
-    <nav className="site-nav"><ScrollBrand /><div className="nav-actions"><a href="#como-funciona">Cómo funciona</a><button className="text-button" onClick={() => setView('login')}>Iniciar sesión</button><button className="button button--pill button--small" onClick={() => setView('onboarding')}>Crear mi negocio <ArrowRight size={16} /></button></div></nav>
-    <section className="hero"><div className="hero-copy"><motion.div className="hero-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}><Sparkles size={14} /> Reservas simples para negocios reales</motion.div><motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.65 }}>Tu tiempo vale.<br /><em>Hacelo rendir.</em></motion.h1><motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, duration: 0.65 }}>RESER organiza tus turnos, confirma a tus clientes y te devuelve el control de tu agenda.</motion.p><motion.div className="hero-actions" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.65 }}><button className="button button--primary button--large" onClick={() => setView('onboarding')}>Empezar gratis <ArrowRight size={18} /></button><button className="button button--ghost button--large" onClick={() => setView('demo-booking')}><CirclePlay size={19} /> Ver una reserva</button></motion.div><motion.div className="hero-proof" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}><p><strong>Una agenda más clara</strong><br />para cualquier tipo de negocio.</p></motion.div></div>
+    <nav className="site-nav"><ScrollBrand /><div className="nav-actions"><a href="#como-funciona">Cómo funciona</a><button className="text-button" onClick={() => setView('login')}>{session ? 'Mi panel' : 'Iniciar sesión'}</button><button className="button button--pill button--small" onClick={() => setView('onboarding')}>Crear mi negocio <ArrowRight size={16} /></button></div></nav>
+    <section className="hero"><div className="hero-copy"><motion.div className="hero-badge" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}><CalendarCheck2 size={14} /> Reservas simples para negocios reales</motion.div><motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.65 }}>Tu tiempo vale.<br /><em>Hacelo rendir.</em></motion.h1><motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, duration: 0.65 }}>RESER organiza tus turnos, confirma a tus clientes y te devuelve el control de tu agenda.</motion.p><motion.div className="hero-actions" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.65 }}><button className="button button--primary button--large" onClick={() => setView('onboarding')}>Empezar gratis <ArrowRight size={18} /></button><button className="button button--ghost button--large" onClick={() => setView('demo-booking')}><CirclePlay size={19} /> Ver una reserva</button></motion.div><motion.div className="hero-proof" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}><p><strong>Una agenda más clara</strong><br />para cualquier tipo de negocio.</p></motion.div></div>
       <motion.div className="hero-visual" initial={{ opacity: 0, scale: 0.94, y: 28 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}><div className="showcase-window"><div className="showcase-top"><span className="mini-logo">TN</span><span>Tu Negocio</span><i /><small>Vista de ejemplo</small></div><div className="showcase-content"><p className="eyebrow">Tu agenda hoy</p><h2>4 reservas confirmadas</h2><div className="showcase-booking"><span className="avatar avatar--blue">LF</span><div><strong>Lucía Fernández</strong><small>Servicio 1 · 09:30</small></div><span className="booking-status">Confirmada</span></div><div className="showcase-booking showcase-booking--muted"><span className="avatar avatar--violet">BA</span><div><strong>Bruno Acosta</strong><small>Servicio 2 · 10:30</small></div><span>En 1 h</span></div></div></div><motion.div className="floating-card floating-card--reminder" animate={{ y: [0, -8, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}><span><BellRing size={17} /></span><p><strong>Recordatorio enviado</strong><small>Lucía · hace un momento</small></p></motion.div><motion.div className="floating-card floating-card--calendar" animate={{ y: [0, 7, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}><CalendarCheck2 size={20} /><strong>Agenda al día</strong></motion.div></motion.div>
     </section>
     <section className="trust-strip"><span><ShieldCheck size={18} /> Datos protegidos</span><span><Clock3 size={18} /> Horarios en tiempo real</span><span><WandSparkles size={18} /> Configuración en minutos</span></section>
-    <section id="como-funciona" className="feature-section"><Reveal><p className="eyebrow">Pensado para que funcione solo</p><h2>Menos coordinación.<br />Más tiempo para tu trabajo.</h2></Reveal><div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <Reveal key={title} delay={index * 0.1}><article className="feature-card"><span><Icon size={22} /></span><h3>{title}</h3><p>{text}</p><i>0{index + 1}</i></article></Reveal>)}</div></section>
-    <section className="cta-section"> <Reveal><div><p className="eyebrow">Tu agenda, a tu manera</p><h2>Tu negocio merece<br /><em>una mejor reserva.</em></h2><p>Configurá RESER en minutos y compartí tu enlace cuando estás listo.</p><button className="button button--light button--large" onClick={() => setView('onboarding')}>Crear mi negocio <ArrowRight size={18} /></button></div></Reveal><span className="cta-decoration" aria-hidden="true"><CalendarCheck2 size={160} /></span></section>
+    <section className="story-section" aria-labelledby="story-title">
+      <Reveal><h2 id="story-title">Del ida y vuelta por WhatsApp<br /><em>a una agenda que se ordena sola.</em></h2></Reveal>
+      <div className="story-grid">
+        <div className="story-panel story-panel--before">
+          <p className="story-label">Hoy, por WhatsApp</p>
+          <motion.ul className="story-chat" variants={storyList} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.5 }}>
+            {storyChat.map((message, index) => <motion.li key={message} variants={storyItem} className={index % 2 ? 'is-out' : 'is-in'}>{message}</motion.li>)}
+          </motion.ul>
+        </div>
+        <span className="story-arrow" aria-hidden="true"><ArrowRight size={20} /></span>
+        <div className="story-panel story-panel--after">
+          <p className="story-label">Con RESER</p>
+          <motion.ul className="story-agenda" variants={storyList} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.5 }}>
+            {storyAgenda.map(([when, who, state]) => <motion.li key={when} variants={storyItem}><time>{when}</time><span>{who}</span><b>{state}</b></motion.li>)}
+          </motion.ul>
+        </div>
+      </div>
+    </section>
+    <section id="como-funciona" className="feature-section"><Reveal><p className="eyebrow">Pensado para que funcione solo</p><h2>Menos coordinación.<br />Más tiempo para tu trabajo.</h2></Reveal><div className="feature-grid feature-grid--bento">{features.map(({ icon: Icon, title, text, fragment }, index) => <Reveal key={title} delay={index * 0.08}><article className={`feature-card feature-card--${fragment}`}><span><Icon size={22} /></span><h3>{title}</h3><p>{text}</p><FeatureFragment kind={fragment} /></article></Reveal>)}</div></section>
+    <section className="cta-section"> <Reveal><div><p className="eyebrow">Tu agenda, a tu manera</p><h2>Tu negocio merece<br /><em>una mejor reserva.</em></h2><p>Configurá RESER en minutos y compartí tu enlace cuando estás listo.</p><button className="button button--primary button--large" onClick={() => setView('onboarding')}>Crear mi negocio <ArrowRight size={18} /></button></div></Reveal><span className="cta-decoration" aria-hidden="true"><CalendarCheck2 size={160} /></span></section>
     <footer><Brand compact inverse /><span>© 2026 RESER. Hecho para negocios que valoran su tiempo.<span className="site-footer-links"><a href="/terminos">Términos</a><a href="/privacidad">Privacidad</a></span></span></footer>
   </main>
 }

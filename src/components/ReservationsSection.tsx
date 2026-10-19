@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { SegmentIndicator } from './SegmentIndicator'
 import { Check, RotateCcw, Search, X } from 'lucide-react'
 import { priceLabel } from '../data/demo'
 import {
@@ -53,15 +54,20 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
   const [actionError, setActionError] = useState<string | null>(null)
   const [retry, setRetry] = useState(0)
 
+  const periodGroup = useId()
+
+  // Si ya están los datos de este negocio (por ejemplo, llegó una reserva nueva), se actualiza sin mostrar "Cargando…"
+  const loadedForRef = useRef<string | null>(null)
   useEffect(() => {
     let active = true
-    setLoading(true)
+    if (loadedForRef.current !== businessId) setLoading(true)
     listAllReservations(businessId).then(result => {
       if (!active) return
       setAll(result.reservations)
       setError(result.error)
       setNow(Date.now())
       setLoading(false)
+      loadedForRef.current = result.error ? null : businessId
     })
     return () => { active = false }
   }, [businessId, reloadKey, retry])
@@ -141,7 +147,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
       </label>
       <div className="calendar-mode" role="group" aria-label="Período">
         {([['upcoming', 'Próximas'], ['past', 'Pasadas'], ['all', 'Todas']] as const).map(([value, label]) =>
-          <button key={value} type="button" aria-pressed={period === value} className={period === value ? 'is-active' : ''} onClick={() => setPeriod(value)}>{label}</button>)}
+          <button key={value} type="button" aria-pressed={period === value} className={period === value ? 'is-active' : ''} onClick={() => setPeriod(value)}>{period === value && <SegmentIndicator group={periodGroup} />}{label}</button>)}
       </div>
       <div className="res-selects">
         <label>Estado

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, MessageCircle, Plus, Trash2, UsersRound } from 'lucide-react'
+import { SegmentIndicator } from './SegmentIndicator'
 import { useAuth } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import { personName, phone } from '../lib/fieldRules'
@@ -54,6 +55,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
   const { confirm, dialog } = useConfirm()
+  const pickerGroup = useId()
   // Profesionales con al menos un servicio (los que se suman con el enlace de equipo llegan sin ninguno)
   const [servedIds, setServedIds] = useState<Set<string> | null>(null)
   const activeCount = professionals.filter(p => p.is_active).length
@@ -279,7 +281,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         type="button" key={p.id} aria-pressed={selected?.id === p.id}
         className={selected?.id === p.id ? 'is-active' : ''}
         onClick={() => void selectProfessional(p.id)}
-      >{shownName(p.name)}{p.is_active ? '' : ' (inactivo)'}{p.is_active && servedIds && !servedIds.has(p.id) ? ' · sin servicios' : ''}</button>)}
+      >{selected?.id === p.id && <SegmentIndicator group={pickerGroup} />}{shownName(p.name)}{p.is_active ? '' : ' (inactivo)'}{p.is_active && servedIds && !servedIds.has(p.id) ? ' · sin servicios' : ''}</button>)}
     </div>
 
     {selected && <>

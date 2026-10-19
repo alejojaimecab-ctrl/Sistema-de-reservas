@@ -1,0 +1,122 @@
+/* RESER Noir · relieve y movimiento ("Noir con luz", ver DESIGN_UX.md §4 y §9).
+   Una sola luz que viene de arriba: borde superior más claro, brillo leve en la cara de cada superficie,
+   sombras en capas y grano fino para que el negro tenga material. Sigue siendo negro, gris y blanco.
+   Esta capa se carga después de styles.css y extra.css. */
+
+/* ── Luz ambiente ───────────────────────────────────────────── */
+.site-shell { background: radial-gradient(ellipse 70% 55% at 78% -8%, rgb(255 255 255 / .075), transparent 62%), radial-gradient(ellipse 50% 40% at 0% 40%, rgb(255 255 255 / .025), transparent 70%), var(--grain), var(--bg); }
+.dashboard { background: radial-gradient(ellipse 55% 38% at 72% -12%, rgb(255 255 255 / .05), transparent 70%), var(--bg); }
+.booking-shell, .onboarding { background-image: radial-gradient(ellipse 60% 45% at 50% -10%, rgb(255 255 255 / .06), transparent 68%), var(--grain); }
+::selection { color: var(--on-accent); background: rgb(255 255 255 / .88); }
+
+/* ── Tarjetas: borde de luz (más claro arriba), brillo en la cara, grano y sombra en capas ── */
+.agenda-card, .metric, .feature-card, .booking-card, .onboarding-card, .cta-section, .confirm-dialog, .showcase-window {
+  border: 1px solid transparent;
+  background:
+    var(--sheen) padding-box,
+    var(--grain) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--edge) border-box,
+    linear-gradient(var(--border), var(--border)) border-box;
+  box-shadow: var(--hl), var(--elev-2);
+}
+.feature-card, .metric { transition: box-shadow .3s var(--ease-out), transform .3s var(--ease-out); }
+.feature-card:hover, .metric:hover {
+  background:
+    var(--sheen) padding-box,
+    var(--grain) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--edge-hover) border-box,
+    linear-gradient(var(--border-hover), var(--border-hover)) border-box;
+  box-shadow: var(--hl-strong), 0 2px 4px rgb(0 0 0 / .45), 0 22px 44px -18px rgb(0 0 0 / .95);
+}
+.metric-icon, .feature-card > span { background: var(--sheen), var(--surface-2); box-shadow: var(--hl), var(--elev-1); }
+.floating-card { background: var(--sheen), var(--surface-2); box-shadow: var(--hl-strong), var(--shadow-pop); }
+
+/* Superficies dentro de una tarjeta: un escalón de luz, sin borde de luz propio (no son tarjetas anidadas) */
+.review-card, .ready-card, .draft-notice, .booking-receipt { background: var(--sheen), var(--surface-2); box-shadow: var(--hl); }
+
+/* ── Botones ────────────────────────────────────────────────── */
+.button { transition: background-color .18s ease-out, border-color .18s ease-out, color .18s ease-out, opacity .18s ease-out, box-shadow .22s var(--ease-out), transform .22s var(--ease-out); }
+.button svg { transition: transform .22s var(--ease-out); }
+.button:hover:not(:disabled) .lucide-arrow-right { transform: translateX(3px); }
+.button:active:not(:disabled) { transform: translateY(0) scale(.98); transition-duration: .08s; }
+
+/* Principal: blanco con volumen (luz arriba, sombra abajo) y un halo blanco tenue que crece al pasar el mouse */
+.button--primary { background: linear-gradient(180deg, #ffffff, #e9e9ec); box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgb(0 0 0 / .14), 0 1px 2px rgb(0 0 0 / .55), 0 8px 22px -12px rgb(255 255 255 / .28); }
+.button--primary:hover:not(:disabled) { background: linear-gradient(180deg, #ffffff, #f0f0f2); transform: translateY(-1px); box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgb(0 0 0 / .14), 0 3px 6px rgb(0 0 0 / .5), 0 14px 30px -12px rgb(255 255 255 / .38); }
+.button--primary:active:not(:disabled) { background: linear-gradient(180deg, #e4e4e7, #f2f2f4); box-shadow: inset 0 2px 4px rgb(0 0 0 / .2), 0 1px 1px rgb(0 0 0 / .45); }
+.button--primary:disabled { background: var(--accent); box-shadow: none; }
+
+/* Secundarios: superficie con brillo que se eleva al pasar el mouse y se hunde al presionar */
+.button--ghost, .button--secondary, .button--light { background: var(--sheen), var(--surface-2); box-shadow: var(--hl), 0 1px 2px rgb(0 0 0 / .45); }
+.button--ghost:hover:not(:disabled), .button--secondary:hover:not(:disabled), .button--light:hover:not(:disabled) { background: var(--sheen), var(--surface-hover); border-color: var(--border-hover); transform: translateY(-1px); box-shadow: var(--hl-strong), 0 2px 4px rgb(0 0 0 / .45), 0 10px 22px -12px rgb(0 0 0 / .9); }
+.button--ghost:active:not(:disabled), .button--secondary:active:not(:disabled), .button--light:active:not(:disabled) { background: var(--surface-2); box-shadow: var(--inset); }
+.button--pill { box-shadow: var(--hl); }
+.button--pill:hover:not(:disabled) { background: var(--sheen), var(--surface-2); border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--hl-strong), 0 10px 22px -12px rgb(0 0 0 / .9); }
+
+/* Botones de texto: subrayado que crece desde la izquierda */
+.text-button, .link-button { background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-size: 0% 1px; background-position: 0 calc(100% - 5px); transition: color .18s ease-out, background-size .28s var(--ease-out); }
+.text-button:hover:not(:disabled), .link-button:hover:not(:disabled) { background-size: 100% 1px; }
+
+/* ── Opciones elegibles: misma lógica de selección, ahora con relieve y respuesta al tacto ── */
+.service-option, .date-picker button, .time-grid button, .calendar-mode, .service-chip { box-shadow: var(--hl); }
+.service-option, .date-picker button, .time-grid button { background-image: var(--sheen); transition: background-color .18s ease-out, border-color .18s ease-out, color .18s ease-out, box-shadow .22s var(--ease-out), transform .16s var(--ease-out); }
+.service-option:hover:not(:disabled), .date-picker button:not(:disabled):hover, .time-grid button:hover:not(:disabled) { box-shadow: var(--hl-strong), 0 8px 18px -12px rgb(0 0 0 / .9); }
+.service-option:active:not(:disabled):not(div) { transform: scale(.99); transition-duration: .08s; }
+.date-picker button:active:not(:disabled), .time-grid button:active:not(:disabled) { transform: scale(.96); transition-duration: .08s; }
+.service-option.is-selected, .date-picker button.is-selected, .time-grid button.is-selected { box-shadow: var(--hl-strong), 0 0 0 1px rgb(255 255 255 / .05), 0 10px 22px -14px rgb(0 0 0 / .95); }
+.service-option.is-selected .option-check { animation: relief-check-pop .32s var(--ease-out); }
+@keyframes relief-check-pop { from { transform: scale(.55); } to { transform: scale(1); } }
+
+/* Selector segmentado e ítem activo del menú: el indicador se desliza (SegmentIndicator, motion layoutId) */
+.calendar-mode button, .dashboard-sidebar nav button { position: relative; isolation: isolate; }
+.calendar-mode button.is-active, .calendar-mode button[aria-pressed="true"], .dashboard-sidebar nav button.is-active { background: transparent; border-color: transparent; box-shadow: none; }
+.segment-indicator { position: absolute; inset: -1px; z-index: -1; border-radius: inherit; background: var(--sheen), var(--surface-sel); box-shadow: var(--hl-strong), inset 0 0 0 1px var(--border-hover), 0 3px 8px -3px rgb(0 0 0 / .7); pointer-events: none; }
+.dashboard-sidebar nav .segment-indicator { inset: 0; box-shadow: var(--hl-strong), inset 0 0 0 1px var(--border), 0 3px 8px -3px rgb(0 0 0 / .7); }
+.dashboard-sidebar { background: var(--sheen), var(--grain), var(--surface); box-shadow: inset -1px 0 0 rgb(255 255 255 / .02); }
+
+/* ── Campos: hundidos en la superficie, con un halo al enfocarlos ── */
+.onboarding-field input, .onboarding-field select, .onboarding-field textarea, .field > div, .url-field, .res-search,
+.manual-reservation-fields input, .manual-reservation-fields select, .manual-reservation-fields > label > div,
+.availability-range select, .service-options select, .res-selects select, .service-row input, .service-value-input {
+  background-color: var(--surface-inset);
+  box-shadow: var(--inset);
+  transition: border-color .18s ease-out, box-shadow .22s var(--ease-out), background-color .18s ease-out;
+}
+.manual-reservation-fields > label > div input, .service-row .service-value-input input { box-shadow: none; background: transparent; }
+.onboarding-field input:focus, .onboarding-field select:focus, .onboarding-field textarea:focus, .field > div:focus-within, .url-field:focus-within, .res-search:focus-within,
+.manual-reservation-fields input:focus, .manual-reservation-fields select:focus, .manual-reservation-fields > label > div:focus-within,
+.availability-range select:focus, .service-options select:focus, .res-selects select:focus, .service-row input:focus-visible, .service-value-input:focus-within {
+  background-color: var(--surface-inset);
+  border-color: var(--border-strong);
+  box-shadow: var(--inset), 0 0 0 4px rgb(255 255 255 / .06);
+}
+input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
+
+/* ── Carga: brillo que barre en vez de latido ── */
+.slot-skeleton { background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / .045) 50%, transparent 80%) var(--surface-2); background-size: 220% 100%; animation: relief-shimmer 1.3s linear infinite; }
+@keyframes relief-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* ── Cartel de reserva nueva y diálogo: misma luz ── */
+.new-reservation { background: var(--sheen), var(--surface-2); box-shadow: var(--hl-strong), var(--elev-1); }
+.confirm-backdrop { backdrop-filter: none; background: rgb(0 0 0 / .66); }
+
+/* ── Que nada salte ── */
+/* El panel se centraba en vertical cuando la sección era corta: el encabezado cambiaba de lugar en cada sección */
+.dashboard-main { margin: 0 auto; }
+/* Reserva: la presentación queda arriba y acompaña el scroll, en vez de subir y bajar cuando cambia el alto de la tarjeta */
+@media (min-width: 801px) {
+  .booking-layout { align-items: start; }
+  .booking-intro { position: sticky; top: 32px; }
+}
+/* Onboarding: del paso 1 al 2 la tarjeta se ensancha sin saltar */
+.onboarding-card { transition: width .42s var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-card { transition: none; }
+  .button, .button svg, .service-option, .date-picker button, .time-grid button, .feature-card, .metric, .text-button, .link-button { transition-duration: .01ms; }
+  .button:hover:not(:disabled), .button:active:not(:disabled), .button--pill:hover:not(:disabled) { transform: none; }
+  .service-option.is-selected .option-check { animation: none; }
+  .slot-skeleton { animation: none; }
+}

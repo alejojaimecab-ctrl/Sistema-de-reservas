@@ -4,6 +4,7 @@ import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles.css'
 import './extra.css'
+import './relief.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

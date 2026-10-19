@@ -1,4 +1,4 @@
-hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |# RESER Noir · Sistema de diseño y UX
+# RESER Noir · Sistema de diseño y UX
 
 > **Fuente de verdad visual del sistema.** Reemplaza la paleta "celeste río" documentada en `DESIGN.md`.
 > Se derivó de la captura de referencia del panel de reservas (barbería, "Reservá tu turno online") y se aplica a **todo** el sistema: landing, reserva pública, acceso, onboarding y panel del dueño/profesional.
@@ -61,9 +61,18 @@ hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hec
   --r-sm:   8px;    /* chips chicos, badges */
   --r-full: 999px;  /* íconos circulares, radios, avatares */
 
-  /* Sombra (mínima: la profundidad la dan los bordes) */
-  --shadow-card: 0 24px 48px -24px rgba(0, 0, 0, .6);
-  --shadow-pop:  0 16px 40px -12px rgba(0, 0, 0, .7);  /* diálogos, menús flotantes */
+  /* Relieve "Noir con luz": una sola luz que viene de arriba (ver §4) */
+  --surface-inset: #0E0E10;                     /* campos y zonas hundidas */
+  --hl:        inset 0 1px 0 rgb(255 255 255 / .05);   /* borde de luz arriba */
+  --hl-strong: inset 0 1px 0 rgb(255 255 255 / .09);   /* idem, en hover o elegido */
+  --edge:      linear-gradient(180deg, rgb(255 255 255 / .12), … .015);  /* borde de tarjeta, más claro arriba */
+  --sheen:     linear-gradient(180deg, rgb(255 255 255 / .028), transparent 55%);  /* brillo en la cara */
+  --grain:     ruido SVG (feTurbulence) al ~3 %;      /* material del negro */
+  --elev-1:    sombra corta (controles);  --elev-2: sombra en capas (tarjetas);
+  --inset:     inset 0 1px 2px rgb(0 0 0 / .45);       /* hundido */
+  --ease-out:  cubic-bezier(.16, 1, .3, 1);
+  --shadow-card: var(--elev-2);
+  --shadow-pop:  0 2px 4px rgb(0 0 0 / .5), 0 24px 48px -16px rgb(0 0 0 / .9);  /* diálogos, menús flotantes */
 }
 ```
 
@@ -130,10 +139,14 @@ hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hec
 
 - **Radios:** tarjeta `16`, ítem e input `12`, botón `10`, chip chico `8`, y círculo para íconos, radios y avatares.
 - **Bordes:** siempre de `1px`. En reposo `--border`, en hover `--border-hover` y seleccionado `--border-strong`.
-- **Profundidad:** sale del **borde y el salto de tono de superficie**, no de sombras.
-  - **Tarjeta:** `--shadow-card`, apenas perceptible.
-  - **Diálogo o menú flotante:** `--shadow-pop`.
-  - **Prohibido:** glows de color, sombras de color, degradés en botones y `backdrop-filter` decorativo. La única excepción es la nav sticky, que puede usar un blur sutil sobre `--bg` al 70 %.
+- **Relieve "Noir con luz"** (desde el 2026-10-19, pedido del dueño del producto: "que tenga relieve, no simples cartas sólidas"). Hay **una sola luz, que viene de arriba**, y todo la respeta. Las reglas viven en `src/relief.css`.
+  - **Tarjeta (elevada):** borde con degradé `--edge` (más claro arriba), brillo `--sheen` en la cara, `--grain` y sombra en capas `--elev-2` más `--hl`. En hover (landing y métricas) el borde pasa a `--edge-hover`.
+  - **Superficie dentro de una tarjeta:** solo `--sheen` y `--hl`, sin borde de luz propio. No se anidan tarjetas.
+  - **Campo (hundido):** fondo `--surface-inset` y sombra `--inset`. Con foco: `--border-strong` más un halo blanco de 4px al 6 %.
+  - **Diálogo o menú flotante:** `--shadow-pop` con `--hl-strong`.
+  - **Luz ambiente:** un radial blanco de 5 a 7,5 % arriba del fondo de cada pantalla.
+  - **Permitido:** degradés neutros de luminosidad (blanco sobre negro) de hasta un 12 % y un halo blanco tenue **solo** debajo del botón principal.
+  - **Prohibido:** glows y sombras de color, degradés de color y `backdrop-filter` decorativo. Las excepciones son la nav sticky y la barra inferior del panel en el celular, que pueden usar un blur sutil.
 
 ---
 
@@ -142,22 +155,24 @@ hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hecho |hec
 ### Botón primario (CTA)
 - Fondo `--accent`, texto `--on-accent`, peso 600, radio `--r-btn` y alto de 44px (48px en la versión grande).
 - **Uno solo por pantalla o paso.** Va a ancho completo dentro de la tarjeta de reserva, con una flecha `→` a la derecha cuando avanza un paso.
-- **Hover:** `--accent-hover`, sin elevar el botón ni agregarle sombra.
-- **Deshabilitado:** opacidad .4.
+- **Volumen:** degradé de `#FFF` a `#E9E9EC`, luz interna arriba, una línea oscura abajo y un halo blanco tenue debajo.
+- **Hover:** sube 1px, el halo crece y la flecha `→` avanza 3px.
+- **Presionado:** escala .98 y la sombra pasa adentro: se hunde.
+- **Deshabilitado:** opacidad .4, sin volumen.
 
 ### Botón secundario / ghost
-- **Secundario:** fondo `--surface-2`, borde `--border` y texto `--text`. En hover pasa a `--surface-hover` con `--border-hover`.
-- **Ghost / texto:** sin fondo y con `--text-2`. En hover cambia a `--text`.
+- **Secundario:** fondo `--surface-2` con `--sheen`, borde `--border`, texto `--text` y `--hl`. En hover pasa a `--surface-hover` con `--border-hover`, sube 1px y gana sombra. Al presionarlo se hunde (`--inset`).
+- **Ghost / texto:** sin fondo y con `--text-2`. En hover cambia a `--text` y un subrayado crece desde la izquierda.
 - **Peligro:** texto `--danger`, fondo `--danger-bg` y borde `--danger-border`. Sin degradé.
 
 ### Input / select / textarea
-- Fondo `--surface-2`, borde `--border`, radio `--r-item`, alto de 44px y texto `--text`. El placeholder va en `--text-3`.
-- **Foco:** borde `--border-strong` más el anillo de foco.
+- Fondo `--surface-inset` con `--inset` (hundido), borde `--border`, radio `--r-item`, alto de 44px y texto `--text`. El placeholder va en `--text-3`, con regla `::placeholder` explícita.
+- **Foco:** borde `--border-strong` más un halo blanco de 4px al 6 % (y el anillo de foco con teclado).
 - **Error:** borde `--danger-border` y un mensaje debajo en `--danger`, de 12px.
 - La etiqueta va arriba, en 12px, peso 500 y color `--text-2`.
 
 ### Tarjeta
-- Fondo `--surface`, borde `--border`, radio `--r-card`, padding de 24px y sombra `--shadow-card`.
+- Fondo `--surface` con `--sheen` y `--grain`, borde de luz `--edge`, radio `--r-card`, padding de 24px y sombra `--shadow-card` más `--hl` (ver §4).
 
 ### Ítem seleccionable (radio-card)
 
@@ -212,10 +227,17 @@ Es el patrón central de la captura.
 
 ## 6. Movimiento
 
-- **Transiciones:** 150–200ms con `ease-out`, solo sobre color, borde, fondo y opacidad.
-- **Sin** saltos de `translateY` en hover ni rebotes.
-- Las animaciones de marca que ya existen (logo con scroll, check de éxito) se mantienen, recoloreadas en neutro.
-- Con `prefers-reduced-motion: reduce` las transiciones bajan a 0 y se desactivan las animaciones no esenciales.
+- **Duraciones:** 80–120ms al presionar, 180–220ms para cambios de estado y 300–420ms para cambios de tamaño, de paso o de sección. Curva `--ease-out`. Las salidas son más rápidas que las entradas.
+- **Respuesta al tacto:** todo botón se comprime al presionarlo (escala .96–.98).
+- **Elevación:** en hover, solo los botones suben 1px. Las tarjetas no saltan: cambian su luz.
+- **Continuidad:**
+  - el indicador del ítem activo se desliza entre opciones (`SegmentIndicator`, con `layoutId` de motion);
+  - el alto de la tarjeta de reserva se anima entre pasos (`AutoHeight`);
+  - las secciones del panel entran con un fundido corto y arrancan desde arriba.
+- **Números:** las métricas cuentan hacia arriba hasta su valor.
+- **Sin** rebotes elásticos ni entradas idénticas en cada sección. Hay un momento propio por pantalla: el verde de confirmación en la reserva y el "de WhatsApp a la agenda" en la portada.
+- **Animaciones que se mantienen:** las de marca que ya existen (logo con scroll, check de éxito).
+- **Reducir movimiento:** `MotionConfig reducedMotion="user"` en `App.tsx` más las reglas `prefers-reduced-motion` en CSS. Se quitan los desplazamientos y escalas, y quedan los fundidos y los cambios de estado.
 
 ---
 
@@ -235,7 +257,7 @@ Es el patrón central de la captura.
 2. **El estado se ve de un vistazo.** Lo elegido tiene borde claro y check, y lo pendiente se ve vacío.
 3. **Textos honestos.** Usar "A consultar" o "Se coordina por WhatsApp" en lugar de inventar un precio o un plazo.
 4. **Apoyo breve.** Debajo de cada título va una sola línea en `--text-2`, sin párrafos explicativos.
-5. **Silencio visual.** Nada de decoración que compita con la acción: sin glows, sin degradés de color y sin ilustraciones de relleno.
+5. **Luz, no decoración.** El relieve (luz arriba, sombra abajo) le da vida a la interfaz sin competir con la acción. Se usan fragmentos reales del producto en lugar de ilustraciones de relleno, y nada de glows ni degradés de color.
 6. **Consistencia.** Si un patrón existe (radio-card, progreso, CTA), se reutiliza en vez de inventar uno nuevo.
 
 ---
@@ -243,7 +265,7 @@ Es el patrón central de la captura.
 ## 9. Lo que no se usa
 
 - Azul, celeste, cian o cualquier color de marca saturado.
-- Degradés en botones, íconos o tarjetas. Glows y sombras de color.
+- Degradés de color, glows y sombras de color. Los degradés neutros de luz (§4) sí se usan.
 - Serif, cursivas decorativas y monoespaciadas.
 - Más de un CTA blanco por pantalla.
 - HEX sueltos en componentes. Todo va por tokens.
@@ -258,7 +280,8 @@ Cada pantalla migrada tiene que cumplir todo esto antes del commit:
 - [ ] No queda ningún HEX azul o cian, y todo color sale de un token.
 - [ ] Usa Inter, con a lo sumo 3 pesos, y números en `tabular-nums`.
 - [ ] Hay un solo CTA primario blanco.
-- [ ] Las tarjetas tienen radio 16, borde de 1px y sombra mínima.
+- [ ] Las tarjetas tienen radio 16, borde de luz (`--edge`) y sombra en capas; los campos están hundidos; los botones suben en hover y se hunden al presionarlos.
+- [ ] Respeta "reducir movimiento".
 - [ ] Los ítems seleccionables siguen el patrón radio-card.
 - [ ] El foco se ve en todos los controles.
 - [ ] El contraste es AA y los estados no dependen solo del color.

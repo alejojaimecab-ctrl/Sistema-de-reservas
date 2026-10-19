@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
+import { SegmentIndicator } from './SegmentIndicator'
 import { Mail, UsersRound } from 'lucide-react'
 import { Brand } from './Brand'
 import { useAuth } from '../lib/auth'
@@ -152,6 +153,7 @@ function AcceptInvite({ token, onJoined }: { token: string; onJoined: () => void
 function InviteAuth({ token, invite }: { token: string; invite: StaffInviteInfo }) {
   const { signIn, signUp } = useAuth()
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
+  const modeGroup = useId()
   // Con el enlace de equipo, este nombre es el que el dueño ve en su lista de profesionales
   const [name, setName] = useState(!invite.professional_name || invite.professional_name === 'Principal' ? '' : invite.professional_name)
   const [email, setEmail] = useState('')
@@ -199,8 +201,8 @@ function InviteAuth({ token, invite }: { token: string; invite: StaffInviteInfo 
 
   return <>
     <div className="calendar-mode" role="group" aria-label="Tu cuenta" style={{ margin: '4px 0 14px' }}>
-      <button type="button" aria-pressed={mode === 'signup'} className={mode === 'signup' ? 'is-active' : ''} onClick={() => { setMode('signup'); setError(null) }}>Crear mi cuenta</button>
-      <button type="button" aria-pressed={mode === 'login'} className={mode === 'login' ? 'is-active' : ''} onClick={() => { setMode('login'); setError(null) }}>Ya tengo cuenta</button>
+      <button type="button" aria-pressed={mode === 'signup'} className={mode === 'signup' ? 'is-active' : ''} onClick={() => { setMode('signup'); setError(null) }}>{mode === 'signup' && <SegmentIndicator group={modeGroup} />}Crear mi cuenta</button>
+      <button type="button" aria-pressed={mode === 'login'} className={mode === 'login' ? 'is-active' : ''} onClick={() => { setMode('login'); setError(null) }}>{mode === 'login' && <SegmentIndicator group={modeGroup} />}Ya tengo cuenta</button>
     </div>
     <form onSubmit={event => void submit(event)}>
       {mode === 'signup' && <label className="onboarding-field">Tu nombre

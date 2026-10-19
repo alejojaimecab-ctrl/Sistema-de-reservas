@@ -183,6 +183,17 @@ export async function listAgendaReservations(
   return { reservations, error: null }
 }
 
+// Una reserva puntual, para el aviso de reserva nueva. El RLS deja ver al dueño las de su negocio y al profesional las suyas.
+export async function getReservationForAlert(id: string): Promise<(Reservation & { source: 'public' | 'manual' }) | null> {
+  const { data, error } = await supabase
+    .from('reservations')
+    .select('id, starts_at, status, source, clients(name), services(name, price), resources(name)')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as unknown as Reservation & { source: 'public' | 'manual' }
+}
+
 // Historial completo de reservas del negocio (pasadas, futuras y canceladas) para la sección Reservas.
 export type HistoryReservation = Reservation & {
   ends_at: string

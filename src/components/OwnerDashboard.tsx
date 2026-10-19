@@ -1,12 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, X } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
+import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import * as field from '../lib/fieldRules'
-import { bookingUrl, slugify } from '../lib/routes'
+import { bookingUrl, goTo, panelSectionFromPath, slugify } from '../lib/routes'
 import { Eye, EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
@@ -14,6 +14,8 @@ import { ReservationsSection } from './ReservationsSection'
 import { MyScheduleSection } from './MyScheduleSection'
 import { PendingInviteCard, readPendingInvite } from './JoinTeam'
 import { useConfirm } from './ConfirmDialog'
+import { describeReservation, useReservationAlerts } from '../lib/reservationAlerts'
+import { SegmentIndicator } from './SegmentIndicator'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
@@ -43,6 +45,17 @@ const STAFF_SECTIONS: SectionItem[] = [
   { key: 'Mis horarios', label: 'Mis horarios', icon: Clock3 },
 ]
 
+// Cada sección tiene su dirección: /panel, /panel/agenda, /panel/dias-libres…
+const SECTION_PATHS: Record<SectionKey, string> = {
+  Resumen: '', Agenda: 'agenda', Reservas: 'reservas', Servicios: 'servicios', Equipo: 'equipo',
+  'Días libres': 'dias-libres', Configuración: 'configuracion', 'Mis horarios': 'mis-horarios',
+}
+function sectionFromPath(): SectionKey | null {
+  const path = panelSectionFromPath(window.location.pathname)
+  if (path === null) return null
+  return (Object.keys(SECTION_PATHS) as SectionKey[]).find(key => SECTION_PATHS[key] === path) ?? null
+}
+
 const days: AvailabilityDay[] = [
   { id: '1', name: 'Lunes' }, { id: '2', name: 'Martes' }, { id: '3', name: 'Miércoles' },
   { id: '4', name: 'Jueves' }, { id: '5', name: 'Viernes' }, { id: '6', name: 'Sábado' }, { id: '0', name: 'Domingo' },
@@ -67,9 +80,24 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
   const isStaff = role === 'staff'
   const sections = isStaff ? STAFF_SECTIONS : OWNER_SECTIONS
-  const [selectedSection, setActive] = useState<SectionKey>(isStaff ? 'Agenda' : 'Resumen')
+  const [selectedSection, setActive] = useState<SectionKey>(() => sectionFromPath() ?? (isStaff ? 'Agenda' : 'Resumen'))
   // Si cambia el rol (por ejemplo, al aceptar una invitación) se muestra una sección que exista para ese rol
   const active = sections.some(section => section.key === selectedSection) ? selectedSection : sections[0].key
+  const navGroup = useId()
+  const tabGroup = useId()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const reduceMotion = useReducedMotion()
+  // Cada sección arranca desde arriba (antes se conservaba el scroll de la anterior) y queda en la dirección
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+    goTo(SECTION_PATHS[active] ? `/panel/${SECTION_PATHS[active]}` : '/panel')
+  }, [active])
+  // Atrás / Adelante del navegador entre secciones del panel
+  useEffect(() => {
+    const onPop = () => { const section = sectionFromPath(); if (section) setActive(section) }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
   const [pendingInvite, setPendingInvite] = useState(readPendingInvite)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -145,6 +173,21 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     return () => { active = false }
   }, [business, isStaff])
 
+  // Llegó una reserva por tiempo real (o se reconectó): Agenda, Resumen y Reservas se actualizan sin recargar
+  function refreshReservations() {
+    if (!business) return
+    void listAgendaReservations(business.id).then(result => { if (!result.error) setUpcomingReservations(result.reservations) })
+    if (!isStaff) {
+      void listReservations(business.id).then(setReservations)
+      void getDashboardStats(business.id).then(setStats)
+    }
+    setHistoryVersion(version => version + 1)
+  }
+  const alerts = useReservationAlerts(business?.id ?? null, {
+    onChange: refreshReservations,
+    onOpen: () => setActive('Agenda'),
+  })
+
   if (!business) {
     return <div className="dashboard">
       <aside className="dashboard-sidebar"><Brand />
@@ -172,19 +215,33 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
         <CopyLinkButton slug={business.slug} />
       </div>
-      <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} key={key} onClick={() => setActive(key)}><Icon size={18} />{label}</button>)}</nav>
+      <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}</button>)}</nav>
       <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
     <main className="dashboard-main">
       <header className="dashboard-header">
         <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
+        <AlertsToggle alerts={alerts} />
       </header>
 
+      {alerts.latest && <NewReservationBanner
+        key={alerts.latest.id}
+        reservation={alerts.latest}
+        onView={() => { setActive('Agenda'); alerts.dismissLatest() }}
+        onClose={alerts.dismissLatest}
+      />}
       {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
       {confirmDialog}
 
       {/* Si una sección falla, solo ella muestra el error: el menú y el resto del panel siguen funcionando */}
       <ErrorBoundary variant="section" resetKey={active}>
+      <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={active}
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.26, ease: [0.16, 1, 0.3, 1] } }}
+        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, transition: { duration: 0.12, ease: 'easeIn' } }}
+      >
       {active === 'Resumen' && <>
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
@@ -248,8 +305,102 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
       {active === 'Mis horarios' && staffResource && <MyScheduleSection businessId={business.id} resourceId={staffResource.id} days={days} />}
+      </motion.div>
+      </AnimatePresence>
       </ErrorBoundary>
     </main>
+
+    {/* En el celular la barra lateral no entra: las secciones van en una barra fija abajo, el resto en "Más" */}
+    <nav className="dashboard-tabbar" aria-label="Secciones del panel">
+      {sections.slice(0, 3).map(({ key, label, icon: Icon }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => setActive(key)}>
+        {active === key && <SegmentIndicator group={tabGroup} />}<Icon size={19} /><span>{label}</span>
+      </button>)}
+      <button type="button" className={sections.slice(3).some(section => section.key === active) ? 'is-active' : ''} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}>
+        {sections.slice(3).some(section => section.key === active) && <SegmentIndicator group={tabGroup} />}<Ellipsis size={19} /><span>Más</span>
+      </button>
+    </nav>
+    <AnimatePresence>
+      {moreOpen && <MoreSheet
+        business={business}
+        sections={sections.slice(3)}
+        active={active}
+        onPick={key => { setActive(key); setMoreOpen(false) }}
+        onClose={() => setMoreOpen(false)}
+        onSignOut={() => { void signOut(); onExit() }}
+      />}
+    </AnimatePresence>
+  </div>
+}
+
+// Hoja que sube desde abajo en el celular: el negocio con su enlace, las secciones que no entran en la barra y Cerrar sesión
+function MoreSheet({ business, sections, active, onPick, onClose, onSignOut }: {
+  business: { name: string; slug: string; logo_path: string | null }
+  sections: SectionItem[]
+  active: SectionKey
+  onPick: (key: SectionKey) => void
+  onClose: () => void
+  onSignOut: () => void
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    sheetRef.current?.querySelector<HTMLElement>('button')?.focus()
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onCloseRef.current() }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); opener?.focus() }
+  }, [])
+  const logo = logoUrl(business.logo_path)
+  return <motion.div className="sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.16 } }} onClick={onClose}>
+    <motion.div
+      ref={sheetRef}
+      className="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Más opciones del panel"
+      initial={{ y: '100%' }}
+      animate={{ y: 0, transition: { duration: 0.36, ease: [0.16, 1, 0.3, 1] } }}
+      exit={{ y: '100%', transition: { duration: 0.2, ease: 'easeIn' } }}
+      onClick={event => event.stopPropagation()}
+    >
+      <span className="sheet-handle" aria-hidden="true" />
+      <div className="business-switch">
+        <span className="mini-logo" style={logo ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{initials(business.name)}</span>
+        <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
+        <CopyLinkButton slug={business.slug} />
+      </div>
+      <nav>{sections.map(({ key, label, icon: Icon }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => onPick(key)}><Icon size={18} />{label}</button>)}</nav>
+      <button type="button" className="sheet-exit" onClick={onSignOut}><LogOut size={17} /> Cerrar sesión</button>
+    </motion.div>
+  </motion.div>
+}
+
+// Activa el sonido y las notificaciones del sistema para las reservas nuevas (la preferencia queda en este navegador)
+function AlertsToggle({ alerts }: { alerts: ReturnType<typeof useReservationAlerts> }) {
+  const detail = !alerts.enabled ? 'De reservas nuevas'
+    : alerts.permission === 'granted' ? 'Sonido y notificaciones'
+    : alerts.permission === 'denied' ? 'Solo sonido · notificaciones bloqueadas'
+    : 'Solo sonido'
+  return <button
+    type="button"
+    className={`alerts-toggle${alerts.enabled ? ' is-on' : ''}`}
+    aria-pressed={alerts.enabled}
+    title={alerts.enabled && alerts.permission === 'denied' ? 'Para recibir notificaciones, permitilas desde el candado de la barra de direcciones.' : undefined}
+    onClick={() => { if (alerts.enabled) alerts.disable(); else void alerts.enable() }}
+  >
+    <span className="alerts-toggle-icon" aria-hidden="true">{alerts.enabled ? <Volume2 size={16} /> : <VolumeX size={16} />}</span>
+    <span className="alerts-toggle-text"><strong>{alerts.enabled ? 'Avisos activados' : 'Activar avisos'}</strong><small>{detail}</small></span>
+  </button>
+}
+
+function NewReservationBanner({ reservation, onView, onClose }: { reservation: Reservation; onView: () => void; onClose: () => void }) {
+  const { who, when } = describeReservation(reservation)
+  return <div className="new-reservation" role="status">
+    <span className="new-reservation-icon" aria-hidden="true"><CalendarPlus size={17} /></span>
+    <span className="new-reservation-text"><strong>Nueva reserva: {who}</strong><small>{when}</small></span>
+    <button type="button" className="button button--secondary button--small" onClick={onView}>Ver en la agenda</button>
+    <button type="button" className="new-reservation-close" aria-label="Cerrar aviso" onClick={onClose}><X size={15} /></button>
   </div>
 }
 
@@ -673,6 +824,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
 }) {
   const [mode, setMode] = useState<CalendarMode>('week')
+  const modeGroup = useId()
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [pendingAttendance, setPendingAttendance] = useState<Set<string>>(() => new Set())
   const [attendanceError, setAttendanceError] = useState<string | null>(null)
@@ -728,8 +880,8 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
           <h2>{mode === 'week' ? 'Tu semana, de un vistazo' : 'Tu mes, de un vistazo'}</h2>
         </div>
         <div className="calendar-mode" role="group" aria-label="Vista del calendario">
-          <button type="button" aria-pressed={mode === 'week'} className={mode === 'week' ? 'is-active' : ''} onClick={() => setMode('week')}>Semana</button>
-          <button type="button" aria-pressed={mode === 'month'} className={mode === 'month' ? 'is-active' : ''} onClick={() => setMode('month')}>Mes</button>
+          <button type="button" aria-pressed={mode === 'week'} className={mode === 'week' ? 'is-active' : ''} onClick={() => setMode('week')}>{mode === 'week' && <SegmentIndicator group={modeGroup} />}Semana</button>
+          <button type="button" aria-pressed={mode === 'month'} className={mode === 'month' ? 'is-active' : ''} onClick={() => setMode('month')}>{mode === 'month' && <SegmentIndicator group={modeGroup} />}Mes</button>
         </div>
       </div>
 
@@ -1166,5 +1318,27 @@ function CopyLinkButton({ slug }: { slug: string }) {
 }
 
 function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
-  return <div className="metric"><span className="metric-icon">{icon}</span><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
+  return <div className="metric"><span className="metric-icon">{icon}</span><div><span>{label}</span><strong><CountUp value={value} /></strong><small>{detail}</small></div></div>
+}
+
+// El número de una métrica cuenta hacia arriba hasta su valor ("80%" → 0…80%). Con "reducir movimiento" se muestra directo.
+function CountUp({ value }: { value: string }) {
+  const match = /^(\d+)(.*)$/.exec(value)
+  const target = match ? Number(match[1]) : null
+  const suffix = match ? match[2] : ''
+  const reduceMotion = useReducedMotion()
+  const [shown, setShown] = useState(() => (target === null || reduceMotion ? target : 0))
+  // Si el valor cambia (llegó una reserva), cuenta desde el número que ya se veía, no desde cero
+  const fromRef = useRef(0)
+  useEffect(() => {
+    if (target === null) return
+    if (reduceMotion) { setShown(target); fromRef.current = target; return }
+    const controls = animate(fromRef.current, target, {
+      duration: 0.7,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: latest => { fromRef.current = latest; setShown(Math.round(latest)) },
+    })
+    return () => controls.stop()
+  }, [target, reduceMotion])
+  return <>{target === null ? value : `${shown ?? target}${suffix}`}</>
 }

@@ -6,6 +6,7 @@ import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals,
 import { logoUrl } from '../lib/db'
 import { SuccessCheck } from './SuccessCheck'
 import { GreenWipe } from './GreenWipe'
+import { AutoHeight } from './AutoHeight'
 import { useReduceMotion } from '../lib/motion'
 import { usePageMeta } from '../lib/pageMeta'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
@@ -75,6 +76,14 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const cardRef = useRef<HTMLDivElement>(null)
   // Transición verde al confirmar: nace en el botón, llena la tarjeta y se recoge hacia el tilde
   const [wipe, setWipe] = useState<{ x: number; y: number; phase: 'cover' | 'reveal' } | null>(null)
+
+  // Al cambiar de paso, si el borde de arriba de la tarjeta quedó fuera de la pantalla (en el celular), vuelve a mostrarse
+  const firstStepRef = useRef(true)
+  useEffect(() => {
+    if (firstStepRef.current) { firstStepRef.current = false; return }
+    const card = cardRef.current
+    if (card && card.getBoundingClientRect().top < 0) card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  }, [step])
 
   // La pestaña y los buscadores muestran el nombre del negocio; si no existe o no cargó, no se indexa
   usePageMeta(demo || loadingServices ? null : business
@@ -272,6 +281,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           n < step
             ? <button type="button" className="is-active" key={n} onClick={() => setStep(n)} aria-label={`Volver al paso ${n}`}>{n}</button>
             : <span className={n === step ? 'is-active' : ''} key={n}>{n}</span>)}</div>
+        <AutoHeight>
         <AnimatePresence mode="wait">
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2><p className="section-description">El precio y la duración son claros desde el inicio.</p>
@@ -323,11 +333,12 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && serviceProfessionals.length > 0 && <div><span>Profesional</span><strong>{serviceProfessionals.find(p => p.id === professionalId)?.name ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : 'Quien esté libre')}</strong></div>}<div className="review-total"><span>{service.price_mode === 'fixed' ? 'Total' : 'Precio'}</span><strong>{priceLabel(service.price, service.price_mode)}</strong></div></div>
             <button ref={confirmRef} type="submit" className="button button--primary button--full" disabled={saving}>{wipe ? <>¡Reservado! <Check size={18} /></> : saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
-              ? <p className="form-note" role="alert">{error}</p>
+              ? <p className="form-error" role="alert">{error}</p>
               : <p className="form-note">Lo usamos para identificar tu reserva.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
           <p className="form-note">Al confirmar aceptás que {business.name} y RESER usen tus datos para gestionar este turno y avisarte por email. <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>.</p>
           </motion.form>}
         </AnimatePresence>
+        </AutoHeight>
         {wipe?.phase === 'cover' && <GreenWipe phase="cover" x={wipe.x} y={wipe.y} onDone={() => { setCompleted(true); setSaving(false); setWipe(w => w && { ...w, phase: 'reveal' }) }} />}
       </div>
     </div>
