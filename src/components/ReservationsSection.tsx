@@ -125,7 +125,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
     No pudimos cargar las reservas: {error} <button type="button" className="text-button" onClick={() => setRetry(n => n + 1)}>Reintentar</button>
   </p>
   if (all.length === 0) {
-    return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
+    return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
 
   const shown = list.slice(0, visible)
@@ -174,7 +174,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
     {actionError && <p className="form-error" role="alert">{actionError}</p>}
 
     {list.length === 0
-      ? <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>
+      ? <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>
         No hay reservas con esos filtros.{filtersChanged && <> <button type="button" className="text-button" onClick={clearFilters}>Ver todas</button></>}
       </p>
       : <div className="res-list">

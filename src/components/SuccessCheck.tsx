@@ -3,7 +3,7 @@ import { motion } from 'motion/react'
 import { useReduceMotion } from '../lib/motion'
 
 // Confirmación de reserva: el disco aparece con resorte, un anillo se dibuja alrededor, el tilde se
-// traza, salen dos ondas y una ráfaga de partículas. Verde de "acierto" + celeste de marca.
+// traza, salen dos ondas y una ráfaga de partículas. Verde apagado de "acierto" + blanco (ver DESIGN_UX.md).
 // Con "reducir movimiento" se muestra directamente el estado final, sin animar.
 
 const SIZE = 132
@@ -18,7 +18,7 @@ const PARTICLES = Array.from({ length: 16 }, (_, i) => {
     x: Math.cos(angle) * distance,
     y: Math.sin(angle) * distance,
     size: i % 3 === 0 ? 8 : 5,
-    color: ['#6ce6bb', '#7be5ff', '#e8f1f7'][i % 3],
+    color: ['var(--ok)', 'var(--accent)', 'var(--text-2)'][i % 3],
     delay: 0.55 + (i % 4) * 0.035,
   }
 })
@@ -57,12 +57,12 @@ export function SuccessCheck({ startDelay = 0 }: { startDelay?: number }) {
     <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} role="presentation">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#9ff3d6" />
-          <stop offset="100%" stopColor="#2fbf94" />
+          <stop offset="0%" style={{ stopColor: 'var(--text)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--ok)' }} />
         </linearGradient>
         <linearGradient id={ringId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7be5ff" />
-          <stop offset="100%" stopColor="#6ce6bb" />
+          <stop offset="0%" style={{ stopColor: 'var(--accent)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--ok)' }} />
         </linearGradient>
       </defs>
 
@@ -88,7 +88,7 @@ export function SuccessCheck({ startDelay = 0 }: { startDelay?: number }) {
       {/* Tilde: su caja está centrada exactamente en el centro del disco */}
       <motion.path
         d={`M${C - 20} ${C + 1} L${C - 6} ${C + 15} L${C + 20} ${C - 14}`}
-        fill="none" stroke="#06241b" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round"
+        fill="none" style={{ stroke: 'var(--on-accent)' }} strokeWidth={7} strokeLinecap="round" strokeLinejoin="round"
         initial={reduce ? false : { pathLength: 0 }}
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.5, delay: startDelay + 0.45, ease: 'easeOut' }}

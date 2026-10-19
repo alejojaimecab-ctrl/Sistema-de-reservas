@@ -376,7 +376,7 @@ function CreateBusinessCard() {
 
   return <section className="agenda-card" style={{ maxWidth: 520 }}>
     <div className="card-heading"><div><p className="eyebrow">Primer paso</p><h2>Creá tu negocio</h2></div></div>
-    <p style={{ color: '#7a919c', fontSize: 14, margin: '0 0 16px' }}>
+    <p style={{ color: 'var(--text-3)', fontSize: 14, margin: '0 0 16px' }}>
       {pending
         ? 'Recuperamos los servicios y horarios que cargaste al registrarte. Confirmá el nombre y el enlace para dejar todo listo.'
         : 'Solo necesitás el nombre y tu enlace. Los servicios y horarios los cargás después desde las secciones del panel.'}
@@ -402,7 +402,7 @@ function CreateBusinessCard() {
 
 function ReservationList({ reservations, showProfessional, onCancel }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void }) {
   if (reservations.length === 0) {
-    return <p style={{ color: '#7a919c', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
+    return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
   const colors = ['blue', 'violet', 'orange']
   return <div className="agenda-list">{reservations.map((r, index) => {
@@ -1029,7 +1029,7 @@ function ServicesSection({ businessId }: { businessId: string }) {
                     .filter(p => p.is_active && !p.whatsapp?.trim() && offers.some(o => o.resource_id === p.id && o.service_id === svc.id))
                     .map(p => p.name)
                   return missing.length > 0
-                    ? <small style={{ color: '#ffc27a' }} role="alert">⚠ Falta el WhatsApp de {missing.join(', ')}: sus clientes no van a poder escribirle. Cargalo en Equipo.</small>
+                    ? <small style={{ color: 'var(--warn)' }} role="alert">⚠ Falta el WhatsApp de {missing.join(', ')}: sus clientes no van a poder escribirle. Cargalo en Equipo.</small>
                     : null
                 })()}
               </div>
@@ -1119,7 +1119,7 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
           </label>
           {business?.logo_path && <button type="button" className="text-button" disabled={logoBusy} onClick={() => void clearLogo()}>Quitar</button>}
         </div>
-        <small style={{ color: '#7f9aa5' }}>PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
+        <small style={{ color: 'var(--text-3)' }}>PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
       </div>
     </div>
     <label className="onboarding-field">Teléfono <small>(opcional)</small>

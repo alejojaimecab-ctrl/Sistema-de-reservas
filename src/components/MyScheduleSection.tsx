@@ -105,7 +105,7 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
     <p
       role="status" aria-live="polite"
       className={saveState === 'error' ? 'form-error' : 'form-note'}
-      style={{ position: 'sticky', top: 8, zIndex: 5, minHeight: 18, margin: '0 0 8px', padding: statusText ? '6px 10px' : 0, borderRadius: 8, background: statusText ? '#0f1b22' : 'transparent', border: statusText ? '1px solid #28414c' : 0 }}
+      style={{ position: 'sticky', top: 8, zIndex: 5, minHeight: 18, margin: '0 0 8px', padding: statusText ? '6px 10px' : 0, borderRadius: 8, background: statusText ? 'var(--surface)' : 'transparent', border: statusText ? '1px solid var(--border)' : 0 }}
     >
       {statusText}
       {saveState === 'error' && lastFailedRef.current && <>
