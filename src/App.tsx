@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { MotionConfig, motion } from 'motion/react'
-import { ArrowRight, BellRing, CalendarCheck2, ChevronRight, CirclePlay, Clock3, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ArrowRight, BellRing, CalendarCheck2, Camera, CheckCheck, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mic, Phone, Plus, ShieldCheck, Video, WandSparkles } from 'lucide-react'
 import { Brand } from './components/Brand'
 import { ScrollBrand } from './components/ScrollBrand'
 import { Reveal } from './components/Reveal'
@@ -73,11 +73,19 @@ function FeatureFragment({ kind }: { kind: (typeof features)[number]['fragment']
   </div>
 }
 
-const storyChat = ['¿Tenés turno mañana a la tarde?', 'A las 17 tengo, ¿te sirve?', 'Mejor a las 18… ah, ¿ya se ocupó?', 'Sí, perdón. ¿Te anoto el jueves?']
+// Conversación de ejemplo vista desde el WhatsApp del negocio: el cliente escribe (izquierda) y el dueño responde (derecha)
+const storyChat = [
+  { text: '¿Tenés turno mañana a la tarde?', time: '19:49', out: false },
+  { text: 'A las 17 tengo, ¿te sirve?', time: '19:49', out: true },
+  { text: 'Mejor a las 18… ah, ¿ya se ocupó?', time: '19:51', out: false },
+  { text: 'Sí, perdón. ¿Te anoto el jueves?', time: '19:52', out: true },
+]
 const storyAgenda = [
   ['Mañana 17:00', 'Lucía F. · Servicio 1', 'Confirmada'],
   ['Jue 10:30', 'Bruno A. · Servicio 2', 'Confirmada'],
   ['Vie 18:00', 'Carla M. · Servicio 1', 'Recordatorio enviado'],
+  ['Vie 19:00', 'Daira · Servicio 2', 'Confirmada'],
+  ['Sáb 10:30', 'Nico P. · Servicio 3', 'Confirmada'],
 ]
 const storyList = { hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } }
 const storyItem = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const } } }
@@ -188,13 +196,28 @@ function Root() {
       <div className="story-grid">
         <div className="story-panel story-panel--before">
           <p className="story-label">Hoy, por WhatsApp</p>
-          <motion.ul className="story-chat" variants={storyList} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.5 }}>
-            {storyChat.map((message, index) => <motion.li key={message} variants={storyItem} className={index % 2 ? 'is-out' : 'is-in'}>{message}</motion.li>)}
-          </motion.ul>
+          <h3>Ida y vuelta</h3>
+          {/* Pantalla de WhatsApp de ejemplo (con sus colores a propósito: es el "antes") */}
+          <div className="wa-chat">
+            <div className="wa-header" aria-hidden="true">
+              <span className="wa-back"><ChevronLeft size={22} />1</span>
+              <span className="wa-avatar">LF</span>
+              <span className="wa-contact"><strong>Lucía F.</strong><small>en línea</small></span>
+              <Video size={20} />
+              <Phone size={18} />
+            </div>
+            <motion.ul className="wa-messages" variants={storyList} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.5 }}>
+              {storyChat.map(({ text, time, out }) => <motion.li key={text} variants={storyItem} className={out ? 'is-out' : 'is-in'}>
+                {text}<span className="wa-meta">{time}{out && <CheckCheck size={15} aria-label="leído" />}</span>
+              </motion.li>)}
+            </motion.ul>
+            <div className="wa-input" aria-hidden="true"><Plus size={20} /><span /><Camera size={19} /><Mic size={19} /></div>
+          </div>
         </div>
         <span className="story-arrow" aria-hidden="true"><ArrowRight size={20} /></span>
         <div className="story-panel story-panel--after">
           <p className="story-label">Con RESER</p>
+          <h3>Agenda que se ordena sola</h3>
           <motion.ul className="story-agenda" variants={storyList} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.5 }}>
             {storyAgenda.map(([when, who, state]) => <motion.li key={when} variants={storyItem}><time>{when}</time><span>{who}</span><b>{state}</b></motion.li>)}
           </motion.ul>

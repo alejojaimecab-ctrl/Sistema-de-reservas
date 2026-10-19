@@ -489,20 +489,42 @@
 .story-section { position: relative; max-width: 1180px; margin: 0 auto; padding: 112px 28px 0; }
 .story-section h2 { max-width: 760px; margin: 0; color: var(--text); font-size: clamp(34px, 4vw, 52px); font-weight: 700; letter-spacing: -.03em; line-height: 1.05; text-wrap: balance; }
 .story-section h2 em { font-style: normal; color: var(--text-2); }
-.story-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; margin-top: 44px; }
-.story-panel { padding: 22px; border: 1px solid var(--border); border-radius: var(--r-card); }
-/* El desorden va hundido; el orden, elevado */
-.story-panel--before { background: var(--surface-inset); box-shadow: var(--inset); }
-.story-panel--after { border-color: transparent; background: var(--sheen) padding-box, var(--grain) padding-box, linear-gradient(var(--surface), var(--surface)) padding-box, var(--edge) border-box, linear-gradient(var(--border), var(--border)) border-box; box-shadow: var(--hl), var(--elev-2); }
-.story-label { margin: 0 0 14px; color: var(--text-3); font-size: 12px; font-weight: 600; }
-.story-chat, .story-agenda { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.story-chat li { max-width: 82%; padding: 9px 12px; color: var(--text-2); font-size: 13px; line-height: 1.45; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; }
-.story-chat li.is-out { justify-self: end; color: var(--text); background: var(--surface-sel); border-radius: 14px 14px 4px 14px; }
-.story-agenda li { display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; font-size: 13px; background: var(--sheen), var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-item); box-shadow: var(--hl); }
-.story-agenda time { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.story-agenda span { min-width: 0; overflow: hidden; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
-.story-agenda b { color: var(--ok); font-size: 12px; font-weight: 500; white-space: nowrap; }
-.story-arrow { display: grid; place-items: center; width: 44px; height: 44px; color: var(--on-accent); background: linear-gradient(180deg, #ffffff, #e9e9ec); border-radius: var(--r-full); box-shadow: inset 0 1px 0 #fff, 0 8px 22px -10px rgb(255 255 255 / .3); }
+/* Mismo estilo que los paneles de funciones: plano, borde fino, etiqueta en mayúsculas, título con serif y filas */
+/* Las dos tarjetas miden lo mismo: la de RESER estira su agenda para llenar el alto de la de WhatsApp */
+.story-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 20px; margin-top: 44px; }
+.story-panel--after { display: flex; flex-direction: column; }
+.story-panel { padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.story-label { margin: 0 0 14px; color: var(--text-2); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.story-panel h3 { margin: 0 0 22px; color: var(--text); font-family: var(--font-serif); font-size: clamp(26px, 2.4vw, 30px); font-weight: 400; letter-spacing: -.01em; line-height: 1.15; }
+.story-agenda { display: grid; margin: 0; padding: 0; list-style: none; }
+
+/* Pantalla de WhatsApp de ejemplo dentro de la tarjeta "Hoy, por WhatsApp". Usa los colores de WhatsApp a propósito
+   (tokens locales --wa-*): es la ilustración del "antes" y tiene que reconocerse de un vistazo. Excepción documentada
+   en DESIGN_UX.md §9; no se usan en ningún otro lado. */
+.wa-chat { --wa-wall: #efeae2; --wa-in: #ffffff; --wa-out: #d9fdd3; --wa-ink: #111b21; --wa-muted: #667781; --wa-tick: #53bdeb; --wa-bar: #f6f6f6; --wa-line: #d1d7db; --wa-icon: #007aff;
+  overflow: hidden; color: var(--wa-ink); background: var(--wa-wall); border: 1px solid var(--border); border-radius: var(--r-item); }
+.wa-header { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 6px; color: var(--wa-icon); background: var(--wa-bar); border-bottom: 1px solid var(--wa-line); }
+.wa-back { display: inline-flex; align-items: center; font-size: 15px; }
+.wa-avatar { display: grid; place-items: center; flex: none; width: 32px; height: 32px; color: var(--wa-muted); font-size: 12px; font-weight: 600; background: var(--wa-line); border-radius: var(--r-full); }
+.wa-contact { display: grid; flex: 1; min-width: 0; line-height: 1.25; }
+.wa-contact strong { color: var(--wa-ink); font-size: 14px; font-weight: 600; }
+.wa-contact small { color: var(--wa-muted); font-size: 11px; }
+.wa-messages { display: grid; gap: 6px; margin: 0; padding: 14px 12px 16px; list-style: none; background-image: radial-gradient(rgb(0 0 0 / .05) 1px, transparent 1.4px); background-size: 16px 16px; }
+.wa-messages li { max-width: 82%; padding: 6px 8px 6px 10px; font-size: 14px; line-height: 1.35; background: var(--wa-in); border-radius: 8px; box-shadow: 0 1px 1px rgb(11 20 26 / .13); }
+.wa-messages li.is-in { justify-self: start; border-top-left-radius: 0; }
+.wa-messages li.is-out { justify-self: end; background: var(--wa-out); border-top-right-radius: 0; }
+.wa-meta { float: right; display: inline-flex; align-items: center; gap: 3px; margin: 8px 0 -4px 12px; color: var(--wa-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.wa-meta svg { color: var(--wa-tick); }
+.wa-input { display: flex; align-items: center; gap: 12px; padding: 8px 12px; color: var(--wa-icon); background: var(--wa-bar); border-top: 1px solid var(--wa-line); }
+.wa-input span { flex: 1; height: 30px; background: var(--wa-in); border: 1px solid var(--wa-line); border-radius: var(--r-full); }
+.story-agenda { flex: 1; grid-auto-rows: 1fr; overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-sm); }
+/* Hora arriba y cliente abajo, estado a la derecha: así el nombre no se corta en tarjetas angostas */
+.story-agenda li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; row-gap: 2px; min-height: 52px; padding: 10px 16px; font-size: 14px; }
+.story-agenda li + li { border-top: 1px solid var(--border); }
+.story-agenda time { grid-column: 1; grid-row: 1; align-self: end; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.story-agenda span { grid-column: 1; grid-row: 2; align-self: start; min-width: 0; overflow: hidden; color: var(--text-2); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.story-agenda b { grid-column: 2; grid-row: 1 / span 2; color: var(--ok); font-size: 13px; font-weight: 400; white-space: nowrap; }
+.story-arrow { display: grid; place-items: center; align-self: center; width: 44px; height: 44px; color: var(--text); background: var(--surface); border: 1px solid var(--border-hover); border-radius: var(--r-full); }
 
 /* Funciones (diseño del dueño): paneles planos con borde fino, etiqueta en mayúsculas, título con serif y un fragmento
    de la interfaz. La agenda va a lo ancho, con un divisor entre el texto y la grilla; las otras dos van abajo. */
@@ -537,6 +559,8 @@
 .fragment-services svg { color: var(--text-2); }
 
 @media (max-width: 800px) {
+ /* Más alto para que los avisos flotantes queden debajo de la última reserva de la maqueta, sin taparla */
+ .hero-visual { min-height: 384px; }
  .floating-card--reminder { left: -6px; }
  .story-section { padding: 80px 22px 0; }
  .story-grid { grid-template-columns: 1fr; }
@@ -556,6 +580,6 @@
  .fragment-services small { grid-column: 1; grid-row: 2; }
  .fragment-services b { grid-column: 2; grid-row: 1 / span 2; }
  .fragment-services svg { grid-column: 3; grid-row: 1 / span 2; }
- .story-agenda li { grid-template-columns: minmax(0, 1fr) auto; }
- .story-agenda span { grid-column: 1 / -1; grid-row: 2; }
+ .story-panel { padding: 24px 20px; }
+ .story-agenda li { padding: 10px 14px; }
 }

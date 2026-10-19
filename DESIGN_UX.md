@@ -265,7 +265,7 @@ Es el patrón central de la captura.
 
 ## 9. Lo que no se usa
 
-- Azul, celeste, cian o cualquier color de marca saturado.
+- Azul, celeste, cian o cualquier color de marca saturado. **Excepción:** la pantalla de WhatsApp de ejemplo de la portada (`.wa-chat`, tarjeta "Hoy, por WhatsApp") usa los colores de WhatsApp (fondo beige, burbujas blanca y verde, tildes celestes) con tokens locales `--wa-*`. Es la ilustración del "antes" y tiene que reconocerse de un vistazo. Pedido del dueño, 2026-10-19.
 - Degradés de color, glows y sombras de color. Los degradés neutros de luz (§4) sí se usan.
 - Cursivas decorativas y monoespaciadas. Serif solo en la excepción de §2 (títulos de los paneles de funciones de la portada).
 - Más de un CTA blanco por pantalla.
