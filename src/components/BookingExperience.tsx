@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Brush, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Clock3, Mail, PencilLine, Scissors, Sparkles, UserRound } from 'lucide-react'
+import { ArrowRight, CalendarCheck, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CircleCheck, CirclePlay, Mail, PencilLine, UserRound, UsersRound, Zap } from 'lucide-react'
 import { demoServices, priceLabel } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
@@ -10,8 +10,6 @@ import { useReduceMotion } from '../lib/motion'
 import { usePageMeta } from '../lib/pageMeta'
 import { cancelUrl, mapsUrl, telHref, whatsappHref } from '../lib/routes'
 import { email as cleanEmail, personName } from '../lib/fieldRules'
-
-const serviceIcons = [Scissors, Brush, Sparkles]
 
 const dayLabel = (d: Date) =>
   d.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '').replace(/^\w/, c => c.toUpperCase())
@@ -268,7 +266,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   return <section className="booking-shell">
     <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo ? <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span> : <span className="booking-business">{business.name}</span>}</div>
     <div className="booking-layout">
-      <aside className="booking-intro"><span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : 'Reserva online'}</p><h1>Un momento para vos.</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí tu servicio y encontrá el mejor horario. Tu turno se confirma al instante.'}</p><div className="booking-side-info"><Clock3 size={17} /><span>{demo ? 'Probá los pasos sin guardar datos.' : 'Sin esperas. Sin llamadas.'}</span></div>{(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
+      <aside className="booking-intro"><span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : business.name}</p><h1>Reservá tu turno online</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí el servicio que buscás y reservá tu fecha y hora en el momento. Rápido, fácil y sin vueltas.'}</p><ul className="booking-benefits"><li><span><Zap size={15} /></span><p><strong>Reservá</strong><small>en segundos</small></p></li><li><span><CalendarCheck size={15} /></span><p><strong>Sin esperas</strong><small>y con turnos confirmados</small></p></li><li><span><CircleCheck size={15} /></span><p><strong>Confirmación</strong><small>inmediata de tu turno</small></p></li></ul>{(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
       <div className="booking-card" ref={cardRef}>
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
@@ -277,13 +275,13 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         <AnimatePresence mode="wait">
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2><p className="section-description">El precio y la duración son claros desde el inicio.</p>
-            <div className="service-list">{services.map((item, i) => { const Icon = serviceIcons[i % serviceIcons.length]; return <button type="button" className={`service-option ${service?.id === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => setService(item)}><span className="service-icon"><Icon size={19} /></span><span><strong>{item.name}</strong><small>{item.booking_mode === 'whatsapp' ? 'Se coordina por WhatsApp' : `${item.duration_min} min`}</small></span><b>{priceLabel(item.price, item.price_mode)}</b></button> })}</div>
-            {serviceProfessionals.length > 1 && <><p className="section-description">¿Con quién querés atenderte?</p>
+            <div className="service-list">{services.map(item => <button type="button" aria-pressed={service?.id === item.id} className={`service-option ${service?.id === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => setService(item)}><span className="option-text"><strong>{item.name}</strong><small>{item.booking_mode === 'whatsapp' ? 'Se coordina por WhatsApp' : `${item.duration_min} min`}</small></span><b>{priceLabel(item.price, item.price_mode)}</b><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>)}</div>
+            {serviceProfessionals.length > 1 && <><p className="booking-question">¿Con quién querés atenderte?</p>
             <div className="service-list">
-              {!isWhatsapp && <button type="button" className={`service-option ${professionalId === '' ? 'is-selected' : ''}`} onClick={() => setProfessionalId('')}><span className="service-icon"><UserRound size={19} /></span><span><strong>Cualquiera</strong><small>Te asignamos a quien esté libre</small></span></button>}
-              {serviceProfessionals.map(p => <button type="button" key={p.id} className={`service-option ${professionalId === p.id ? 'is-selected' : ''}`} onClick={() => setProfessionalId(p.id)}><span className="service-icon"><UserRound size={19} /></span><span><strong>{p.name}</strong></span></button>)}
+              {!isWhatsapp && <button type="button" aria-pressed={professionalId === ''} className={`service-option ${professionalId === '' ? 'is-selected' : ''}`} onClick={() => setProfessionalId('')}><span className="service-icon"><UsersRound size={16} /></span><span className="option-text"><strong>Cualquiera</strong><small>Te asignamos a quien esté libre</small></span><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>}
+              {serviceProfessionals.map(p => <button type="button" key={p.id} aria-pressed={professionalId === p.id} className={`service-option ${professionalId === p.id ? 'is-selected' : ''}`} onClick={() => setProfessionalId(p.id)}><span className="service-icon"><UserRound size={16} /></span><span className="option-text"><strong>{p.name}</strong></span><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>)}
             </div></>}
-            {professionals.length > 1 && serviceProfessionals.length === 1 && <div className="service-option is-selected" style={{ cursor: 'default', margin: '16px 0 18px' }}><span className="service-icon"><UserRound size={19} /></span><span><strong>{serviceProfessionals[0].name}</strong><small>Te atiende</small></span></div>}
+            {professionals.length > 1 && serviceProfessionals.length === 1 && <div className="service-option is-selected" style={{ cursor: 'default', margin: '16px 0 18px' }}><span className="service-icon"><UserRound size={16} /></span><span className="option-text"><strong>{serviceProfessionals[0].name}</strong><small>Te atiende</small></span></div>}
             {professionals.length > 0 && serviceProfessionals.length === 0 && <p className="section-description" role="status">Por ahora nadie atiende este servicio. Elegí otro o consultá directamente con el negocio.</p>}
             {isWhatsapp
               ? <>
@@ -298,7 +296,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                     </p>
                   </>}
               </>
-              : <button className="button button--primary button--full" disabled={!service || (professionals.length > 0 && serviceProfessionals.length === 0)} onClick={() => setStep(2)}>Continuar <ChevronRight size={18} /></button>}
+              : <button className="button button--primary button--full" disabled={!service || (professionals.length > 0 && serviceProfessionals.length === 0)} onClick={() => setStep(2)}>Continuar <ArrowRight size={17} /></button>}
           </motion.div>}
           {step === 2 && <motion.div key="schedule" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 02</p><h2>Elegí día y horario</h2><p className="section-description">Mostramos solo los turnos que están disponibles.</p>
@@ -317,7 +315,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                   ? `Para hoy ya no quedan turnos disponibles: este negocio pide reservar con al menos ${business!.min_notice_hours} ${business!.min_notice_hours === 1 ? 'hora' : 'horas'} de anticipación. Probá con otro día.`
                   : 'No quedan turnos este día. Probá con otro.'}</p>
                 : <div className="time-grid">{slots.map((iso) => <button key={iso} className={time === iso ? 'is-selected' : ''} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
-            <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ChevronRight size={18} /></button>
+            <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ArrowRight size={17} /></button>
           </motion.div>}
           {step === 3 && service && <motion.form key="review" onSubmit={event => { event.preventDefault(); void save() }} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
