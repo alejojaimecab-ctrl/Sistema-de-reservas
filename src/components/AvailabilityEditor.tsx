@@ -1,4 +1,5 @@
 import { Check, Copy, Plus, X } from 'lucide-react'
+import { useConfirm } from './ConfirmDialog'
 
 export type AvailabilityDay = { id: string; name: string }
 export type AvailabilityMap = Record<string, boolean[]>
@@ -88,6 +89,27 @@ function findAdditionalRange(ranges: TimeRange[]): TimeRange | null {
 }
 
 export function AvailabilityEditor({ days, availability, onChange }: AvailabilityEditorProps) {
+  const { confirm, dialog } = useConfirm()
+
+  // Una plantilla reemplaza la semana entera: si ya había horarios cargados (y distintos), primero se pregunta
+  async function applyPreset(weekdaysOnly: boolean, label: string) {
+    const next = defaultAvailability(days, weekdaysOnly)
+    const hasSchedule = days.some(day => (availability[day.id] ?? []).some(Boolean))
+    const same = days.every(day => timeSlots.every(slot => Boolean(availability[day.id]?.[slot]) === next[day.id][slot]))
+    if (same) return
+    if (hasSchedule) {
+      const accepted = await confirm({
+        title: `¿Reemplazar tus horarios por "${label}"?`,
+        message: 'Se borran los horarios que ya tenías configurados en todos los días y en su lugar queda la plantilla. Lo que habías armado se pierde.',
+        confirmLabel: 'Reemplazar horarios',
+        cancelLabel: 'Mantener los míos',
+        danger: true,
+      })
+      if (!accepted) return
+    }
+    onChange(next)
+  }
+
   function setDayRanges(dayId: string, ranges: TimeRange[]) {
     onChange({ ...availability, [dayId]: slotsFromRanges(ranges) })
   }
@@ -111,10 +133,10 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
   const renderEditor = () => (
     <div className="availability-editor">
       <div className="availability-presets" aria-label="Plantillas de horario">
-        <button type="button" onClick={() => onChange(defaultAvailability(days, true))}>
+        <button type="button" onClick={() => void applyPreset(true, 'Lun a vie · 9 a 18')}>
           Lun a vie · 9 a 18
         </button>
-        <button type="button" onClick={() => onChange(defaultAvailability(days, false))}>
+        <button type="button" onClick={() => void applyPreset(false, 'Todos los días · 9 a 18')}>
           Todos los días · 9 a 18
         </button>
         <button
@@ -227,5 +249,5 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
       </p>
     </div>
   )
-  return renderEditor()
+  return <>{renderEditor()}{dialog}</>
 }

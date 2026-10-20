@@ -83,9 +83,19 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
   const isStaff = role === 'staff'
   const sections = isStaff ? STAFF_SECTIONS : OWNER_SECTIONS
-  const [selectedSection, setActive] = useState<SectionKey>(() => sectionFromPath() ?? (isStaff ? 'Agenda' : 'Resumen'))
+  const [selectedSection, setSelectedSection] = useState<SectionKey>(() => sectionFromPath() ?? (isStaff ? 'Agenda' : 'Resumen'))
   // Si cambia el rol (por ejemplo, al aceptar una invitación) se muestra una sección que exista para ese rol
   const active = sections.some(section => section.key === selectedSection) ? selectedSection : sections[0].key
+  const activeRef = useRef(active)
+  activeRef.current = active
+  // Una sección con cambios sin guardar (Configuración) puede frenar la salida: devuelve false si el dueño se queda
+  const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null)
+  const canLeave = async () => !leaveGuardRef.current || await leaveGuardRef.current()
+  async function setActive(key: SectionKey) {
+    if (key === activeRef.current) return
+    if (!await canLeave()) return
+    setSelectedSection(key)
+  }
   const navGroup = useId()
   const tabGroup = useId()
   const [moreOpen, setMoreOpen] = useState(false)
@@ -97,7 +107,15 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   }, [active])
   // Atrás / Adelante del navegador entre secciones del panel
   useEffect(() => {
-    const onPop = () => { const section = sectionFromPath(); if (section) setActive(section) }
+    const onPop = () => {
+      const section = sectionFromPath()
+      if (!section || section === activeRef.current) return
+      void canLeave().then(leave => {
+        if (leave) setSelectedSection(section)
+        // Si se queda, la dirección vuelve a la de la sección en la que sigue
+        else goTo(SECTION_PATHS[activeRef.current] ? `/panel/${SECTION_PATHS[activeRef.current]}` : '/panel')
+      })
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -226,7 +244,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   return <div className="dashboard">
     <aside className="dashboard-sidebar"><Brand />
       <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}</button>)}</nav>
-      <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
+      <button className="sidebar-exit" onClick={() => void canLeave().then(leave => { if (leave) { void signOut(); onExit() } })}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
     <main className="dashboard-main">
       <header className="dashboard-header">
@@ -321,7 +339,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Servicios' && <ServicesSection businessId={business.id} />}
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
-      {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} />}
+      {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} onLeaveGuard={guard => { leaveGuardRef.current = guard }} />}
       {active === 'Mis horarios' && staffResource && <MyScheduleSection businessId={business.id} resourceId={staffResource.id} days={days} />}
       </motion.div>
       </AnimatePresence>
@@ -343,7 +361,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         active={active}
         onPick={key => { setActive(key); setMoreOpen(false) }}
         onClose={() => setMoreOpen(false)}
-        onSignOut={() => { void signOut(); onExit() }}
+        onSignOut={() => void canLeave().then(leave => { if (leave) { void signOut(); onExit() } })}
       />}
     </AnimatePresence>
   </div>
@@ -1424,8 +1442,9 @@ function ServicesSection({ businessId }: { businessId: string }) {
   </section>
 }
 
-function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: () => Promise<void> }) {
+function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: string; onSaved: () => Promise<void>; onLeaveGuard: (guard: (() => Promise<boolean>) | null) => void }) {
   const { business } = useAuth()
+  const { confirm, choose, dialog } = useConfirm()
   const [name, setName] = useState(business?.name ?? '')
   const [slug, setSlug] = useState(business?.slug ?? '')
   const [cancelHours, setCancelHours] = useState(business?.cancel_min_hours ?? 2)
@@ -1468,17 +1487,68 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     setMessage('Logo quitado.')
   }
 
-  async function save() {
+  // Hay cambios sin guardar si algo difiere de lo guardado (el logo no cuenta: se guarda al subirlo)
+  const dirty = Boolean(business) && (
+    name.trim() !== (business?.name ?? '')
+    || slugify(slug) !== (business?.slug ?? '')
+    || cancelHours !== (business?.cancel_min_hours ?? 2)
+    || minNotice !== (business?.min_notice_hours ?? 1)
+    || maxAdvance !== (business?.max_advance_days ?? 60)
+    || phone.trim() !== (business?.phone ?? '')
+    || fullAddress !== joinAddress(splitAddress(business?.address))
+  )
+
+  // Devuelve true si quedó guardado
+  async function save(): Promise<boolean> {
     const problem = addressProblem(addressParts)
-    if (problem) { setAddressError(problem); return }
+    if (problem) { setAddressError(problem); return false }
+    const nextSlug = slugify(slug)
+    if (business && nextSlug !== business.slug) {
+      const host = window.location.host
+      const accepted = await confirm({
+        title: '¿Cambiar tu enlace de reservas?',
+        message: `Tu enlace pasa de ${host}/${business.slug} a ${host}/${nextSlug}. El anterior deja de funcionar: donde lo hayas compartido (Instagram, tu estado de WhatsApp, un QR impreso o el botón "Reservar otro horario" de los mails ya enviados) va a dar error, así que vas a tener que compartir el nuevo. Los turnos ya reservados y sus enlaces para cancelar no cambian.`,
+        confirmLabel: 'Cambiar enlace',
+        cancelLabel: 'Mantener el actual',
+      })
+      if (!accepted) return false
+    }
     setBusy(true)
     setMessage(null)
-    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: fullAddress || null })
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: nextSlug, cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: fullAddress || null })
     setBusy(false)
-    if (error) { setMessage(error); return }
+    if (error) { setMessage(error); return false }
     await onSaved()
     setMessage('Cambios guardados ✓')
+    return true
   }
+
+  // Al irse a otra sección (o cerrar sesión) con cambios sin guardar, se pregunta antes
+  const leaveRef = useRef<() => Promise<boolean>>(async () => true)
+  leaveRef.current = async () => {
+    if (!dirty) return true
+    const choice = await choose({
+      title: '¿Guardar los cambios antes de salir?',
+      message: 'Cambiaste datos de tu negocio y todavía no los guardaste.',
+      confirmLabel: 'Guardar y salir',
+      altLabel: 'Salir sin guardar',
+      cancelLabel: 'Volver',
+    })
+    if (choice === 'alt') return true
+    if (choice === 'confirm') return save()
+    return false
+  }
+  useEffect(() => {
+    onLeaveGuard(() => leaveRef.current())
+    return () => onLeaveGuard(null)
+  }, [onLeaveGuard])
+  // Cerrar la pestaña o recargar: el navegador muestra su propio aviso
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   return <section className="agenda-card">
     <div className="card-heading"><div><p className="eyebrow">Configuración</p><h2>Tu negocio</h2></div></div>
@@ -1549,6 +1619,7 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
       {busy ? 'Guardando…' : 'Guardar cambios'}
     </button>
+    {dialog}
   </section>
 }
 

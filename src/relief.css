@@ -148,3 +148,9 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .stepper > .is-active:not(:first-child)::after { transition: background-color .2s ease-out .45s, box-shadow .18s ease-out !important; }
 /* Los !important ganan al apagado general de extra.css: con "reducir movimiento" el llenado sigue,
    porque es un cambio de color en su lugar (nada se desplaza) y es lo que muestra el avance */
+
+/* Diálogo con tres opciones en el celular: una debajo de la otra, a lo ancho, con la principal arriba */
+@media (max-width: 500px) {
+  .confirm-actions:has(> :nth-child(3)) { flex-direction: column-reverse; align-items: stretch; }
+  .confirm-actions:has(> :nth-child(3)) .button { width: 100%; }
+}
