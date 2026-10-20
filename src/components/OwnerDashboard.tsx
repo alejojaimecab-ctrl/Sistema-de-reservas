@@ -177,6 +177,15 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     return () => { active = false }
   }, [business, isStaff])
 
+  // Un turno anotado a mano (desde Reservas o desde la Agenda) entra en todas las listas y en las estadísticas
+  function addCreatedReservation(reservation: Reservation) {
+    const byTime = (a: Reservation, b: Reservation) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+    setReservations(current => [...current, reservation].sort(byTime).slice(0, 10))
+    setUpcomingReservations(current => [...current, reservation].sort(byTime))
+    setHistoryVersion(version => version + 1)
+    if (business && !isStaff) void getDashboardStats(business.id).then(setStats)
+  }
+
   // Llegó una reserva por tiempo real (o se reconectó): Agenda, Resumen y Reservas se actualizan sin recargar
   function refreshReservations() {
     if (!business) return
@@ -276,6 +285,11 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           showProfessional={activeProfessionals.length > 1}
           onCancel={cancelReservation}
           isNew={isNew}
+          businessId={business.id}
+          businessSlug={business.slug}
+          professionals={activeProfessionals}
+          fixedResourceId={isStaff ? staffResource?.id : undefined}
+          onCreated={addCreatedReservation}
           loading={agendaLoading}
           error={agendaError}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
@@ -294,16 +308,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             fixedResourceId={isStaff ? staffResource?.id : undefined}
             onCancel={() => setShowNewReservation(false)}
             onCreated={reservation => {
-              setReservations(current => [...current, reservation].sort((a, b) =>
-                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
-              ).slice(0, 10))
-              setUpcomingReservations(current => [...current, reservation].sort((a, b) =>
-                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
-              ))
+              addCreatedReservation(reservation)
               setReservationNotice('La reserva se agregó correctamente.')
-              setHistoryVersion(version => version + 1)
               setShowNewReservation(false)
-              if (!isStaff) void getDashboardStats(business.id).then(setStats)
             }}
           />}
           {reservationNotice && <p className="reservation-form-success" role="status">{reservationNotice}</p>}
@@ -585,11 +592,16 @@ function ReservationList({ reservations, showProfessional, onCancel, isNew }: { 
   })}</div>
 }
 
+// Turno que carga el dueño (o un profesional): primero el horario, después el cliente.
+// El email es obligatorio porque por ahí le llegan la confirmación y los avisos; el teléfono es opcional.
 function ManualReservationForm({
   businessId,
   businessSlug,
   professionals,
   fixedResourceId,
+  initialDate,
+  initialStartsAt,
+  initialServiceId,
   onCancel,
   onCreated,
 }: {
@@ -597,6 +609,9 @@ function ManualReservationForm({
   businessSlug: string
   professionals: Professional[]
   fixedResourceId?: string // profesional con cuenta: solo carga turnos en su propia agenda
+  initialDate?: string // "2026-10-21": desde la Agenda, el día que se estaba mirando
+  initialStartsAt?: string // horario libre que se tocó en la Agenda
+  initialServiceId?: string
   onCancel: () => void
   onCreated: (reservation: Reservation) => void
 }) {
@@ -605,16 +620,27 @@ function ManualReservationForm({
   const [resourceId, setResourceId] = useState(fixedResourceId ?? '') // '' = cualquier profesional
   const [offers, setOffers] = useState<ResourceService[]>([])
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [date, setDate] = useState(() => localDateInputValue(new Date()))
+  const [email, setEmail] = useState('')
+  const [date, setDate] = useState(() => initialDate ?? localDateInputValue(new Date()))
   const [slots, setSlots] = useState<string[]>([])
   const [startsAt, setStartsAt] = useState('')
+  // El horario que se tocó en la Agenda queda elegido cuando llegan los horarios (solo la primera vez)
+  const pendingStart = useRef(initialStartsAt)
+  // El horario elegido se mantiene si sigue libre al cambiar de profesional, servicio o día; si no, se avisa
+  const startsAtRef = useRef('')
+  const [timeHint, setTimeHint] = useState<string | null>(null)
+  function chooseTime(slot: string) {
+    setStartsAt(slot)
+    startsAtRef.current = slot
+    setTimeHint(null)
+  }
   const [loadingServices, setLoadingServices] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [slotsFailed, setSlotsFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; email?: string }>({})
   const [retrySlots, setRetrySlots] = useState(0)
 
   useEffect(() => {
@@ -628,7 +654,7 @@ function ManualReservationForm({
       setServices(usable)
       setOffers(pairs)
       setError(result.error)
-      setServiceId(usable[0]?.id ?? '')
+      setServiceId(usable.some(service => service.id === initialServiceId) ? initialServiceId ?? '' : usable[0]?.id ?? '')
     }).catch(loadError => {
       if (!active) return
       setError(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los servicios.')
@@ -656,12 +682,22 @@ function ManualReservationForm({
     setError(null)
     setLoadingSlots(true)
     setSlotsFailed(false)
-    setStartsAt('')
     getPublicSlots(businessSlug, serviceId, new Date(`${date}T12:00:00`), resourceId || null)
       .then(result => {
         if (!active) return
         setSlots(result.slots)
         setSlotsFailed(result.failed)
+        // Por ejemplo, al pasar de "Cualquiera" a un profesional: si el horario sigue libre con él, queda elegido
+        const wanted = pendingStart.current ?? startsAtRef.current
+        pendingStart.current = undefined
+        if (wanted && result.slots.includes(wanted)) {
+          setStartsAt(wanted)
+          startsAtRef.current = wanted
+        } else {
+          setStartsAt('')
+          startsAtRef.current = ''
+          if (wanted && !result.failed) setTimeHint(`El horario de las ${clockLabel(new Date(wanted))} no está libre con lo que elegiste: elegí otro.`)
+        }
       })
       .catch(loadError => {
         if (!active) return
@@ -678,7 +714,13 @@ function ManualReservationForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const selectedService = services.find(service => service.id === serviceId)
-    if (!selectedService || !startsAt) return
+    const errors: { name?: string; phone?: string; email?: string } = {}
+    if (!name.trim()) errors.name = 'Escribí el nombre del cliente.'
+    if (!email.trim()) errors.email = 'Escribí el email del cliente: ahí le llegan la confirmación y los avisos.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = 'Revisá el email: tiene que ser como nombre@ejemplo.com.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
+    if (!selectedService || !startsAt) { setError('Elegí un horario libre.'); return }
     setSaving(true)
     setError(null)
     try {
@@ -687,33 +729,36 @@ function ManualReservationForm({
         serviceId,
         startsAt,
         name: name.trim(),
-        email: email.trim(),
         phone: phone.trim(),
+        email: email.trim(),
         resourceId: resourceId || null,
       })
       if (result.error || !result.id) {
-        setError(result.error ?? 'No pudimos guardar la reserva.')
+        setError(result.error ?? 'No pudimos guardar el turno.')
         return
       }
+      const professional = professionals.find(p => p.id === resourceId)
       onCreated({
         id: result.id,
         starts_at: startsAt,
+        created_at: new Date().toISOString(),
+        source: 'manual',
         status: 'confirmed',
         clients: { name: name.trim() },
         services: { name: selectedService.name, price: selectedService.price },
-        resources: professionals.find(p => p.id === resourceId) ? { name: professionals.find(p => p.id === resourceId)!.name } : null,
+        resources: professional ? { name: professional.name } : null,
       })
     } catch (submitError) {
-      setError(submitError instanceof Error ? friendlyError(submitError.message) : 'No pudimos guardar la reserva.')
+      setError(submitError instanceof Error ? friendlyError(submitError.message) : 'No pudimos guardar el turno.')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form className="manual-reservation-form" onSubmit={event => void submit(event)}>
+    <form className="manual-reservation-form" noValidate onSubmit={event => void submit(event)}>
       <div className="manual-reservation-heading">
-        <div><h3>Agregar reserva</h3><p>Completá los datos del cliente y elegí un horario disponible.</p></div>
+        <div><h3>Nuevo turno</h3><p>Elegí el horario y anotá al cliente con su email: ahí le llegan la confirmación y los avisos.</p></div>
         <button type="button" className="manual-reservation-close" aria-label="Cerrar formulario" onClick={onCancel}><X size={17} /></button>
       </div>
       {loadingServices ? (
@@ -729,18 +774,6 @@ function ManualReservationForm({
         <>
           <div className="manual-reservation-fields">
             <label>
-              <span>Nombre del cliente</span>
-              <div><UserRound size={16} /><input required autoComplete="off" autoCapitalize="words" value={name} onChange={event => setName(field.personName(event.target.value))} /></div>
-            </label>
-            <label>
-              <span>Correo electrónico</span>
-              <div><Mail size={16} /><input required type="email" autoComplete="off" value={email} onChange={event => setEmail(field.email(event.target.value))} /></div>
-            </label>
-            <label>
-              <span>Teléfono <small>(opcional)</small></span>
-              <div><Phone size={16} /><input type="tel" inputMode="tel" maxLength={40} autoComplete="off" value={phone} onChange={event => setPhone(field.phone(event.target.value))} /></div>
-            </label>
-            <label>
               <span>Servicio</span>
               <select required value={serviceId} onChange={event => setServiceId(event.target.value)}>
                 {services.map(service => <option key={service.id} value={service.id}>{service.name} · {service.duration_min} min · {formatPrice(Number(service.price))}</option>)}
@@ -754,24 +787,44 @@ function ManualReservationForm({
               </select>
             </label>}
             <label>
-              <span>Fecha</span>
+              <span>Día</span>
               <input type="date" required min={localDateInputValue(new Date())} value={date} onChange={event => setDate(event.target.value)} />
             </label>
+          </div>
+          <div className="manual-reservation-times">
+            <span className="manual-reservation-label">Horario libre</span>
+            {timeHint && <p className="manual-reservation-hint" role="status">{timeHint}</p>}
+            {loadingSlots
+              ? <p className="manual-reservation-message" role="status">Buscando horarios…</p>
+              : slotsFailed
+                ? <p className="manual-reservation-error" role="alert">No pudimos consultar la disponibilidad. <button type="button" className="link-button" onClick={() => { setError(null); setRetrySlots(count => count + 1) }}>Reintentar</button></p>
+                : slots.length === 0
+                  ? <p className="manual-reservation-message">No hay horarios libres para ese servicio y día. Probá con otro día.</p>
+                  : <div className="time-grid manual-time-grid" role="group" aria-label="Horarios libres">
+                    {slots.map(slot => <button type="button" key={slot} aria-pressed={startsAt === slot} className={startsAt === slot ? 'is-selected' : ''} onClick={() => chooseTime(slot)}>{clockLabel(new Date(slot))}</button>)}
+                  </div>}
+          </div>
+          <div className="manual-reservation-fields">
+            <label className={fieldErrors.name ? 'is-invalid' : undefined}>
+              <span>Nombre del cliente</span>
+              <div><UserRound size={16} /><input required autoComplete="off" autoCapitalize="words" value={name} aria-invalid={Boolean(fieldErrors.name)} onChange={event => { setName(field.personName(event.target.value)); setFieldErrors(current => ({ ...current, name: undefined })) }} /></div>
+              {fieldErrors.name && <small className="field-error">{fieldErrors.name}</small>}
+            </label>
+            <label className={fieldErrors.email ? 'is-invalid' : undefined}>
+              <span>Email del cliente</span>
+              <div><Mail size={16} /><input required type="email" autoComplete="off" placeholder="cliente@email.com" value={email} aria-invalid={Boolean(fieldErrors.email)} onChange={event => { setEmail(field.email(event.target.value)); setFieldErrors(current => ({ ...current, email: undefined })) }} /></div>
+              {fieldErrors.email && <small className="field-error">{fieldErrors.email}</small>}
+            </label>
             <label>
-              <span>Horario disponible</span>
-              <select required value={startsAt} onChange={event => setStartsAt(event.target.value)} disabled={loadingSlots || slotsFailed || slots.length === 0}>
-                <option value="">{loadingSlots ? 'Buscando horarios…' : slotsFailed ? 'No pudimos cargar' : slots.length ? 'Elegí un horario' : 'Sin horarios disponibles'}</option>
-                {slots.map(slot => <option key={slot} value={slot}>{new Date(slot).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</option>)}
-              </select>
+              <span>Teléfono <small>(opcional)</small></span>
+              <div><Phone size={16} /><input type="tel" inputMode="tel" maxLength={40} autoComplete="off" placeholder="Ej: 351 555 0000" value={phone} onChange={event => setPhone(field.phone(event.target.value))} /></div>
             </label>
           </div>
-          {slotsFailed && <p className="manual-reservation-error" role="alert">No pudimos consultar la disponibilidad. <button type="button" className="link-button" onClick={() => { setError(null); setRetrySlots(count => count + 1) }}>Reintentar</button></p>}
           {error && !slotsFailed && <p className="manual-reservation-error" role="alert">{error}</p>}
-          {!loadingSlots && !slotsFailed && slots.length === 0 && <p className="manual-reservation-message">No hay horarios disponibles para ese servicio y fecha. Probá con otro día.</p>}
           <div className="manual-reservation-actions">
             <button type="button" className="button button--secondary" onClick={onCancel} disabled={saving}>Cancelar</button>
-            <button type="submit" className="button button--primary" disabled={saving || loadingSlots || !startsAt}>
-              {saving ? 'Guardando…' : <><Plus size={16} /> Crear reserva</>}
+            <button type="submit" className="button button--primary" disabled={saving || loadingSlots}>
+              {saving ? 'Guardando…' : <><Plus size={16} /> Anotar turno</>}
             </button>
           </div>
         </>
@@ -831,11 +884,16 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
   isNew: (reservation: Reservation) => boolean
+  businessId: string
+  businessSlug: string
+  professionals: Professional[]
+  fixedResourceId?: string
+  onCreated: (reservation: Reservation) => void
   loading: boolean
   error: string | null
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
@@ -845,6 +903,39 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, loadi
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const [pendingAttendance, setPendingAttendance] = useState<Set<string>>(() => new Set())
   const [attendanceError, setAttendanceError] = useState<string | null>(null)
+  // Anotar un turno desde la Agenda: con "+ Turno" o tocando un horario libre (que ya queda elegido)
+  const [newTurn, setNewTurn] = useState<{ date: string; startsAt?: string; serviceId?: string } | null>(null)
+  const [createdNotice, setCreatedNotice] = useState<string | null>(null)
+  // Horarios libres del día elegido para el servicio que se elija (dependen de cuánto dura)
+  const [freeServices, setFreeServices] = useState<Service[]>([])
+  const [freeServiceId, setFreeServiceId] = useState('')
+  const [freeSlots, setFreeSlots] = useState<string[]>([])
+  const [freeLoading, setFreeLoading] = useState(false)
+  const freeGroup = useId()
+  const selectedKey = dateKey(selectedDate)
+  const isPastDay = selectedKey < dateKey(new Date())
+  useEffect(() => {
+    let active = true
+    Promise.all([listReservationServices(businessId), listResourceServices(businessId)]).then(([result, pairs]) => {
+      if (!active) return
+      const usable = fixedResourceId
+        ? result.services.filter(service => pairs.some(o => o.resource_id === fixedResourceId && o.service_id === service.id))
+        : result.services
+      setFreeServices(usable)
+      setFreeServiceId(current => usable.some(service => service.id === current) ? current : usable[0]?.id ?? '')
+    }).catch(() => { if (active) setFreeServices([]) })
+    return () => { active = false }
+  }, [businessId, fixedResourceId])
+  useEffect(() => {
+    if (!freeServiceId || isPastDay) { setFreeSlots([]); return }
+    let active = true
+    setFreeLoading(true)
+    getPublicSlots(businessSlug, freeServiceId, new Date(`${selectedKey}T12:00:00`), fixedResourceId ?? null)
+      .then(result => { if (active) setFreeSlots(result.failed ? [] : result.slots) })
+      .catch(() => { if (active) setFreeSlots([]) })
+      .finally(() => { if (active) setFreeLoading(false) })
+    return () => { active = false }
+  }, [businessSlug, freeServiceId, selectedKey, isPastDay, fixedResourceId, reservations.length])
   const today = new Date()
   const dates = mode === 'week' ? weekDates(selectedDate) : monthDates(selectedDate)
   const reservationsByDate = new Map<string, Reservation[]>()
@@ -977,10 +1068,33 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, loadi
           <p className="eyebrow">{loading ? 'Cargando agenda' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
           <h3>{selectedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
         </div>
-        {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}
+        <div className="calendar-detail-actions">
+          {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}
+          <button type="button" className="button button--primary button--small" onClick={() => { setCreatedNotice(null); setNewTurn({ date: isPastDay ? dateKey(new Date()) : selectedKey, serviceId: freeServiceId || undefined }) }}><Plus size={15} /> Turno</button>
+        </div>
       </div>
 
       {attendanceError && <p className="calendar-message calendar-message--error" role="alert">{attendanceError}</p>}
+      {createdNotice && <p className="reservation-form-success agenda-notice" role="status">{createdNotice}</p>}
+      {newTurn && <div className="agenda-new">
+        <ManualReservationForm
+          key={`${newTurn.date}-${newTurn.startsAt ?? ''}-${newTurn.serviceId ?? ''}`}
+          businessId={businessId}
+          businessSlug={businessSlug}
+          professionals={professionals}
+          fixedResourceId={fixedResourceId}
+          initialDate={newTurn.date}
+          initialStartsAt={newTurn.startsAt}
+          initialServiceId={newTurn.serviceId}
+          onCancel={() => setNewTurn(null)}
+          onCreated={reservation => {
+            onCreated(reservation)
+            setNewTurn(null)
+            setSelectedDate(new Date(reservation.starts_at))
+            setCreatedNotice(`Anotaste a ${reservation.clients?.name ?? 'tu cliente'} a las ${clockLabel(new Date(reservation.starts_at))}.`)
+          }}
+        />
+      </div>}
 
       {loading ? (
         <p className="calendar-message" role="status">Cargando tus turnos…</p>
@@ -1037,6 +1151,34 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, loadi
             : 'No hay turnos para este día. Elegí otro día del calendario.'}
         </p>
       )}
+
+      {!isPastDay && freeServices.length > 0 && <div className="agenda-free">
+        <h4 className="agenda-free-title">Horarios libres</h4>
+        {/* Los huecos dependen de cuánto dura el servicio: se elige con el mismo selector deslizante de Semana/Mes */}
+        {freeServices.length > 1 && <div className="agenda-services" role="group" aria-label="Servicio para ver los horarios libres">
+          {freeServices.map(service => {
+            const active = service.id === freeServiceId
+            return <button type="button" key={service.id} aria-pressed={active} className={active ? 'is-active' : undefined} onClick={() => setFreeServiceId(service.id)}>
+              {active && <SegmentIndicator group={freeGroup} />}
+              <span>{service.name.trim()}</span><small>{service.duration_min} min</small>
+            </button>
+          })}
+        </div>}
+        {freeLoading
+          ? <p className="agenda-free-empty" role="status">Buscando horarios libres…</p>
+          : freeSlots.length === 0
+            ? <p className="agenda-free-empty">No quedan horarios libres{freeServices.length > 1 ? ' para ese servicio' : ''} este día.</p>
+            : <motion.div
+              key={`${freeServiceId}-${selectedKey}`}
+              className="agenda-free-grid"
+              role="group"
+              aria-label="Horarios libres: tocá uno para anotar un turno"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
+            >
+              {freeSlots.map(slot => <button type="button" key={slot} aria-label={`Anotar un turno a las ${clockLabel(new Date(slot))}`} onClick={() => { setCreatedNotice(null); setNewTurn({ date: selectedKey, startsAt: slot, serviceId: freeServiceId }) }}><Plus size={13} aria-hidden="true" />{clockLabel(new Date(slot))}</button>)}
+            </motion.div>}
+      </div>}
     </section>}
   </>)
 }
