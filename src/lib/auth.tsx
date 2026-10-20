@@ -30,6 +30,7 @@ type AuthContextValue = {
   updatePassword: (password: string) => Promise<string | null>
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string, fullName: string, invite?: { token: string; redirectTo: string }) => Promise<string | null>
+  resendConfirmation: (email: string) => Promise<string | null>
   signOut: () => Promise<void>
   refreshBusiness: () => Promise<void>
 }
@@ -114,6 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null
   }
 
+  // Vuelve a mandar el mail de "confirmá tu cuenta" del alta (Supabase limita cuántos se pueden pedir por hora)
+  async function resendConfirmation(email: string) {
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() })
+    return error ? error.message : null
+  }
+
   async function requestPasswordReset(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
     return error ? error.message : null
@@ -135,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, signOut, refreshBusiness }}>
       {children}
     </AuthContext.Provider>
   )

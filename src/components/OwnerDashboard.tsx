@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, DollarSign, LayoutDashboard, LogOut, Mail, Phone, Plus, Settings2, Sparkles, Trash2, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, LayoutDashboard, LogOut, Mail, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
-import { formatPrice } from '../data/demo'
+import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { copyText } from '../lib/clipboard'
 import * as field from '../lib/fieldRules'
 import { bookingUrl, goTo, panelSectionFromPath, slugify } from '../lib/routes'
-import { Eye, EyeOff } from 'lucide-react'
+import { EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
 import { ReservationsSection } from './ReservationsSection'
@@ -558,13 +558,12 @@ function ReservationList({ reservations, showProfessional, onCancel }: { reserva
   if (reservations.length === 0) {
     return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
-  const colors = ['blue', 'violet', 'orange']
   return <div className="agenda-list">{reservations.map((r, index) => {
     const date = new Date(r.starts_at)
     const clientName = r.clients?.name ?? 'Cliente'
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
       <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
-      <span className={`avatar avatar--${colors[index % colors.length]}`}>{initials(clientName)}</span>
+      <span className="avatar">{initials(clientName)}</span>
       <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
       <button type="button" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(r)}><X size={17} /></button>
@@ -875,7 +874,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
     }
   }
 
-  return (
+  return (<>
     <section className="agenda-card calendar-card">
       <div className="calendar-heading">
         <div>
@@ -900,7 +899,6 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
       {error ? (
         <p className="calendar-message calendar-message--error" role="alert">No pudimos cargar los turnos: {error}</p>
       ) : (
-        <>
           <div className={`calendar-grid calendar-grid--${mode}`}>
             <div className="calendar-weekdays">
               {weekdays.map(day => <span key={day}>{day}</span>)}
@@ -935,7 +933,6 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                           </span>
                         ))}
                         {dayReservations.length > 3 && <span className="calendar-more">+{dayReservations.length - 3} más</span>}
-                        {dayReservations.length === 0 && <span className="calendar-free">Libre</span>}
                         {completedCount > 0 && <span className="calendar-completed-count">{completedCount} {completedCount === 1 ? 'atendido' : 'atendidos'}</span>}
                         {noShowCount > 0 && <span className="calendar-noshow-count">{noShowCount} no vino</span>}
                       </span>
@@ -955,78 +952,101 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
               })}
             </div>
           </div>
-
-          <div className="calendar-day-detail" aria-live="polite">
-            <div className="calendar-detail-heading">
-              <div>
-                <p className="eyebrow">{loading ? 'Cargando agenda' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
-                <h3>{selectedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
-              </div>
-              {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}
-            </div>
-
-            {attendanceError && <p className="calendar-message calendar-message--error" role="alert">{attendanceError}</p>}
-
-            {loading ? (
-              <p className="calendar-message" role="status">Cargando tus turnos…</p>
-            ) : selectedReservations.length > 0 ? (
-              <div className="calendar-appointments">
-                {selectedReservations.map(reservation => {
-                  const date = new Date(reservation.starts_at)
-                  const clientName = reservation.clients?.name ?? 'Cliente'
-                  const isCompleted = reservation.status === 'completed'
-                  const isNoShow = reservation.status === 'no_show'
-                  const canMarkAttended = date.getTime() <= Date.now()
-                  return (
-                    <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}${isNoShow ? ' is-noshow' : ''}`} key={reservation.id}>
-                      <time>{date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
-                      <span className="calendar-appointment-marker" aria-hidden="true" />
-                      <div>
-                        <strong>{clientName}</strong>
-                        <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
-                      </div>
-                      {reservation.services && <b>{formatPrice(Number(reservation.services.price))}</b>}
-                      <div className="calendar-actions">
-                      <button
-                        type="button"
-                        className="calendar-attendance"
-                        aria-label={isCompleted ? `Desmarcar como atendido: ${clientName}` : `Marcar como atendido: ${clientName}`}
-                        aria-pressed={isCompleted}
-                        disabled={pendingAttendance.has(reservation.id) || (!isCompleted && !canMarkAttended)}
-                        onClick={() => void toggleAttendance(reservation)}
-                      >
-                        <Check size={14} />
-                        <span>{isCompleted ? 'Atendido' : 'Marcar atendido'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="calendar-attendance calendar-noshow"
-                        aria-label={isNoShow ? `Desmarcar "no vino": ${clientName}` : `Marcar que no vino: ${clientName}`}
-                        aria-pressed={isNoShow}
-                        disabled={pendingAttendance.has(reservation.id) || (!isNoShow && !canMarkAttended)}
-                        onClick={() => void toggleAttendance(reservation, 'no_show')}
-                      >
-                        <X size={14} />
-                        <span>{isNoShow ? 'No vino' : 'Marcar no vino'}</span>
-                      </button>
-                      {!isCompleted && !isNoShow && <button type="button" className="calendar-cancel" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(reservation)}><X size={14} /></button>}
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="calendar-message">
-                {reservations.length === 0
-                  ? 'No hay turnos para mostrar.'
-                  : 'No hay turnos para este día. Elegí otro día del calendario.'}
-              </p>
-            )}
-          </div>
-        </>
       )}
     </section>
-  )
+
+    {/* Los turnos del día elegido van en su propia tarjeta: una fila compacta por turno */}
+    {!error && <section className="agenda-card calendar-day-detail" aria-live="polite">
+      <div className="calendar-detail-heading">
+        <div>
+          <p className="eyebrow">{loading ? 'Cargando agenda' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
+          <h3>{selectedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+        </div>
+        {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}
+      </div>
+
+      {attendanceError && <p className="calendar-message calendar-message--error" role="alert">{attendanceError}</p>}
+
+      {loading ? (
+        <p className="calendar-message" role="status">Cargando tus turnos…</p>
+      ) : selectedReservations.length > 0 ? (
+        <div className="calendar-appointments">
+          {selectedReservations.map(reservation => {
+            const date = new Date(reservation.starts_at)
+            const clientName = reservation.clients?.name ?? 'Cliente'
+            const isCompleted = reservation.status === 'completed'
+            const isNoShow = reservation.status === 'no_show'
+            const canMarkAttended = date.getTime() <= Date.now()
+            return (
+              <article className={`calendar-appointment${isCompleted ? ' is-completed' : ''}${isNoShow ? ' is-noshow' : ''}`} key={reservation.id}>
+                <time className="calendar-appointment-time" dateTime={reservation.starts_at}><strong>{clockLabel(date)}</strong></time>
+                <span className="calendar-appointment-avatar" aria-hidden="true"><UserRound size={16} /></span>
+                <div className="calendar-appointment-info">
+                  <strong>{clientName}</strong>
+                  <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
+                </div>
+                {reservation.services && <b className="calendar-appointment-price">{formatPrice(Number(reservation.services.price))}</b>}
+                <div className="calendar-actions">
+                  <button
+                    type="button"
+                    className="calendar-attendance"
+                    aria-label={isCompleted ? `Desmarcar como atendido: ${clientName}` : `Marcar como atendido: ${clientName}`}
+                    aria-pressed={isCompleted}
+                    disabled={pendingAttendance.has(reservation.id) || (!isCompleted && !canMarkAttended)}
+                    onClick={() => void toggleAttendance(reservation)}
+                  >
+                    <Check size={14} />
+                    <span>{isCompleted ? 'Atendido' : 'Marcar atendido'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="calendar-attendance calendar-noshow"
+                    aria-label={isNoShow ? `Desmarcar "no vino": ${clientName}` : `Marcar que no vino: ${clientName}`}
+                    aria-pressed={isNoShow}
+                    disabled={pendingAttendance.has(reservation.id) || (!isNoShow && !canMarkAttended)}
+                    onClick={() => void toggleAttendance(reservation, 'no_show')}
+                  >
+                    <X size={14} />
+                    <span>{isNoShow ? 'No vino' : 'Marcar no vino'}</span>
+                  </button>
+                  {!isCompleted && !isNoShow && <button type="button" className="calendar-cancel" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(reservation)}><Trash2 size={15} /></button>}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="calendar-message">
+          {reservations.length === 0
+            ? 'No hay turnos para mostrar.'
+            : 'No hay turnos para este día. Elegí otro día del calendario.'}
+        </p>
+      )}
+    </section>}
+  </>)
+}
+
+function clockLabel(date: Date) {
+  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+}
+
+// Lo que se edita de un servicio; se guarda todo junto con "Guardar", nunca campo por campo
+type ServiceDraft = Pick<Service, 'name' | 'duration_min' | 'price' | 'price_mode' | 'booking_mode' | 'is_active'>
+
+const NEW_SERVICE: ServiceDraft = { name: '', duration_min: 30, price: 0, price_mode: 'fixed', booking_mode: 'online', is_active: true }
+
+function serviceDraft(svc: Service): ServiceDraft {
+  return { name: svc.name, duration_min: svc.duration_min, price: Number(svc.price), price_mode: svc.price_mode, booking_mode: svc.booking_mode, is_active: svc.is_active }
+}
+
+function sameServiceDraft(a: ServiceDraft, b: ServiceDraft) {
+  return a.name === b.name && a.duration_min === b.duration_min && a.price === b.price
+    && a.price_mode === b.price_mode && a.booking_mode === b.booking_mode && a.is_active === b.is_active
+}
+
+// "20.000" → 20000; corta en `max` dígitos para que no se pueda escribir un número absurdo
+function digitsValue(value: string, max: number) {
+  return Number(value.replace(/\D/g, '').slice(0, max)) || 0
 }
 
 function ServicesSection({ businessId }: { businessId: string }) {
@@ -1034,7 +1054,13 @@ function ServicesSection({ businessId }: { businessId: string }) {
   const [services, setServices] = useState<Service[]>([])
   const [team, setTeam] = useState<Professional[]>([])
   const [offers, setOffers] = useState<ResourceService[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  // El servicio abierto para editar: su id, 'new' si se está agregando uno, o null si se está mirando la lista
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState<ServiceDraft>(NEW_SERVICE)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const shouldReduceMotion = useReducedMotion()
   const { confirm, dialog } = useConfirm()
 
@@ -1045,166 +1071,213 @@ function ServicesSection({ businessId }: { businessId: string }) {
     setServices(loadedServices)
     setTeam(loadedTeam)
     setOffers(loadedOffers)
+    setLoaded(true)
   }
   useEffect(() => { void reload() }, [businessId])
 
-  function updateLocal(id: string, patch: Partial<Service>) {
-    setServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
+  const editingService = services.find(svc => svc.id === editing) ?? null
+  const original = editing === 'new' ? NEW_SERVICE : editingService ? serviceDraft(editingService) : null
+  const dirty = original !== null && !sameServiceDraft(draft, original)
+  const activeCount = services.filter(svc => svc.is_active).length
+  const hiddenCount = services.length - activeCount
+
+  // true si la persona prefiere seguir editando en vez de perder lo que cambió
+  async function keepEditing() {
+    if (!dirty) return false
+    return !(await confirm({
+      title: '¿Descartar los cambios?',
+      message: 'Lo que cambiaste en este servicio no se va a guardar.',
+      confirmLabel: 'Sí, descartar',
+      cancelLabel: 'Seguir editando',
+    }))
   }
 
-  async function toggleActive(svc: Service) {
-    setError(null)
-    const err = await setServiceActive(svc.id, !svc.is_active)
-    if (err) setError(err); else void reload()
+  async function open(target: Service | 'new') {
+    if (await keepEditing()) return
+    setFormError(null)
+    setNotice(null)
+    setDraft(target === 'new' ? NEW_SERVICE : serviceDraft(target))
+    setEditing(target === 'new' ? 'new' : target.id)
+  }
+
+  // Al cerrar, el foco vuelve al botón desde el que se abrió la edición
+  function close(id: string | null) {
+    setEditing(null)
+    setFormError(null)
+    requestAnimationFrame(() => {
+      const selector = id && id !== 'new' ? `[data-service-edit="${id}"]` : '[data-service-add]'
+      document.querySelector<HTMLButtonElement>(selector)?.focus()
+    })
+  }
+
+  async function cancel() {
+    if (await keepEditing()) return
+    close(editing)
+  }
+
+  function edit(patch: Partial<ServiceDraft>) {
+    setDraft(current => ({ ...current, ...patch }))
+    setFormError(null)
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    if (!editing || saving) return
+    if (editing !== 'new' && !dirty) { close(editing); return }
+    const name = draft.name.trim()
+    if (!name) { setFormError('Poné el nombre del servicio.'); return }
+    if (draft.booking_mode === 'online' && draft.duration_min < 5) { setFormError('La duración tiene que ser de 5 minutos o más.'); return }
+
+    setSaving(true)
+    setFormError(null)
+    const input = { name, duration_min: draft.duration_min, price: draft.price, price_mode: draft.price_mode, booking_mode: draft.booking_mode }
+    let saveError: string | null
+    if (editing === 'new') {
+      saveError = await createService(businessId, input)
+    } else {
+      saveError = await updateService(editing, input)
+      if (!saveError && editingService && editingService.is_active !== draft.is_active) saveError = await setServiceActive(editing, draft.is_active)
+    }
+    setSaving(false)
+    if (saveError) { setFormError(`No pudimos guardar el servicio: ${saveError}`); return }
+    setNotice(editing === 'new' ? `Agregaste ${name}.` : `Guardaste los cambios de ${name}.`)
+    await reload()
+    close(editing)
   }
 
   async function removeService(svc: Service) {
     const accepted = await confirm({
       title: `¿Eliminar "${svc.name || 'este servicio'}" para siempre?`,
-      message: 'Solo se puede si todavía no tiene reservas; si las tiene, desactivalo.',
+      message: 'Solo se puede si todavía no tiene reservas; si las tiene, ocultalo.',
       confirmLabel: 'Sí, eliminar',
       cancelLabel: 'No, conservarlo',
       danger: true,
     })
     if (!accepted) return
-    setError(null)
-    const err = await deleteService(svc.id)
-    if (err) setError(err); else void reload()
+    setFormError(null)
+    const deleteError = await deleteService(svc.id)
+    if (deleteError) { setFormError(`No pudimos eliminarlo: ${deleteError}`); return }
+    setEditing(null)
+    setNotice(`Eliminaste ${svc.name}.`)
+    void reload()
   }
 
-  const activeCount = services.filter(svc => svc.is_active).length
-
-  function persist(svc: Service) {
-    void updateService(svc.id, {
-      name: svc.name,
-      duration_min: svc.duration_min,
-      price: svc.price,
-      price_mode: svc.price_mode,
-      booking_mode: svc.booking_mode,
-    }).then(err => { if (err) setError(err) })
+  // Un servicio por WhatsApp necesita un número: el del negocio o el de cada profesional que lo hace
+  function missingWhatsapp(svc: Service) {
+    if (svc.booking_mode !== 'whatsapp' || business?.phone?.trim()) return []
+    return team
+      .filter(p => p.is_active && !p.whatsapp?.trim() && offers.some(o => o.resource_id === p.id && o.service_id === svc.id))
+      .map(p => p.name)
   }
 
-  // Los selectores guardan al instante (no esperan a salir del campo)
-  function change(svc: Service, patch: Partial<Service>) {
-    updateLocal(svc.id, patch)
-    persist({ ...svc, ...patch })
+  function serviceForm(svc: Service | null) {
+    return <motion.form
+      className="service-form"
+      aria-label={svc ? `Editar ${svc.name}` : 'Nuevo servicio'}
+      noValidate
+      onSubmit={event => void save(event)}
+      // Se frena el Escape acá: si no, el mismo Escape llega al diálogo de "¿Descartar?" recién abierto y lo cierra
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); void cancel() } }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
+    >
+      <p className="service-form-title">{svc ? 'Editar servicio' : 'Nuevo servicio'}</p>
+      <div className="service-form-grid">
+        <label className="onboarding-field service-field-name">Nombre
+          <input autoFocus maxLength={60} autoComplete="off" placeholder="Ej: Corte de pelo" value={draft.name} onChange={e => edit({ name: field.freeText(e.target.value) })} />
+        </label>
+        <label className="onboarding-field service-field-booking">Cómo se reserva
+          <select value={draft.booking_mode} onChange={e => edit({ booking_mode: e.target.value as Service['booking_mode'] })}>
+            <option value="online">Con horario en RESER</option>
+            <option value="whatsapp">Se coordina por WhatsApp</option>
+          </select>
+        </label>
+        {draft.booking_mode === 'online' && <label className="onboarding-field service-field-duration">Duración
+          <span className="url-field url-field--suffix">
+            <input inputMode="numeric" autoComplete="off" value={draft.duration_min || ''} onKeyDown={field.digitsOnlyKeys} onChange={e => edit({ duration_min: digitsValue(e.target.value, 3) })} />
+            <span aria-hidden="true">min</span>
+          </span>
+        </label>}
+        <label className="onboarding-field service-field-mode">Precio
+          <select value={draft.price_mode} onChange={e => edit({ price_mode: e.target.value as Service['price_mode'] })}>
+            <option value="fixed">Precio fijo</option>
+            <option value="from">Desde (precio mínimo)</option>
+            <option value="ask">A consultar</option>
+          </select>
+        </label>
+        {draft.price_mode !== 'ask' && <label className="onboarding-field service-field-amount">{draft.price_mode === 'from' ? 'Desde' : 'Monto'}
+          <span className="url-field">
+            <span aria-hidden="true">$</span>
+            <input inputMode="numeric" autoComplete="off" placeholder="0" value={draft.price ? draft.price.toLocaleString('es-AR') : ''} onKeyDown={field.digitsOnlyKeys} onChange={e => edit({ price: digitsValue(e.target.value, 9) })} />
+          </span>
+        </label>}
+      </div>
+      {svc && <label className="service-visible">
+        <input type="checkbox" checked={draft.is_active} onChange={e => edit({ is_active: e.target.checked })} />
+        <span><strong>Visible para tus clientes</strong><small>Si lo ocultás no se puede reservar, pero las reservas que ya tiene se conservan.</small></span>
+      </label>}
+      {formError && <p className="form-error service-form-error" role="alert">{formError}</p>}
+      <div className="service-form-actions">
+        {svc && <button type="button" className="service-delete" onClick={() => void removeService(svc)}><Trash2 size={14} /> Eliminar servicio</button>}
+        <button type="button" className="button button--secondary button--small" onClick={() => void cancel()}>Cancelar</button>
+        <button type="submit" className="button button--primary button--small" disabled={saving}>{saving ? 'Guardando…' : svc ? 'Guardar' : 'Agregar'}</button>
+      </div>
+    </motion.form>
   }
 
-  return <section className="agenda-card">
+  return <section className="agenda-card services-card">
     {dialog}
     <div className="services-heading">
-      <div className="services-heading-mark"><Sparkles size={18} /></div>
-      <div><p className="eyebrow">Servicios</p><h2>Lo que ofrecés</h2></div>
-      <span className="services-count">{activeCount} {activeCount === 1 ? 'servicio' : 'servicios'}{services.length > activeCount ? ` · ${services.length - activeCount} oculto${services.length - activeCount === 1 ? '' : 's'}` : ''}</span>
+      <div>
+        <h2>Lo que ofrecés</h2>
+        {services.length > 0 && <p>{activeCount} {activeCount === 1 ? 'servicio visible' : 'servicios visibles'}{hiddenCount > 0 ? ` · ${hiddenCount} ${hiddenCount === 1 ? 'oculto' : 'ocultos'}` : ''}</p>}
+      </div>
+      {editing === null && <button type="button" data-service-add className="button button--primary button--small" onClick={() => void open('new')}><Plus size={15} /> Agregar servicio</button>}
     </div>
-    <div className="services-editor">
-      <div className="services-list">
-        <AnimatePresence initial={false}>
-          {services.map(svc => (
-            <motion.div
-              key={svc.id}
-              className={`service-row${svc.is_active ? '' : ' is-inactive'}`}
-              layout="position"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
-              transition={shouldReduceMotion ? { duration: 0.1 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <span className="service-row-mark" aria-hidden="true"><Sparkles size={16} /></span>
-              <label className="service-name">
-                <span>Nombre del servicio{!svc.is_active && ' · oculto para tus clientes'}</span>
-                <input
-                  aria-label={`Nombre del servicio ${svc.name || ''}`.trim()}
-                  value={svc.name}
-                  onChange={e => updateLocal(svc.id, { name: field.freeText(e.target.value) })}
-                  onBlur={() => persist(svc)}
-                />
-              </label>
-              <label className="service-value service-duration" style={svc.booking_mode === 'whatsapp' ? { visibility: 'hidden' } : undefined}>
-                <span><Clock3 size={13} /> Duración</span>
-                <span className="service-value-input">
-                  <input
-                    aria-label={`Duración de ${svc.name || 'servicio'} en minutos`}
-                    type="number"
-                    min={5}
-                    step={5}
-                    value={svc.duration_min}
-                    onKeyDown={field.digitsOnlyKeys}
-                    onChange={e => updateLocal(svc.id, { duration_min: parseInt(e.target.value) || 0 })}
-                    onBlur={() => persist(svc)}
-                  />
-                  <small>min</small>
+
+    {notice && <p className="reservation-form-success services-notice" role="status">{notice}</p>}
+
+    {editing === 'new' && <div className="services-new">{serviceForm(null)}</div>}
+
+    {services.length > 0 && <ul className="services-list">
+      <AnimatePresence initial={false}>
+        {services.map(svc => {
+          const missing = missingWhatsapp(svc)
+          return <motion.li
+            key={svc.id}
+            className={editing === svc.id ? 'is-editing' : undefined}
+            layout="position"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
+            transition={shouldReduceMotion ? { duration: 0.1 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {editing === svc.id ? serviceForm(svc) : <div className={`service-item${svc.is_active ? '' : ' is-inactive'}`}>
+              <div className="service-item-info">
+                <strong>{svc.name}</strong>
+                <span>
+                  {svc.booking_mode === 'whatsapp' ? 'Por WhatsApp' : `${svc.duration_min} min`}
+                  {!svc.is_active && <><span aria-hidden="true">·</span><EyeOff size={13} aria-hidden="true" /> Oculto para tus clientes</>}
                 </span>
-              </label>
-              <label className="service-value service-price" style={svc.price_mode === 'ask' ? { visibility: 'hidden' } : undefined}>
-                <span><DollarSign size={13} /> Precio</span>
-                <span className="service-value-input">
-                  <small>$</small>
-                  <input
-                    aria-label={`Precio de ${svc.name || 'servicio'} en pesos`}
-                    type="number"
-                    min={0}
-                    step={100}
-                    value={svc.price}
-                    onKeyDown={field.digitsOnlyKeys}
-                    onChange={e => updateLocal(svc.id, { price: parseInt(e.target.value) || 0 })}
-                    onBlur={() => persist(svc)}
-                  />
-                </span>
-              </label>
-              <button
-                type="button"
-                className="service-remove"
-                aria-label={`Eliminar ${svc.name || 'servicio'}`}
-                onClick={() => void removeService(svc)}
-              >
-                <Trash2 size={15} /><span>Eliminar</span>
-              </button>
-              <div className="service-options">
-                <label>
-                  <span>Precio</span>
-                  <select aria-label={`Tipo de precio de ${svc.name || 'servicio'}`} value={svc.price_mode} onChange={e => change(svc, { price_mode: e.target.value as Service['price_mode'] })}>
-                    <option value="fixed">Precio fijo</option>
-                    <option value="from">Desde (precio mínimo)</option>
-                    <option value="ask">A consultar</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Cómo se reserva</span>
-                  <select aria-label={`Cómo se reserva ${svc.name || 'servicio'}`} value={svc.booking_mode} onChange={e => change(svc, { booking_mode: e.target.value as Service['booking_mode'] })}>
-                    <option value="online">Con horario en RESER</option>
-                    <option value="whatsapp">Se coordina por WhatsApp</option>
-                  </select>
-                </label>
-                <button type="button" className="service-toggle" aria-label={svc.is_active ? `Desactivar ${svc.name || 'servicio'}` : `Reactivar ${svc.name || 'servicio'}`} title={svc.is_active ? 'Tus clientes dejan de verlo; las reservas se conservan' : 'Vuelve a mostrarse a tus clientes'} onClick={() => void toggleActive(svc)}>
-                  {svc.is_active ? <EyeOff size={14} /> : <Eye size={14} />}{svc.is_active ? 'Desactivar' : 'Reactivar'}
-                </button>
-                {svc.booking_mode === 'whatsapp' && !business?.phone?.trim() && (() => {
-                  const missing = team
-                    .filter(p => p.is_active && !p.whatsapp?.trim() && offers.some(o => o.resource_id === p.id && o.service_id === svc.id))
-                    .map(p => p.name)
-                  return missing.length > 0
-                    ? <small style={{ color: 'var(--warn)' }} role="alert">⚠ Falta el WhatsApp de {missing.join(', ')}: sus clientes no van a poder escribirle. Cargalo en Equipo.</small>
-                    : null
-                })()}
               </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-        {services.length === 0 && (
-          <div className="services-empty">
-            <span><Sparkles size={17} /></span>
-            <div><strong>Todavía no hay servicios</strong><small>Sumá lo que ofrecés y definí cuánto dura y cuánto cuesta.</small></div>
-          </div>
-        )}
-      </div>
-      <div className="add-service">
-        <button type="button" onClick={() => void createService(businessId, { name: 'Nuevo servicio', duration_min: 30, price: 0 }).then(err => { if (err) setError(err); else void reload() })}>
-          <Plus size={15} /> Agregar servicio
-        </button>
-      </div>
-      {error && <p className="form-error">{error}</p>}
-    </div>
+              <b className={`service-item-price${svc.price_mode === 'ask' ? ' is-ask' : ''}`}>{priceLabel(Number(svc.price), svc.price_mode)}</b>
+              <button type="button" className="service-edit" data-service-edit={svc.id} aria-label={`Editar ${svc.name}`} onClick={() => void open(svc)}>
+                <Pencil size={14} aria-hidden="true" /><span>Editar</span>
+              </button>
+              {missing.length > 0 && <p className="service-item-warning">
+                <TriangleAlert size={14} aria-hidden="true" />
+                <span>Falta el WhatsApp de {missing.join(', ')}: sus clientes no van a poder escribirle. Cargalo en Equipo.</span>
+              </p>}
+            </div>}
+          </motion.li>
+        })}
+      </AnimatePresence>
+    </ul>}
+
+    {loaded && services.length === 0 && editing !== 'new' && <div className="services-empty">
+      <strong>Todavía no cargaste servicios</strong>
+      <small>Agregá lo que ofrecés con su duración y su precio: es lo que tus clientes eligen al reservar.</small>
+    </div>}
   </section>
 }
 

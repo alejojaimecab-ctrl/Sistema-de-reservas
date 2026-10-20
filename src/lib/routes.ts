@@ -112,6 +112,9 @@ export function whatsappHref(raw: string, text: string): string | null {
   return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : null
 }
 
+// Aviso que manda el logo de RESER para volver a la portada desde cualquier pantalla (App lo escucha)
+export const GO_HOME_EVENT = 'reser:inicio'
+
 export function goTo(path: string) {
   if (window.location.pathname !== path) window.history.pushState(null, '', path)
 }

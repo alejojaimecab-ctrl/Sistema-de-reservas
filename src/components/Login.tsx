@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { KeyRound, LogIn } from 'lucide-react'
 import { Brand } from './Brand'
+import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { email as cleanEmail } from '../lib/fieldRules'
 
@@ -43,10 +44,10 @@ export function Login({ onBack }: { onBack: () => void }) {
           : <p>Escribí el email de tu cuenta y te mandamos un enlace para crear una contraseña nueva.</p>}
         {!sent && <form onSubmit={handleReset}>
           <label className="onboarding-field">Email
-            <input type="email" required placeholder="tu@email.com" value={email}
+            <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email}
               onChange={e => setEmail(cleanEmail(e.target.value))} />
           </label>
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button className="button button--primary button--full" type="submit" disabled={busy}>
             {busy ? 'Enviando…' : 'Enviarme el enlace'}
           </button>
@@ -65,14 +66,14 @@ export function Login({ onBack }: { onBack: () => void }) {
         <p>Ingresá con el email y la contraseña de tu cuenta.</p>
         <form onSubmit={handleSubmit}>
           <label className="onboarding-field">Email
-            <input type="email" required placeholder="tu@email.com" value={email}
+            <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email}
               onChange={e => setEmail(cleanEmail(e.target.value))} />
           </label>
           <label className="onboarding-field">Contraseña
-            <input type="password" required minLength={6} placeholder="••••••••" value={password}
+            <PasswordInput required minLength={6} autoComplete="current-password" placeholder="••••••••" value={password}
               onChange={e => setPassword(e.target.value)} />
           </label>
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button className="button button--primary button--full" type="submit" disabled={busy}>
             {busy ? 'Ingresando…' : 'Ingresar'}
           </button>

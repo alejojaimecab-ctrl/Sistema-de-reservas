@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type FormEvent } from 'react'
 import { SegmentIndicator } from './SegmentIndicator'
 import { Mail, UsersRound } from 'lucide-react'
 import { Brand } from './Brand'
+import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { authLinkError, supabase } from '../lib/supabase'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
@@ -212,8 +213,8 @@ function InviteAuth({ token, invite }: { token: string; invite: StaffInviteInfo 
         <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} />
       </label>
       <label className="onboarding-field">Contraseña
-        <input
-          type="password" required minLength={6}
+        <PasswordInput
+          required minLength={6}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           placeholder={mode === 'signup' ? 'Ej: Turnos2026' : '••••••••'}
           value={password} onChange={e => setPassword(e.target.value)}

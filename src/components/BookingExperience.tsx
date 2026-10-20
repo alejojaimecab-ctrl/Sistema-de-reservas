@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, CalendarCheck, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CircleCheck, CirclePlay, Mail, PencilLine, UserRound, UsersRound, Zap } from 'lucide-react'
+import { ArrowRight, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Mail, PencilLine, UserRound, UsersRound } from 'lucide-react'
 import { demoServices, priceLabel } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
@@ -59,6 +59,9 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const [cancelToken, setCancelToken] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({})
+  const nameRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
   const [dateIndex, setDateIndex] = useState(0)
   const [weekOffset, setWeekOffset] = useState(0)
   const [slots, setSlots] = useState<string[]>([])
@@ -191,6 +194,19 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     })
   }
 
+  // Antes se podía tocar "Confirmar" con los datos vacíos y no pasaba nada visible: ahora cada campo dice qué falta
+  function submitReview(event: FormEvent) {
+    event.preventDefault()
+    const errors: { name?: string; email?: string } = {}
+    if (!name.trim()) errors.name = 'Escribí tu nombre y apellido.'
+    if (!email.trim()) errors.email = 'Escribí tu correo: ahí te llega la confirmación.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = 'Revisá el correo: tiene que ser como nombre@ejemplo.com.'
+    setFieldErrors(errors)
+    if (errors.name) { nameRef.current?.focus(); return }
+    if (errors.email) { emailRef.current?.focus(); return }
+    void save()
+  }
+
   const save = async () => {
     if (!time || !business || !service || !name.trim() || !email.trim()) return
     setSaving(true)
@@ -273,9 +289,16 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   </section>
 
   return <section className="booking-shell">
-    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo ? <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span> : <span className="booking-business">{business.name}</span>}</div>
+    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo && <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span>}</div>
     <div className="booking-layout">
-      <aside className="booking-intro"><span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span><p className="eyebrow">{demo ? 'Demostración interactiva' : business.name}</p><h1>Reservá tu turno online</h1><p>{demo ? 'Recorré el flujo como si fueras a reservar. No se crea ningún turno real.' : 'Elegí el servicio que buscás y reservá tu fecha y hora en el momento. Rápido, fácil y sin vueltas.'}</p><ul className="booking-benefits"><li><span><Zap size={15} /></span><p><strong>Reservá</strong><small>en segundos</small></p></li><li><span><CalendarCheck size={15} /></span><p><strong>Sin esperas</strong><small>y con turnos confirmados</small></p></li><li><span><CircleCheck size={15} /></span><p><strong>Confirmación</strong><small>inmediata de tu turno</small></p></li></ul>{(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
+      {/* La página es del negocio: su logo y su nombre van primero, sin publicidad de RESER entre el cliente y los servicios */}
+      <aside className="booking-intro">
+        <span className="mini-logo booking-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{business.name.slice(0, 2).toUpperCase()}</span>
+        <div className="booking-identity">
+          <h1>{business.name}</h1>
+          <p>{demo ? 'Demostración: recorré la reserva como si fueras un cliente. No se crea ningún turno real.' : 'Reservá tu turno online en tres pasos.'}</p>
+        </div>
+        {(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
       <div className="booking-card" ref={cardRef}>
         <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
@@ -284,14 +307,15 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         <AutoHeight>
         <AnimatePresence mode="wait">
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-            <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2><p className="section-description">El precio y la duración son claros desde el inicio.</p>
+            <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2>
             <div className="service-list">{services.map(item => <button type="button" aria-pressed={service?.id === item.id} className={`service-option ${service?.id === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => setService(item)}><span className="option-text"><strong>{item.name}</strong><small>{item.booking_mode === 'whatsapp' ? 'Se coordina por WhatsApp' : `${item.duration_min} min`}</small></span><b>{priceLabel(item.price, item.price_mode)}</b><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>)}</div>
             {serviceProfessionals.length > 1 && <><p className="booking-question">¿Con quién querés atenderte?</p>
             <div className="service-list">
               {!isWhatsapp && <button type="button" aria-pressed={professionalId === ''} className={`service-option ${professionalId === '' ? 'is-selected' : ''}`} onClick={() => setProfessionalId('')}><span className="service-icon"><UsersRound size={16} /></span><span className="option-text"><strong>Cualquiera</strong><small>Te asignamos a quien esté libre</small></span><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>}
               {serviceProfessionals.map(p => <button type="button" key={p.id} aria-pressed={professionalId === p.id} className={`service-option ${professionalId === p.id ? 'is-selected' : ''}`} onClick={() => setProfessionalId(p.id)}><span className="service-icon"><UserRound size={16} /></span><span className="option-text"><strong>{p.name}</strong></span><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>)}
             </div></>}
-            {professionals.length > 1 && serviceProfessionals.length === 1 && <div className="service-option is-selected" style={{ cursor: 'default', margin: '16px 0 18px' }}><span className="service-icon"><UserRound size={16} /></span><span className="option-text"><strong>{serviceProfessionals[0].name}</strong><small>Te atiende</small></span></div>}
+            {/* Un solo profesional para este servicio: es un dato, no una opción, así que no se dibuja como una elegida */}
+            {professionals.length > 1 && serviceProfessionals.length === 1 && <p className="booking-question booking-assigned"><UserRound size={16} aria-hidden="true" /> Te atiende {serviceProfessionals[0].name}.</p>}
             {professionals.length > 0 && serviceProfessionals.length === 0 && <p className="section-description" role="status">Por ahora nadie atiende este servicio. Elegí otro o consultá directamente con el negocio.</p>}
             {isWhatsapp
               ? <>
@@ -327,9 +351,12 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                 : <div className="time-grid">{slots.map((iso) => <button key={iso} className={time === iso ? 'is-selected' : ''} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
             <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ArrowRight size={17} /></button>
           </motion.div>}
-          {step === 3 && service && <motion.form key="review" onSubmit={event => { event.preventDefault(); void save() }} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
+          {step === 3 && service && <motion.form key="review" noValidate onSubmit={submitReview} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
-            <div className="field-grid"><label className="field"><span>Nombre completo</span><div><UserRound size={17} /><input required autoComplete="name" value={name} onChange={e => setName(personName(e.target.value))} aria-label="Nombre completo" /></div></label><label className="field"><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input required autoComplete="email" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} type="email" aria-label="Correo electrónico (obligatorio)" /></div></label></div>
+            <div className="field-grid">
+              <label className={`field${fieldErrors.name ? ' is-invalid' : ''}`}><span>Nombre completo</span><div><UserRound size={17} /><input ref={nameRef} required autoComplete="name" value={name} onChange={e => { setName(personName(e.target.value)); setFieldErrors(current => ({ ...current, name: undefined })) }} aria-label="Nombre completo" aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? 'booking-name-error' : undefined} /></div>{fieldErrors.name && <small className="field-error" id="booking-name-error">{fieldErrors.name}</small>}</label>
+              <label className={`field${fieldErrors.email ? ' is-invalid' : ''}`}><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input ref={emailRef} required autoComplete="email" value={email} onChange={e => { setEmail(cleanEmail(e.target.value)); setFieldErrors(current => ({ ...current, email: undefined })) }} type="email" aria-label="Correo electrónico (obligatorio)" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? 'booking-email-error' : undefined} /></div>{fieldErrors.email && <small className="field-error" id="booking-email-error">{fieldErrors.email}</small>}</label>
+            </div>
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && serviceProfessionals.length > 0 && <div><span>Profesional</span><strong>{serviceProfessionals.find(p => p.id === professionalId)?.name ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : 'Quien esté libre')}</strong></div>}<div className="review-total"><span>{service.price_mode === 'fixed' ? 'Total' : 'Precio'}</span><strong>{priceLabel(service.price, service.price_mode)}</strong></div></div>
             <button ref={confirmRef} type="submit" className="button button--primary button--full" disabled={saving}>{wipe ? <>¡Reservado! <Check size={18} /></> : saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error

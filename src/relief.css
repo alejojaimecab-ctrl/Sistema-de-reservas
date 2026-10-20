@@ -79,15 +79,15 @@
 /* ── Campos: hundidos en la superficie, con un halo al enfocarlos ── */
 .onboarding-field input, .onboarding-field select, .onboarding-field textarea, .field > div, .url-field, .res-search,
 .manual-reservation-fields input, .manual-reservation-fields select, .manual-reservation-fields > label > div,
-.availability-range select, .service-options select, .res-selects select, .service-row input, .service-value-input {
+.availability-range select, .res-selects select {
   background-color: var(--surface-inset);
   box-shadow: var(--inset);
   transition: border-color .18s ease-out, box-shadow .22s var(--ease-out), background-color .18s ease-out;
 }
-.manual-reservation-fields > label > div input, .service-row .service-value-input input { box-shadow: none; background: transparent; }
+.manual-reservation-fields > label > div input { box-shadow: none; background: transparent; }
 .onboarding-field input:focus, .onboarding-field select:focus, .onboarding-field textarea:focus, .field > div:focus-within, .url-field:focus-within, .res-search:focus-within,
 .manual-reservation-fields input:focus, .manual-reservation-fields select:focus, .manual-reservation-fields > label > div:focus-within,
-.availability-range select:focus, .service-options select:focus, .res-selects select:focus, .service-row input:focus-visible, .service-value-input:focus-within {
+.availability-range select:focus, .res-selects select:focus {
   background-color: var(--surface-inset);
   border-color: var(--border-strong);
   box-shadow: var(--inset), 0 0 0 4px rgb(255 255 255 / .06);
@@ -100,7 +100,6 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 /* ── Cartel de reserva nueva y diálogo: misma luz ── */
 .new-reservation { background: var(--sheen), var(--surface-2); box-shadow: var(--hl-strong), var(--elev-1); }
-.confirm-backdrop { backdrop-filter: none; background: rgb(0 0 0 / .66); }
 
 /* ── Que nada salte ── */
 /* El panel se centraba en vertical cuando la sección era corta: el encabezado cambiaba de lugar en cada sección */

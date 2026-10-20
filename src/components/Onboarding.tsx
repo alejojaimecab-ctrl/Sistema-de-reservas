@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles } from 'lucide-react'
 import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from './AvailabilityEditor'
 import { Brand } from './Brand'
+import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
@@ -115,7 +116,7 @@ function removeLocalDraft() {
 }
 
 export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
-  const { signUp, session } = useAuth()
+  const { signUp, session, resendConfirmation } = useAuth()
   const [draftRead, setDraftRead] = useState(readOnboardingDraft)
   const restored = draftRead.draft
   const [step, setStep] = useState(restored?.step ?? 1)
@@ -127,6 +128,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   const [draftStatus, setDraftStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
+  const [resend, setResend] = useState<{ state: 'idle' | 'sending' | 'sent'; error: string | null }>({ state: 'idle', error: null })
   const [createdUserId, setCreatedUserId] = useState<string | null>(null)
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousStepRef = useRef(step)
@@ -348,14 +350,26 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     onFinish()
   }
 
+  async function resendEmail() {
+    setResend({ state: 'sending', error: null })
+    const resendError = await resendConfirmation(email)
+    setResend(resendError ? { state: 'idle', error: `No pudimos reenviarlo: ${resendError}` } : { state: 'sent', error: null })
+  }
+
+  // El alta no termina en un callejón: dice qué falta, dónde abrir el enlace (lo cargado queda en este navegador) y deja pedir otro mail
   if (awaitingConfirmation) {
     return <main className="onboarding">
       <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
       <section className="onboarding-card">
         <span className="onboarding-icon"><Mail size={25} /></span>
-        <h1>Revisá tu correo.</h1>
-        <p>Te enviamos un email a <strong>{email}</strong> con un enlace para confirmar tu cuenta. Al hacer clic, vas a entrar directamente a tu panel, sin tener que iniciar sesión.</p>
-        <p className="onboarding-hint">¿No llegó? Revisá la carpeta de spam o correo no deseado.</p>
+        <h1>Último paso: confirmá tu correo.</h1>
+        <p>Te mandamos un enlace a <strong>{email}</strong>. Abrilo en este mismo navegador y entrás a tu panel con {businessName.trim() || 'tu negocio'} y lo que ya cargaste.</p>
+        <p className="onboarding-hint">Si lo abrís en otro dispositivo también entrás, pero vas a tener que cargar el negocio de nuevo. ¿No llegó? Mirá en spam o correo no deseado.</p>
+        <button type="button" className="button button--secondary" disabled={resend.state !== 'idle'} onClick={() => void resendEmail()}>
+          {resend.state === 'sending' ? 'Reenviando…' : resend.state === 'sent' ? 'Te mandamos otro mail' : 'Reenviar el mail'}
+        </button>
+        {resend.error && <p className="form-error" role="alert">{resend.error}</p>}
+        {resend.state === 'sent' && <p className="form-note" role="status">Puede tardar unos minutos en llegar.</p>}
       </section>
     </main>
   }
@@ -370,7 +384,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       aria-valuemax={4}
       aria-valuenow={step}
     >
-      <span style={{ width: `${step * 25}%` }} />
+      <span style={{ transform: `scaleX(${step / 4})` }} />
     </div>
     <form
       className={`onboarding-card${step >= 2 ? ' onboarding-card--wide' : ''}`}
@@ -499,7 +513,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
           <input required type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(field.email(e.target.value))} />
         </label>
         <label className="onboarding-field">Contraseña
-          <input required type="password" minLength={6} autoComplete="new-password" placeholder="Ej: Turnos2026" value={password} onChange={e => setPassword(e.target.value)} />
+          <PasswordInput required minLength={6} autoComplete="new-password" placeholder="Ej: Turnos2026" value={password} onChange={e => setPassword(e.target.value)} />
         </label>
         <p className="form-note" style={{ margin: '-4px 0 10px' }}>{PASSWORD_HINT}</p>
         <label className="legal-consent">

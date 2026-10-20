@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { Brand } from './Brand'
+import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
 
@@ -39,11 +40,11 @@ export function ResetPassword({ onDone }: { onDone: () => void }) {
         <p>Después de guardarla vas a entrar directo a tu panel. {PASSWORD_HINT}</p>
         <form onSubmit={handleSubmit}>
           <label className="onboarding-field">Contraseña nueva
-            <input type="password" required minLength={6} autoComplete="new-password" placeholder="••••••••"
+            <PasswordInput required minLength={6} autoComplete="new-password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)} />
           </label>
           <label className="onboarding-field">Repetila
-            <input type="password" required minLength={6} autoComplete="new-password" placeholder="••••••••"
+            <PasswordInput required minLength={6} autoComplete="new-password" placeholder="••••••••"
               value={confirm} onChange={e => setConfirm(e.target.value)} />
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
