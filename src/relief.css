@@ -154,3 +154,24 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .confirm-actions:has(> :nth-child(3)) { flex-direction: column-reverse; align-items: stretch; }
   .confirm-actions:has(> :nth-child(3)) .button { width: 100%; }
 }
+
+/* ── Configuración: el bloque del logo y el botón de guardar, sin estilos sueltos en el componente ── */
+.config-subhead { margin-top: 20px; }
+.config-logo { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 8px 0 14px; }
+.config-logo-preview { width: 56px; height: 56px; }
+.config-logo-preview.has-image { background-size: cover; background-position: center; color: transparent; }
+.config-logo-body { display: grid; gap: 6px; }
+.config-logo-actions { display: flex; align-items: center; gap: 10px; }
+.config-logo-hint { color: var(--text-3); }
+.config-save { margin-top: 16px; }
+
+/* ── En pantallas táctiles los botones chicos de la Agenda y las listas se tocan en 44px de alto,
+   sin cambiar cómo se ven: el área extra es invisible (y no tapa al vecino de al lado) ── */
+@media (max-width: 800px), (pointer: coarse) {
+  .calendar-attendance, .calendar-cancel, .reservation-row button, .manual-reservation-close,
+  .service-edit, .res-actions button, .calendar-mode button { position: relative; }
+  .calendar-attendance::after, .calendar-cancel::after, .reservation-row button::after, .manual-reservation-close::after,
+  .service-edit::after, .res-actions button::after, .calendar-mode button::after {
+    content: ''; position: absolute; inset: -7px 0;
+  }
+}

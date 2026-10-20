@@ -28,7 +28,7 @@ function statusInfo(r: HistoryReservation, now: number): { label: string; tone: 
       tone: 'muted',
     }
   }
-  if (r.status === 'completed') return { label: 'Atendida', tone: 'ok' }
+  if (r.status === 'completed') return { label: 'Atendido', tone: 'ok' }
   if (r.status === 'no_show') return { label: 'No vino', tone: 'bad' }
   return new Date(r.starts_at).getTime() < now ? { label: 'Sin marcar', tone: 'wait' } : { label: 'Confirmada', tone: 'ok' }
 }
@@ -194,12 +194,12 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
             <div className="res-info">
               <strong>{name}</strong>
               <small>{r.clients?.email ?? 'Sin email'}</small>
-              <small>{r.services?.name ?? 'Servicio'}{professionals.length > 1 && r.resources ? ` · con ${r.resources.name}` : ''}{r.services ? ` · ${priceLabel(Number(r.services.price), 'fixed')}` : ''}</small>
+              <small>{r.services?.name ?? 'Servicio'}{professionals.length > 1 && r.resources ? ` · con ${r.resources.name}` : ''}{r.services ? ` · ${priceLabel(Number(r.services.price), r.services.price_mode ?? 'fixed')}` : ''}</small>
             </div>
             <span className={`res-status res-status--${info.tone}`}>{info.label}</span>
             <div className="res-actions">
               {r.status === 'confirmed' && isPast && <>
-                <button type="button" disabled={busy} onClick={() => void mark(r, 'completed')}><Check size={13} /> Atendida</button>
+                <button type="button" disabled={busy} onClick={() => void mark(r, 'completed')}><Check size={13} /> Atendido</button>
                 <button type="button" disabled={busy} onClick={() => void mark(r, 'no_show')}><X size={13} /> No vino</button>
               </>}
               {r.status === 'confirmed' && !isPast && <button type="button" disabled={busy} className="res-danger" onClick={() => void cancel(r)}><X size={13} /> Cancelar</button>}

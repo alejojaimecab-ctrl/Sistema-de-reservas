@@ -270,7 +270,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   }
 
   const statusText = saveState === 'saving' ? 'Guardando…'
-    : saveState === 'saved' ? 'Cambios guardados ✓'
+    : saveState === 'saved' ? 'Cambios guardados'
     : saveState === 'error' ? `No pudimos guardar: ${saveError}`
     : ''
 

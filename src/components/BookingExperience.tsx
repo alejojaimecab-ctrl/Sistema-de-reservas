@@ -306,7 +306,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   </section>
 
   return <section className="booking-shell">
-    <div className="booking-topbar"><button className="text-button" onClick={onBack}><ChevronLeft size={17} /> RESER</button>{demo && <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span>}</div>
+    <div className="booking-topbar"><button className="text-button booking-brand" onClick={onBack} aria-label="RESER, ir al inicio">RESER</button>{demo && <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span>}</div>
     <div className="booking-layout">
       {/* La página es del negocio: su logo y su nombre van primero, sin publicidad de RESER entre el cliente y los servicios */}
       <aside className="booking-intro">
@@ -317,10 +317,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         </div>
         {(business.address || business.phone) && <div className="booking-contact">{business.address && <a href={mapsUrl(business.address)} target="_blank" rel="noreferrer"><MapPin size={16} /> {business.address}</a>}{business.phone && <a href={telHref(business.phone)}><Phone size={16} /> {business.phone}</a>}</div>}</aside>
       <div className="booking-card" ref={cardRef}>
-        <div className="stepper" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
+        <div className="stepper" role="group" aria-label={`Paso ${step} de 3`}>{[1, 2, 3].map((n) =>
           n < step
             ? <button type="button" className="is-active" key={n} onClick={() => setStep(n)} aria-label={`Volver al paso ${n}`}>{n}</button>
-            : <span className={n === step ? 'is-active' : ''} key={n}>{n}</span>)}</div>
+            : <span className={n === step ? 'is-active' : ''} key={n} aria-current={n === step ? 'step' : undefined} aria-label={n === step ? `Paso ${n}, actual` : `Paso ${n}, pendiente`}>{n}</span>)}</div>
         <AutoHeight>
         <AnimatePresence mode="wait">
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
@@ -351,9 +351,9 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           </motion.div>}
           {step === 2 && <motion.div key="schedule" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
             <button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 02</p><h2>Elegí día y horario</h2><p className="section-description">Mostramos solo los turnos que están disponibles.</p>
-            <div className="date-picker">
+            <div className="date-picker" role="group" aria-label="Día">
               <button type="button" className="nav" aria-label="Días anteriores" disabled={weekOffset === 0} onClick={() => { setWeekOffset(w => Math.max(0, w - 1)); setDateIndex(0) }}><ChevronLeft size={15} /></button>
-              {dates.map((item, index) => <button type="button" key={item.toDateString()} disabled={weekOffset * 5 + index > maxDays} className={dateIndex === index ? 'is-selected' : ''} onClick={() => setDateIndex(index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
+              {dates.map((item, index) => <button type="button" key={item.toDateString()} disabled={weekOffset * 5 + index > maxDays} className={dateIndex === index ? 'is-selected' : ''} aria-pressed={dateIndex === index} aria-label={fullDayLabel(item)} onClick={() => setDateIndex(index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
               <button type="button" className="nav" aria-label="Días siguientes" disabled={(weekOffset + 1) * 5 > maxDays} onClick={() => { setWeekOffset(w => w + 1); setDateIndex(0) }}><ChevronRight size={15} /></button>
             </div>
             <div className="time-heading"><span><CalendarDays size={16} /> {fullDayLabel(date)}</span><small>Hora local del negocio</small></div>
@@ -365,7 +365,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                 ? <p className="section-description">{date.toDateString() === new Date().toDateString() && (business?.min_notice_hours ?? 0) > 0
                   ? `Para hoy ya no quedan turnos disponibles: este negocio pide reservar con al menos ${business!.min_notice_hours} ${business!.min_notice_hours === 1 ? 'hora' : 'horas'} de anticipación. Probá con otro día.`
                   : 'No quedan turnos este día. Probá con otro.'}</p>
-                : <div className="time-grid">{slots.map((iso) => <button key={iso} className={time === iso ? 'is-selected' : ''} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
+                : <div className="time-grid" role="group" aria-label={`Horarios del ${fullDayLabel(date)}`}>{slots.map((iso) => <button type="button" key={iso} className={time === iso ? 'is-selected' : ''} aria-pressed={time === iso} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
             <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ArrowRight size={17} /></button>
           </motion.div>}
           {step === 3 && service && <motion.form key="review" noValidate onSubmit={submitReview} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>

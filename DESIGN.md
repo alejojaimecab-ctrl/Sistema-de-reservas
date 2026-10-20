@@ -12,7 +12,7 @@ colors:
   border-strong: "#e4e4e7"
   text: "#fafafa"
   text-2: "#a1a1aa"
-  text-3: "#82828b"
+  text-3: "#88888f"
   disabled: "#3f3f46"
   accent: "#ffffff"
   on-accent: "#0a0a0b"

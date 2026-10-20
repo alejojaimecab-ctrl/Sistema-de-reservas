@@ -7,7 +7,7 @@
   --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --bg: #0a0a0b; --surface: #121214; --surface-2: #18181b; --surface-sel: #1f1f23; --surface-hover: #1c1c20;
   --border: #26262b; --border-hover: #3a3a41; --border-strong: #e4e4e7;
-  --text: #fafafa; --text-2: #a1a1aa; --text-3: #82828b; --disabled: #3f3f46;
+  --text: #fafafa; --text-2: #a1a1aa; --text-3: #88888f; --disabled: #3f3f46;
   --accent: #ffffff; --accent-hover: #e4e4e7; --on-accent: #0a0a0b;
   --ok: #86c5a0; --ok-bg: #13201a; --ok-border: #2a4536;
   --danger: #e5737f; --danger-bg: #241416; --danger-border: #4a2a2f;

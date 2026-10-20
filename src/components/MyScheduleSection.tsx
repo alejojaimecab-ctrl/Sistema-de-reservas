@@ -96,7 +96,7 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
   }
 
   const statusText = saveState === 'saving' ? 'Guardando…'
-    : saveState === 'saved' ? 'Cambios guardados ✓'
+    : saveState === 'saved' ? 'Cambios guardados'
     : saveState === 'error' ? `No pudimos guardar: ${saveError}`
     : ''
 

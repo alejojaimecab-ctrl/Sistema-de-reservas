@@ -38,7 +38,7 @@
   /* Texto */
   --text:          #FAFAFA;  /* títulos, nombres, valores */
   --text-2:        #A1A1AA;  /* descripciones, párrafos */
-  --text-3:        #82828B;  /* ⚑ metadatos: duración, eyebrow, ayudas (era #71717A) */
+  --text-3:        #88888F;  /* ⚑ metadatos: duración, eyebrow, ayudas (era #82828B; antes #71717A) */
   --disabled:      #3F3F46;  /* radios vacíos, pasos inactivos, controles deshabilitados */
 
   /* Acento */
@@ -92,7 +92,7 @@
 
 - `--text` sobre `--surface` da más de 18:1.
 - `--text-2` sobre `--surface` da unos 7:1.
-- `--text-3` sobre `--surface` da unos 4,8:1, así que vale como mínimo para texto chico.
+- `--text-3` sobre `--surface` da unos 5,3:1 y sobre `--surface-sel` 4,67:1, así que vale como mínimo para texto chico en cualquier superficie.
 - **No usar** `--disabled` para texto legible. Es solo para controles inactivos y decoración.
 
 ---

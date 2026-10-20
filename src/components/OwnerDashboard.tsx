@@ -232,7 +232,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       </aside>
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></h1></div>
+          <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {profile?.full_name ?? 'bienvenido'}</h1></div>
         </header>
         {pendingInvite
           ? <PendingInviteCard token={pendingInvite} onDiscard={() => setPendingInvite(null)} />
@@ -250,7 +250,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       <header className="dashboard-header">
         {/* El título nombra la sección en la que estás; el saludo queda solo en el Resumen */}
         <div><p className="eyebrow">{todayLabel()}</p><h1>{active === 'Resumen'
-          ? <>{greeting()}, {profile?.full_name ?? 'bienvenido'} <span>✦</span></>
+          ? <>{greeting()}, {profile?.full_name ?? 'bienvenido'}</>
           : sections.find(section => section.key === active)?.label ?? active}</h1></div>
         <AlertsToggle alerts={alerts} />
       </header>
@@ -381,7 +381,18 @@ function MoreSheet({ sections, active, onPick, onClose, onSignOut }: {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     sheetRef.current?.querySelector<HTMLElement>('button')?.focus()
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onCloseRef.current() }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { onCloseRef.current(); return }
+      if (event.key !== 'Tab' || !sheetRef.current) return
+      // Tab y Shift+Tab giran dentro de la hoja: el foco no se escapa al panel de atrás
+      const buttons = Array.from(sheetRef.current.querySelectorAll<HTMLElement>('button:not(:disabled)'))
+      if (buttons.length === 0) return
+      const first = buttons[0]
+      const last = buttons[buttons.length - 1]
+      const inside = sheetRef.current.contains(document.activeElement)
+      if (event.shiftKey && (!inside || document.activeElement === first)) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && (!inside || document.activeElement === last)) { event.preventDefault(); first.focus() }
+    }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); opener?.focus() }
   }, [])
@@ -1458,6 +1469,8 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
     setAddressError(null)
   }
   const [logoBusy, setLogoBusy] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const logo = logoUrl(business?.logo_path)
   const [minNotice, setMinNotice] = useState(business?.min_notice_hours ?? 1)
   const [maxAdvance, setMaxAdvance] = useState(business?.max_advance_days ?? 60)
   const [message, setMessage] = useState<string | null>(null)
@@ -1474,7 +1487,7 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
     setLogoBusy(false)
     if (logoError) { setMessage(logoError); return }
     await onSaved()
-    setMessage('Logo actualizado ✓')
+    setMessage('Logo actualizado')
   }
 
   async function clearLogo() {
@@ -1519,7 +1532,7 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
     setBusy(false)
     if (error) { setMessage(error); return false }
     await onSaved()
-    setMessage('Cambios guardados ✓')
+    setMessage('Cambios guardados')
     return true
   }
 
@@ -1558,18 +1571,19 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
     <label className="onboarding-field">Tu enlace de RESER
       <div className="url-field"><span>{window.location.host}/</span><input value={slug} onChange={e => setSlug(field.slugText(e.target.value))} /></div>
     </label>
-    <p className="eyebrow" style={{ marginTop: 20 }}>Lo que ven tus clientes</p>
-    <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '8px 0 14px', flexWrap: 'wrap' }}>
-      <span className="mini-logo" aria-hidden="true" style={{ width: 56, height: 56, ...(logoUrl(business?.logo_path) ? { backgroundImage: `url(${logoUrl(business?.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}) }}>{initials(name)}</span>
-      <div style={{ display: 'grid', gap: 6 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <label className="button button--secondary button--small" style={{ cursor: logoBusy ? 'wait' : 'pointer' }}>
+    <p className="eyebrow config-subhead">Lo que ven tus clientes</p>
+    <div className="config-logo">
+      <span className={`mini-logo config-logo-preview${logo ? ' has-image' : ''}`} aria-hidden="true" style={logo ? { backgroundImage: `url(${logo})` } : undefined}>{initials(name)}</span>
+      <div className="config-logo-body">
+        <div className="config-logo-actions">
+          {/* Un botón de verdad (con foco y Enter) que abre el selector de archivos escondido */}
+          <button type="button" className="button button--secondary button--small" disabled={logoBusy} aria-describedby="config-logo-hint" onClick={() => logoInputRef.current?.click()}>
             {logoBusy ? 'Subiendo…' : business?.logo_path ? 'Cambiar logo' : 'Subir logo'}
-            <input type="file" hidden disabled={logoBusy} accept="image/png,image/jpeg,image/webp" onChange={e => { void changeLogo(e.target.files?.[0]); e.target.value = '' }} />
-          </label>
+          </button>
+          <input ref={logoInputRef} type="file" hidden tabIndex={-1} accept="image/png,image/jpeg,image/webp" onChange={e => { void changeLogo(e.target.files?.[0]); e.target.value = '' }} />
           {business?.logo_path && <button type="button" className="text-button" disabled={logoBusy} onClick={() => void clearLogo()}>Quitar</button>}
         </div>
-        <small style={{ color: 'var(--text-3)' }}>PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
+        <small id="config-logo-hint" className="config-logo-hint">PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
       </div>
     </div>
     <label className="onboarding-field">Teléfono <small>(opcional)</small>
@@ -1616,7 +1630,7 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
       </select>
     </label>
     {message && <p className="form-note">{message}</p>}
-    <button className="button button--primary" style={{ marginTop: 16 }} disabled={busy} onClick={() => void save()}>
+    <button className="button button--primary config-save" disabled={busy} onClick={() => void save()}>
       {busy ? 'Guardando…' : 'Guardar cambios'}
     </button>
     {dialog}

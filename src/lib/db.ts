@@ -48,7 +48,7 @@ export type Reservation = {
   source?: 'public' | 'manual'
   status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
   clients: { name: string } | null
-  services: { name: string; price: number } | null
+  services: { name: string; price: number; price_mode?: 'fixed' | 'from' | 'ask' } | null
   resources: { name: string } | null
 }
 
@@ -148,7 +148,7 @@ export async function listReservations(businessId: string): Promise<Reservation[
   if (!(await ownsBusiness(businessId))) return []
   const { data } = await supabase
     .from('reservations')
-    .select('id, starts_at, created_at, source, status, clients(name), services(name, price), resources(name)')
+    .select('id, starts_at, created_at, source, status, clients(name), services(name, price, price_mode), resources(name)')
     .eq('business_id', businessId)
     .gte('starts_at', new Date().toISOString())
     .neq('status', 'cancelled')
@@ -170,7 +170,7 @@ export async function listAgendaReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, created_at, source, status, clients(name), services(name, price), resources(name)')
+      .select('id, starts_at, created_at, source, status, clients(name), services(name, price, price_mode), resources(name)')
       .eq('business_id', businessId)
       .neq('status', 'cancelled')
       .order('starts_at', { ascending: true })
@@ -190,7 +190,7 @@ export async function listAgendaReservations(
 export async function getReservationForAlert(id: string): Promise<(Reservation & { source: 'public' | 'manual' }) | null> {
   const { data, error } = await supabase
     .from('reservations')
-    .select('id, starts_at, status, source, clients(name), services(name, price), resources(name)')
+    .select('id, starts_at, status, source, clients(name), services(name, price, price_mode), resources(name)')
     .eq('id', id)
     .maybeSingle()
   if (error || !data) return null
@@ -219,7 +219,7 @@ export async function listAllReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, ends_at, status, cancelled_by, service_id, resource_id, clients(name, email), services(name, price), resources(name)')
+      .select('id, starts_at, ends_at, status, cancelled_by, service_id, resource_id, clients(name, email), services(name, price, price_mode), resources(name)')
       .eq('business_id', businessId)
       .order('starts_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
