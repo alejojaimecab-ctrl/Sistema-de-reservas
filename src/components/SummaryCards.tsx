@@ -16,13 +16,19 @@ function sameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString()
 }
 
+// Puntito amarillo de "reserva nueva" (entró por el enlace desde la última visita); el lector de pantalla lo dice
+export function NewDot() {
+  return <span className="new-dot" title="Reserva nueva"><span className="sr-only">Nueva: </span></span>
+}
+
 // Hoy: primero lo que ya pasó y falta marcar (de eso depende la tasa de asistencia), después lo que queda del día
-export function TodayCard({ reservations, loading, showProfessional, onStatusChanged, onSeeAll }: {
+export function TodayCard({ reservations, loading, showProfessional, onStatusChanged, onSeeAll, isNew }: {
   reservations: Reservation[]
   loading: boolean
   showProfessional: boolean
   onStatusChanged: (id: string, status: MarkStatus) => void
   onSeeAll: () => void
+  isNew: (reservation: Reservation) => boolean
 }) {
   const [busy, setBusy] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
@@ -46,12 +52,16 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
     onStatusChanged(reservation.id, status)
   }
 
+  const newCount = [...pending, ...laterToday].filter(isNew).length
   const detail = (r: Reservation) => `${r.services?.name ?? 'Servicio'}${showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}`
 
   return <section className="agenda-card today-card" aria-labelledby="today-title">
     <div className="today-heading">
       <h2 id="today-title">Hoy</h2>
-      {!loading && <span>{today.length === 0 ? 'Sin turnos' : `${today.length} ${today.length === 1 ? 'turno' : 'turnos'}`}</span>}
+      {!loading && <span>
+        {newCount > 0 && <span className="today-new"><span className="new-dot" aria-hidden="true" />{newCount} {newCount === 1 ? 'nueva' : 'nuevas'} · </span>}
+        {today.length === 0 ? 'Sin turnos' : `${today.length} ${today.length === 1 ? 'turno' : 'turnos'}`}
+      </span>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
 
@@ -66,7 +76,7 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
             const isBusy = busy.has(r.id)
             return <li className="today-row" key={r.id}>
               <time dateTime={r.starts_at}>{sameDay(date, now) ? clock(date) : `${date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }).replace('.', '')}, ${clock(date)}`}</time>
-              <div className="today-row-info"><strong>{name}</strong><span>{detail(r)}</span></div>
+              <div className="today-row-info">{isNew(r) && <NewDot />}<strong>{name}</strong><span>{detail(r)}</span></div>
               <div className="today-row-actions">
                 <button type="button" className="calendar-attendance" disabled={isBusy} aria-label={`Marcar como atendido: ${name}`} onClick={() => void mark(r, 'completed')}><Check size={14} /><span>Atendido</span></button>
                 <button type="button" className="calendar-attendance calendar-noshow" disabled={isBusy} aria-label={`Marcar que no vino: ${name}`} onClick={() => void mark(r, 'no_show')}><X size={14} /><span>No vino</span></button>
@@ -83,7 +93,7 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
           ? <ul className="today-list">
             {laterToday.map(r => <li className="today-row today-row--plain" key={r.id}>
               <time dateTime={r.starts_at}>{clock(new Date(r.starts_at))}</time>
-              <div className="today-row-info"><strong>{r.clients?.name ?? 'Cliente'}</strong><span>{detail(r)}</span></div>
+              <div className="today-row-info">{isNew(r) && <NewDot />}<strong>{r.clients?.name ?? 'Cliente'}</strong><span>{detail(r)}</span></div>
             </li>)}
           </ul>
           : <p className="today-empty">{today.length === 0 ? 'Hoy no tenés turnos.' : 'No quedan más turnos por hoy.'}</p>}

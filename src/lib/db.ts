@@ -44,6 +44,8 @@ export type Service = {
 export type Reservation = {
   id: string
   starts_at: string
+  created_at?: string
+  source?: 'public' | 'manual'
   status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
   clients: { name: string } | null
   services: { name: string; price: number } | null
@@ -146,7 +148,7 @@ export async function listReservations(businessId: string): Promise<Reservation[
   if (!(await ownsBusiness(businessId))) return []
   const { data } = await supabase
     .from('reservations')
-    .select('id, starts_at, status, clients(name), services(name, price), resources(name)')
+    .select('id, starts_at, created_at, source, status, clients(name), services(name, price), resources(name)')
     .eq('business_id', businessId)
     .gte('starts_at', new Date().toISOString())
     .neq('status', 'cancelled')
@@ -168,7 +170,7 @@ export async function listAgendaReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, status, clients(name), services(name, price), resources(name)')
+      .select('id, starts_at, created_at, source, status, clients(name), services(name, price), resources(name)')
       .eq('business_id', businessId)
       .neq('status', 'cancelled')
       .order('starts_at', { ascending: true })

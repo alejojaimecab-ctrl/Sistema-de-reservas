@@ -673,3 +673,22 @@ a.brand:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 .share-qr small { color: var(--text-2); font-size: 12px; }
 /* Los enlaces con forma de botón (WhatsApp, Descargar QR) se ven como los demás botones */
 a.button { text-decoration: none; }
+/* Reserva nueva (entró por el enlace desde la última visita): puntito amarillo antes del nombre */
+.new-dot { display: inline-block; flex: none; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: var(--warn); border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 18%, transparent); }
+/* En las filas el puntito cuelga a la izquierda, en el hueco antes del nombre: así los nombres quedan todos alineados */
+.today-row-info, .reservation-info, .calendar-appointment-info { position: relative; }
+.today-row-info > .new-dot, .reservation-info > .new-dot, .calendar-appointment-info > .new-dot { position: absolute; top: 6px; left: -10px; margin: 0; }
+.reservation-info > .new-dot { left: -8px; }
+.today-new { color: var(--warn); }
+.today-new .new-dot { margin-right: 6px; }
+/* En la Agenda angosta el hueco antes del nombre es de 12px: el puntito va al medio */
+@container (max-width: 459px) { .calendar-appointment-info > .new-dot { left: -9px; } }
+/* Configuración: dirección del local en tres partes, con "Ver en Google Maps" para chequear el pin */
+.address-fields { min-width: 0; margin: 0 0 15px; padding: 0; border: 0; }
+.address-fields legend { margin-bottom: 10px; padding: 0; color: var(--text); font-size: 13px; font-weight: 500; }
+.address-fields legend small { color: var(--text-3); font-size: 11px; font-weight: 400; }
+.address-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.address-fields .form-error { margin: -4px 0 10px; }
+.address-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.address-check small { flex: 1 1 220px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+@media (max-width: 560px) { .address-row { grid-template-columns: minmax(0, 1fr); } }

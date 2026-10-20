@@ -1,13 +1,14 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, LayoutDashboard, LogOut, Mail, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, LayoutDashboard, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { friendlyError } from '../lib/errorMessages'
 import { copyText } from '../lib/clipboard'
 import * as field from '../lib/fieldRules'
-import { bookingUrl, goTo, panelSectionFromPath, slugify } from '../lib/routes'
+import { bookingUrl, goTo, mapsUrl, panelSectionFromPath, slugify } from '../lib/routes'
+import { addressProblem, joinAddress, PROVINCES, splitAddress, type AddressParts } from '../lib/address'
 import { EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
@@ -17,7 +18,8 @@ import { PendingInviteCard, readPendingInvite } from './JoinTeam'
 import { useConfirm } from './ConfirmDialog'
 import { describeReservation, useReservationAlerts } from '../lib/reservationAlerts'
 import { SegmentIndicator } from './SegmentIndicator'
-import { ShareLinkCard, TodayCard } from './SummaryCards'
+import { NewDot, ShareLinkCard, TodayCard } from './SummaryCards'
+import { isNewReservation, useNewSince } from '../lib/newReservations'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
@@ -189,6 +191,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     onChange: refreshReservations,
     onOpen: () => setActive('Agenda'),
   })
+  // Reservas que entraron por el enlace desde la última visita: llevan un puntito amarillo en Resumen y Agenda
+  const newSince = useNewSince(business?.id ?? null)
+  const isNew = (reservation: Reservation) => isNewReservation(reservation, newSince)
 
   if (!business) {
     return <div className="dashboard">
@@ -250,7 +255,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       {active === 'Resumen' && <>
         {/* Arriba lo que se hace hoy: marcar los turnos que ya pasaron y compartir el enlace para que lleguen reservas */}
         <section className="dashboard-grid dashboard-top">
-          <TodayCard reservations={upcomingReservations} loading={agendaLoading} showProfessional={activeProfessionals.length > 1} onStatusChanged={reservationStatusChanged} onSeeAll={() => setActive('Reservas')} />
+          <TodayCard reservations={upcomingReservations} loading={agendaLoading} showProfessional={activeProfessionals.length > 1} onStatusChanged={reservationStatusChanged} onSeeAll={() => setActive('Reservas')} isNew={isNew} />
           <ShareLinkCard name={business.name} slug={business.slug} />
         </section>
         <section className="dashboard-stats">
@@ -261,7 +266,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         {/* Los de hoy ya están en "Hoy": acá van los de los próximos días */}
         <section className="agenda-card">
           <div className="card-heading"><h2>Próximos días</h2><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
+          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} isNew={isNew} />
         </section>
       </>}
 
@@ -270,6 +275,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           reservations={upcomingReservations}
           showProfessional={activeProfessionals.length > 1}
           onCancel={cancelReservation}
+          isNew={isNew}
           loading={agendaLoading}
           error={agendaError}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
@@ -562,7 +568,7 @@ function CreateBusinessCard() {
   </section>
 }
 
-function ReservationList({ reservations, showProfessional, onCancel }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void }) {
+function ReservationList({ reservations, showProfessional, onCancel, isNew }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void; isNew: (reservation: Reservation) => boolean }) {
   if (reservations.length === 0) {
     return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
@@ -572,7 +578,7 @@ function ReservationList({ reservations, showProfessional, onCancel }: { reserva
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
       <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
       <span className="avatar">{initials(clientName)}</span>
-      <span className="reservation-info"><strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
+      <span className="reservation-info">{isNew(r) && <NewDot />}<strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? formatPrice(Number(r.services.price)) : ''}</b>
       <button type="button" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(r)}><X size={17} /></button>
     </motion.div>
@@ -825,10 +831,11 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, loading, error, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
+  isNew: (reservation: Reservation) => boolean
   loading: boolean
   error: string | null
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
@@ -990,7 +997,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
                 <time className="calendar-appointment-time" dateTime={reservation.starts_at}><strong>{clockLabel(date)}</strong></time>
                 <span className="calendar-appointment-avatar" aria-hidden="true"><UserRound size={16} /></span>
                 <div className="calendar-appointment-info">
-                  <strong>{clientName}</strong>
+                  {isNew(reservation) && <NewDot />}<strong>{clientName}</strong>
                   <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
                 </div>
                 {reservation.services && <b className="calendar-appointment-price">{formatPrice(Number(reservation.services.price))}</b>}
@@ -1295,7 +1302,14 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   const [slug, setSlug] = useState(business?.slug ?? '')
   const [cancelHours, setCancelHours] = useState(business?.cancel_min_hours ?? 2)
   const [phone, setPhone] = useState(business?.phone ?? '')
-  const [address, setAddress] = useState(business?.address ?? '')
+  const [addressParts, setAddressParts] = useState<AddressParts>(() => splitAddress(business?.address))
+  const [addressError, setAddressError] = useState<string | null>(null)
+  const fullAddress = joinAddress(addressParts)
+  const addressReady = Boolean(fullAddress) && !addressProblem(addressParts)
+  function editAddress(patch: Partial<AddressParts>) {
+    setAddressParts(current => ({ ...current, ...patch }))
+    setAddressError(null)
+  }
   const [logoBusy, setLogoBusy] = useState(false)
   const [minNotice, setMinNotice] = useState(business?.min_notice_hours ?? 1)
   const [maxAdvance, setMaxAdvance] = useState(business?.max_advance_days ?? 60)
@@ -1327,9 +1341,11 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
   }
 
   async function save() {
+    const problem = addressProblem(addressParts)
+    if (problem) { setAddressError(problem); return }
     setBusy(true)
     setMessage(null)
-    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: address.trim() || null })
+    const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: fullAddress || null })
     setBusy(false)
     if (error) { setMessage(error); return }
     await onSaved()
@@ -1361,9 +1377,31 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     <label className="onboarding-field">Teléfono <small>(opcional)</small>
       <input type="tel" inputMode="tel" maxLength={40} autoComplete="off" placeholder="11 5555 5555" value={phone} onChange={e => setPhone(field.phone(e.target.value))} />
     </label>
-    <label className="onboarding-field">Dirección <small>(opcional)</small>
-      <input maxLength={160} autoComplete="off" placeholder="Calle 123, Ciudad" value={address} onChange={e => setAddress(field.address(e.target.value))} />
-    </label>
+    {/* La dirección va en tres partes para que Google (mapa y calendario del cliente) encuentre el local exacto */}
+    <fieldset className="address-fields">
+      <legend>Dirección del local <small>(opcional)</small></legend>
+      <label className="onboarding-field">Calle y número
+        <input maxLength={100} autoComplete="off" placeholder="Ej: Av. Corrientes 1234" value={addressParts.street} onChange={e => editAddress({ street: field.address(e.target.value) })} />
+      </label>
+      <div className="address-row">
+        <label className="onboarding-field">Localidad o barrio
+          <input maxLength={60} autoComplete="off" placeholder="Ej: Palermo" value={addressParts.city} onChange={e => editAddress({ city: field.address(e.target.value).replace(/,/g, '') })} />
+        </label>
+        <label className="onboarding-field">Provincia
+          <select value={addressParts.province} onChange={e => editAddress({ province: e.target.value })}>
+            <option value="">Elegí la provincia</option>
+            {PROVINCES.map(province => <option key={province} value={province}>{province}</option>)}
+          </select>
+        </label>
+      </div>
+      {addressError && <p className="form-error" role="alert">{addressError}</p>}
+      <div className="address-check">
+        {addressReady
+          ? <a className="button button--secondary button--small" href={mapsUrl(fullAddress)} target="_blank" rel="noreferrer"><MapPin size={15} /> Ver en Google Maps</a>
+          : <button type="button" className="button button--secondary button--small" disabled><MapPin size={15} /> Ver en Google Maps</button>}
+        <small>Fijate que el pin caiga en tu local: es la dirección que ve tu cliente al reservar y en su calendario.</small>
+      </div>
+    </fieldset>
     <label className="onboarding-field">Tus clientes pueden reservar con una anticipación mínima de
       <select value={minNotice} onChange={e => setMinNotice(Number(e.target.value))}>
         {noticeOptions.map(h => <option key={h} value={h}>{h === 0 ? 'Sin mínimo (hasta último momento)' : `${h} ${h === 1 ? 'hora' : 'horas'}`}</option>)}

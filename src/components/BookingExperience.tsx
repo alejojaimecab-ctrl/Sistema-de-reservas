@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronL
 import { demoServices, priceLabel } from '../data/demo'
 import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
+import { addressForMaps } from '../lib/address'
 import { SuccessCheck } from './SuccessCheck'
 import { GreenWipe } from './GreenWipe'
 import { AutoHeight } from './AutoHeight'
@@ -18,6 +19,10 @@ const fullDayLabel = (d: Date) =>
   d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+// Zona horaria de los negocios (columna businesses.timezone). Hoy todos usan la de Argentina y la vista pública
+// no la expone; si algún día se puede elegir, hay que sumarla a public_businesses y usar la del negocio acá.
+const BUSINESS_TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 // Entrada escalonada de la pantalla de reserva confirmada (arranca cuando termina el tilde)
 const successStagger = { hidden: {}, show: { transition: { delayChildren: 1.25, staggerChildren: 0.09 } } }
@@ -229,20 +234,32 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     startWipe()
   }
 
-  // Link "Agendar" para la pantalla de éxito: abre Google Calendar con el turno
+  // Link "Agendar" para la pantalla de éxito: abre Google Calendar con el turno.
+  // Antes iba en UTC y Google lo mostraba en la zona del calendario de la persona (un turno de las 11:30 aparecía a otra hora):
+  // ahora va la hora del negocio con su zona (ctz), así el evento queda a la hora del turno.
   const calendarUrl = useMemo(() => {
     if (!completed || !service || !time || !business) return ''
     const start = new Date(time)
     const end = new Date(start.getTime() + service.duration_min * 60000)
-    const stamp = (d: Date) => d.toISOString().replace(/[-:]|\.\d{3}/g, '')
+    const stamp = (d: Date) => {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+        timeZone: BUSINESS_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+      }).formatToParts(d).map(part => [part.type, part.value]))
+      return `${parts.year}${parts.month}${parts.day}T${parts.hour}${parts.minute}${parts.second}`
+    }
     const params = new URLSearchParams({
       action: 'TEMPLATE',
       text: `Turno: ${service.name} — ${business.name}`,
       dates: `${stamp(start)}/${stamp(end)}`,
-      details: 'Reserva confirmada con RESER.',
+      ctz: BUSINESS_TIME_ZONE,
+      details: cancelToken
+        ? `Reserva confirmada con RESER.\nSi no podés ir, cancelá desde: ${cancelUrl(cancelToken)}`
+        : 'Reserva confirmada con RESER.',
     })
+    // Con la dirección cargada en Configuración, Google la pone como lugar del evento (y da cómo llegar)
+    if (business.address?.trim()) params.set('location', addressForMaps(business.address))
     return `https://calendar.google.com/calendar/render?${params.toString()}`
-  }, [completed, service, time, business])
+  }, [completed, service, time, business, cancelToken])
 
   if (loadingServices) return <section className="booking-shell booking-shell--success">
     <div className="booking-success"><p className="eyebrow">Cargando…</p></div>

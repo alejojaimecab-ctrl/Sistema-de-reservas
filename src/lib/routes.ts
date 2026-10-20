@@ -1,3 +1,4 @@
+import { addressForMaps } from './address'
 // Rutas de la app sin librería de router: el primer segmento del path es el
 // slug público de un negocio (reser.com/mi-negocio), salvo los reservados.
 
@@ -77,7 +78,7 @@ export function bookingUrl(slug: string): string {
 
 // Enlace a Google Maps con la dirección del negocio
 export function mapsUrl(address: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressForMaps(address))}`
 }
 
 // tel: solo con dígitos y +, sin importar cómo lo escribió el dueño
