@@ -175,7 +175,8 @@ function Root() {
     else if (shownView === 'home' && inPanel) goTo('/')
   }, [shownView, loading])
 
-  if (loading) return null
+  // Mientras se confirma la sesión: un aviso tranquilo que solo aparece si tarda (así no parpadea cuando es rápido)
+  if (loading) return <div className="app-loading" role="status"><span className="app-loading-dot" aria-hidden="true" />Cargando…</div>
   if (recovering && session) return <ResetPassword onDone={() => setView('dashboard')} />
   if (view === 'legal' && legalDoc) return <LegalPage doc={legalDoc} onBack={leavePublicBooking} onOpen={doc => { goTo(`/${doc}`); setLegalDoc(doc) }} />
   if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />

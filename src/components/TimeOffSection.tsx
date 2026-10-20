@@ -77,17 +77,17 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
 
   return <section className="agenda-card">
     {dialog}
-    <div className="card-heading"><div><p className="eyebrow">Días libres</p><h2>Feriados y vacaciones</h2></div></div>
+    <div className="card-heading"><div><h2>Feriados y vacaciones</h2></div></div>
 
-    <form onSubmit={e => void add(e)} style={{ display: 'grid', gap: 12, margin: '16px 0 20px' }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <label className="onboarding-field" style={{ flex: '1 1 150px' }}>Desde
+    <form className="timeoff-form" onSubmit={e => void add(e)}>
+      <div className="inline-row is-flush">
+        <label className="onboarding-field grow-field">Desde
           <input type="date" required value={startsOn} onChange={e => { setStartsOn(e.target.value); if (!endsOn || endsOn < e.target.value) setEndsOn(e.target.value) }} />
         </label>
-        <label className="onboarding-field" style={{ flex: '1 1 150px' }}>Hasta
+        <label className="onboarding-field grow-field">Hasta
           <input type="date" required min={startsOn} value={endsOn} onChange={e => setEndsOn(e.target.value)} />
         </label>
-        <label className="onboarding-field" style={{ flex: '1 1 180px' }}>Aplica a
+        <label className="onboarding-field grow-field">Aplica a
           <select value={resourceId} onChange={e => setResourceId(e.target.value)}>
             <option value="">Todo el negocio</option>
             {professionals.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>Solo {p.name}</option>)}
@@ -102,12 +102,12 @@ export function TimeOffSection({ businessId, professionals }: { businessId: stri
 
     {message && <p className={message.isError ? 'form-error' : 'form-note'} role={message.isError ? 'alert' : 'status'}>{message.text}</p>}
 
-    <p className="eyebrow" style={{ marginTop: 16 }}>Próximos días libres</p>
+    <p className="eyebrow form-group-label">Próximos días libres</p>
     {loading
       ? <p className="form-note" role="status">Cargando…</p>
       : items.length === 0
         ? <p className="form-note">Todavía no marcaste ningún día libre.</p>
-        : <div className="agenda-list">{items.map(item => <div className="reservation-row" key={item.id} style={{ gridTemplateColumns: '24px 1fr auto 28px' }}>
+        : <div className="agenda-list">{items.map(item => <div className="reservation-row timeoff-row" key={item.id}>
           <CalendarOff size={16} />
           <span className="reservation-info"><strong>{rangeLabel(item)}</strong><small>{nameOf(item.resource_id)}{item.reason ? ` · ${item.reason}` : ''}</small></span>
           <span />

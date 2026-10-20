@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { SegmentIndicator } from './SegmentIndicator'
-import { Check, RotateCcw, Search, X } from 'lucide-react'
+import { CalendarX, Check, RotateCcw, Search, X } from 'lucide-react'
 import { priceLabel } from '../data/demo'
 import {
   listAllReservations, updateReservationStatus,
@@ -8,8 +8,18 @@ import {
 } from '../lib/db'
 
 type Period = 'upcoming' | 'past' | 'all'
-type StatusFilter = 'active' | 'confirmed' | 'completed' | 'no_show' | 'cancelled' | 'all'
-type Tone = 'ok' | 'wait' | 'bad' | 'muted'
+type StatusFilter = 'active' | 'unmarked' | 'confirmed' | 'completed' | 'no_show' | 'cancelled' | 'all'
+export type ReservationsPreset = 'unmarked'
+
+// Los filtros de período y estado se recuerdan mientras dure la pestaña: volver a Reservas no los reinicia
+const FILTERS_KEY = 'reser-reservas-filtros'
+function readFilters(): { period: Period; status: StatusFilter } | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(FILTERS_KEY) ?? 'null')
+    return saved && typeof saved.period === 'string' && typeof saved.status === 'string' ? saved : null
+  } catch { return null }
+}
+type Tone = 'ok' | 'wait' | 'bad' | 'muted' | 'plain'
 
 const PAGE = 50
 
@@ -24,17 +34,18 @@ const timeLabel = (iso: string) =>
 function statusInfo(r: HistoryReservation, now: number): { label: string; tone: Tone } {
   if (r.status === 'cancelled') {
     return {
-      label: r.cancelled_by === 'client' ? 'Canceló el cliente' : r.cancelled_by === 'owner' ? 'Cancelada por el negocio' : 'Cancelada',
+      label: r.cancelled_by === 'client' ? 'Canceló el cliente' : r.cancelled_by === 'owner' ? 'Cancelado por el negocio' : 'Cancelado',
       tone: 'muted',
     }
   }
   if (r.status === 'completed') return { label: 'Atendido', tone: 'ok' }
   if (r.status === 'no_show') return { label: 'No vino', tone: 'bad' }
-  return new Date(r.starts_at).getTime() < now ? { label: 'Sin marcar', tone: 'wait' } : { label: 'Confirmada', tone: 'ok' }
+  return new Date(r.starts_at).getTime() < now ? { label: 'Sin marcar', tone: 'wait' } : { label: 'Confirmado', tone: 'plain' }
 }
 
-export function ReservationsSection({ businessId, professionals, reloadKey, onCancel, onStatusChanged }: {
+export function ReservationsSection({ businessId, professionals, reloadKey, onCancel, onStatusChanged, preset }: {
   businessId: string
+  preset?: ReservationsPreset | null // "Ver los N en Reservas" del Resumen: abre directo en los turnos pasados sin marcar
   professionals: Professional[]
   reloadKey: number // cambia cuando se carga una reserva nueva a mano: se vuelve a traer todo
   onCancel: (reservation: Reservation) => Promise<boolean>
@@ -45,8 +56,11 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [query, setQuery] = useState('')
-  const [period, setPeriod] = useState<Period>('upcoming')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
+  const [period, setPeriod] = useState<Period>(() => preset === 'unmarked' ? 'past' : readFilters()?.period ?? 'upcoming')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => preset === 'unmarked' ? 'unmarked' : readFilters()?.status ?? 'active')
+  useEffect(() => {
+    try { sessionStorage.setItem(FILTERS_KEY, JSON.stringify({ period, status: statusFilter })) } catch { /* sin almacenamiento: los filtros no se recuerdan */ }
+  }, [period, statusFilter])
   const [professionalId, setProfessionalId] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [visible, setVisible] = useState(PAGE)
@@ -88,7 +102,8 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
         const time = new Date(r.starts_at).getTime()
         if (period === 'upcoming' && time < now) return false
         if (period === 'past' && time >= now) return false
-        if (statusFilter === 'active' ? r.status === 'cancelled' : statusFilter !== 'all' && r.status !== statusFilter) return false
+        if (statusFilter === 'unmarked') { if (r.status !== 'confirmed' || time >= now) return false }
+        else if (statusFilter === 'active' ? r.status === 'cancelled' : statusFilter !== 'all' && r.status !== statusFilter) return false
         if (professionalId && r.resource_id !== professionalId) return false
         if (serviceId && r.service_id !== serviceId) return false
         if (q) {
@@ -131,7 +146,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
     No pudimos cargar las reservas: {error} <button type="button" className="text-button" onClick={() => setRetry(n => n + 1)}>Reintentar</button>
   </p>
   if (all.length === 0) {
-    return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
+    return <p className="res-empty">Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
 
   const shown = list.slice(0, visible)
@@ -152,12 +167,13 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
       <div className="res-selects">
         <label>Estado
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as StatusFilter)}>
-            <option value="active">Activas</option>
-            <option value="confirmed">Confirmadas</option>
-            <option value="completed">Atendidas</option>
+            <option value="active">Activos</option>
+            <option value="unmarked">Sin marcar</option>
+            <option value="confirmed">Confirmados</option>
+            <option value="completed">Atendidos</option>
             <option value="no_show">No vino</option>
-            <option value="cancelled">Canceladas</option>
-            <option value="all">Todas</option>
+            <option value="cancelled">Cancelados</option>
+            <option value="all">Todos</option>
           </select>
         </label>
         {professionals.length > 1 && <label>Profesional
@@ -180,7 +196,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
     {actionError && <p className="form-error" role="alert">{actionError}</p>}
 
     {list.length === 0
-      ? <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>
+      ? <p className="res-empty">
         No hay reservas con esos filtros.{filtersChanged && <> <button type="button" className="text-button" onClick={clearFilters}>Ver todas</button></>}
       </p>
       : <div className="res-list">
@@ -202,14 +218,14 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
                 <button type="button" disabled={busy} onClick={() => void mark(r, 'completed')}><Check size={13} /> Atendido</button>
                 <button type="button" disabled={busy} onClick={() => void mark(r, 'no_show')}><X size={13} /> No vino</button>
               </>}
-              {r.status === 'confirmed' && !isPast && <button type="button" disabled={busy} className="res-danger" onClick={() => void cancel(r)}><X size={13} /> Cancelar</button>}
+              {r.status === 'confirmed' && !isPast && <button type="button" disabled={busy} className="res-danger" onClick={() => void cancel(r)}><CalendarX size={13} /> Cancelar turno</button>}
               {(r.status === 'completed' || r.status === 'no_show') && <button type="button" disabled={busy} onClick={() => void mark(r, 'confirmed')}><RotateCcw size={13} /> Deshacer</button>}
             </div>
           </article>
         })}
       </div>}
 
-    {list.length > shown.length && <div style={{ textAlign: 'center', marginTop: 14 }}>
+    {list.length > shown.length && <div className="res-more">
       <button type="button" className="button button--secondary button--small" onClick={() => setVisible(v => v + PAGE)}>
         Ver más ({list.length - shown.length} restantes)
       </button>

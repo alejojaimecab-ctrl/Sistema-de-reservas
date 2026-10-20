@@ -47,7 +47,92 @@ typography:
     fontSize: "11px"
     fontWeight: 600
     letterSpacing: "0.12em"
+  # Escala real del panel y la reserva, de chico a grande: metadatos, ayudas, texto, títulos de tarjeta y de sección
+  meta:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.4
+  small:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.5
+  body-lg:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.6
+  lead:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.6
+  card-title:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 600
+    letterSpacing: "-0.01em"
+  card-title-lg:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 600
+    letterSpacing: "-0.01em"
+  section-title:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "26px"
+    fontWeight: 700
+    letterSpacing: "-0.02em"
+  # Títulos de la portada y de la reserva pública (solo superficies de captación)
+  hero:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(49px, 6vw, 80px)"
+    fontWeight: 700
+    letterSpacing: "-0.035em"
+  hero-tablet:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "48px"
+    fontWeight: 700
+  hero-phone:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "42px"
+    fontWeight: 700
+  landing-section:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(37px, 4.5vw, 59px)"
+    fontWeight: 700
+  landing-cta:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(42px, 4.4vw, 62px)"
+    fontWeight: 700
+  landing-story:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(34px, 4vw, 52px)"
+    fontWeight: 700
+  booking-title:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(28px, 5vw, 38px)"
+    fontWeight: 700
+  landing-panel-title:
+    fontFamily: "Source Serif 4, Georgia, serif"
+    fontSize: "clamp(26px, 2.4vw, 30px)"
+    fontWeight: 400
+  stat:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "32px"
+    fontWeight: 600
+  heading-sm:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 600
+  # Único caso de 10px: el calendario mensual denso
+  calendar-dense:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "10px"
+    fontWeight: 500
 rounded:
+  hairline: "2px"
+  xs: "4px"
   sm: "8px"
   btn: "10px"
   item: "12px"
@@ -116,7 +201,8 @@ Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única e
 - **Relieve** (tokens `--edge`, `--sheen`, `--grain`, `--hl`, `--elev-1/2`, `--inset` y `--surface-inset`; las reglas están en `src/relief.css`):
   - las tarjetas elevadas, los campos hundidos;
   - degradés neutros de luz de hasta un 12 %;
-  - un halo blanco tenue solo bajo el botón principal.
+  - un halo blanco tenue solo bajo el botón principal;
+  - las sombras son negro con transparencia (`rgb(0 0 0 / .2–.95)`) y el degradado del botón blanco usa `#f0f0f2`/`#f2f2f4`: no son colores de la paleta, por eso no figuran arriba.
 - **Movimiento:**
   - solo los botones suben 1 px en hover, y todos se comprimen al presionarlos;
   - el indicador activo se desliza;

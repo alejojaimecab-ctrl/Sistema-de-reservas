@@ -65,7 +65,7 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
 
-    {loading ? <p className="today-empty" role="status">Cargando tus turnos…</p> : <>
+    {loading ? <div className="today-skeleton" role="status" aria-label="Cargando tus turnos">{[0, 1, 2].map(i => <span key={i} />)}</div> : <>
       {pending.length > 0 && <div className="today-group">
         <h3>Para marcar <span>{pending.length}</span></h3>
         <p className="today-hint">Ya pasaron. Marcá si vinieron para que la tasa de asistencia sea real.</p>

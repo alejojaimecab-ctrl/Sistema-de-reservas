@@ -114,14 +114,27 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
     onChange({ ...availability, [dayId]: slotsFromRanges(ranges) })
   }
 
-  function copyFirstDayToWeekdays() {
+  // Igual que las plantillas: si martes a viernes ya tenían horarios distintos, primero se pregunta
+  async function copyFirstDayToWeekdays() {
     const sourceRanges = rangesFromSlots(availability[days[0]?.id])
     if (sourceRanges.length === 0) return
-
+    const source = slotsFromRanges(sourceRanges)
+    const targets = days.slice(1, 5)
+    const differs = (day: AvailabilityDay) => timeSlots.some(slot => Boolean(availability[day.id]?.[slot]) !== source[slot])
+    if (!targets.some(differs)) return
+    const overwritten = targets.filter(day => (availability[day.id] ?? []).some(Boolean) && differs(day))
+    if (overwritten.length > 0) {
+      const accepted = await confirm({
+        title: `¿Copiar el horario del ${days[0].name.toLowerCase()}?`,
+        message: `Se reemplazan los horarios que ya tenías el ${overwritten.map(day => day.name.toLowerCase()).join(', ')}. Lo que habías armado esos días se pierde.`,
+        confirmLabel: 'Copiar horario',
+        cancelLabel: 'Mantener los míos',
+        danger: true,
+      })
+      if (!accepted) return
+    }
     const next = { ...availability }
-    days.slice(1, 5).forEach(day => {
-      next[day.id] = slotsFromRanges(sourceRanges)
-    })
+    targets.forEach(day => { next[day.id] = slotsFromRanges(sourceRanges) })
     onChange(next)
   }
 
@@ -143,7 +156,7 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
           type="button"
           className="availability-copy"
           disabled={rangesFromSlots(availability[days[0]?.id]).length === 0}
-          onClick={copyFirstDayToWeekdays}
+          onClick={() => void copyFirstDayToWeekdays()}
         >
           <Copy size={14} /> Copiar lunes a días hábiles
         </button>

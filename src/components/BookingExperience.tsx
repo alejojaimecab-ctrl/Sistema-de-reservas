@@ -69,6 +69,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   const emailRef = useRef<HTMLInputElement>(null)
   const [dateIndex, setDateIndex] = useState(0)
   const [weekOffset, setWeekOffset] = useState(0)
+  // Mientras el cliente no elija un día a mano, se salta solo hasta el primero que tenga horarios (como mucho dos semanas)
+  const autoPickRef = useRef(true)
+  const [skippedDays, setSkippedDays] = useState(0)
+  const pickDate = (offset: number, index: number) => { autoPickRef.current = false; setSkippedDays(0); setWeekOffset(offset); setDateIndex(index) }
   const [slots, setSlots] = useState<string[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [time, setTime] = useState('')
@@ -167,6 +171,13 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   }, [demo, slug, retryCount])
 
   useEffect(() => {
+    autoPickRef.current = true
+    setSkippedDays(0)
+    setWeekOffset(0)
+    setDateIndex(0)
+  }, [service?.id, professionalId])
+
+  useEffect(() => {
     if (!business || !service) return
     let cancelled = false
     if (demo) {
@@ -181,12 +192,31 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     setSlotsFailed(false)
     getPublicSlots(business.slug, service.id, date, professionalId || null).then(({ slots: found, failed }) => {
       if (cancelled) return
+      const day = weekOffset * 5 + dateIndex
+      if (found.length === 0 && !failed && autoPickRef.current && day < 14 && day + 1 <= maxDays) {
+        setSkippedDays(day + 1)
+        setWeekOffset(Math.floor((day + 1) / 5))
+        setDateIndex((day + 1) % 5)
+        return
+      }
+      autoPickRef.current = false
       setSlots(found)
       setSlotsFailed(failed)
       setLoadingSlots(false)
     })
     return () => { cancelled = true }
   }, [business, service, professionalId, date, slotsRetry, demo])
+
+  // Después de reservar, vuelve al primer paso del mismo negocio (el nombre y el correo quedan cargados)
+  function startOver() {
+    setCompleted(false)
+    setWipe(null)
+    setCancelToken(null)
+    setBookedWith(null)
+    setTime('')
+    setStep(1)
+    setSlotsRetry(count => count + 1)
+  }
 
   const startWipe = () => {
     // Origen relativo a la tarjeta del formulario: el centro del botón de confirmar
@@ -298,7 +328,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         </motion.div>
         <motion.div variants={successRise} className="success-actions">
           {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
-          <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
+          {/* La reserva termina en el negocio, no en la portada de RESER: se puede sacar otro turno ahí mismo */}
+          {demo
+            ? <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
+            : <button className="button button--secondary" onClick={startOver}>Reservar otro turno</button>}
         </motion.div>
       </motion.div>
       {wipe?.phase === 'reveal' && <GreenWipe phase="reveal" onDone={() => setWipe(null)} />}
@@ -324,7 +357,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         <AutoHeight>
         <AnimatePresence mode="wait">
           {step === 1 && <motion.div key="details" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-            <p className="eyebrow">Paso 01</p><h2>Elegí tu servicio</h2>
+            <h2>Elegí tu servicio</h2>
             <div className="service-list">{services.map(item => <button type="button" aria-pressed={service?.id === item.id} className={`service-option ${service?.id === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => setService(item)}><span className="option-text"><strong>{item.name}</strong><small>{item.booking_mode === 'whatsapp' ? 'Se coordina por WhatsApp' : `${item.duration_min} min`}</small></span><b>{priceLabel(item.price, item.price_mode)}</b><span className="option-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span></button>)}</div>
             {serviceProfessionals.length > 1 && <><p className="booking-question">¿Con quién querés atenderte?</p>
             <div className="service-list">
@@ -347,14 +380,16 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                     </p>
                   </>}
               </>
-              : <button className="button button--primary button--full" disabled={!service || (professionals.length > 0 && serviceProfessionals.length === 0)} onClick={() => setStep(2)}>Continuar <ArrowRight size={17} /></button>}
+              : <button className="button button--primary button--full booking-step-cta" disabled={!service || (professionals.length > 0 && serviceProfessionals.length === 0)} onClick={() => setStep(2)}>Continuar <ArrowRight size={17} /></button>}
           </motion.div>}
           {step === 2 && <motion.div key="schedule" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-            <button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 02</p><h2>Elegí día y horario</h2><p className="section-description">Mostramos solo los turnos que están disponibles.</p>
+            <button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Volver</button><h2>Elegí día y horario</h2>
+            {service && <p className="booking-choice"><span><strong>{service.name}</strong> · {service.duration_min} min{serviceProfessionals.length > 1 ? ` · ${serviceProfessionals.find(p => p.id === professionalId)?.name ? `con ${serviceProfessionals.find(p => p.id === professionalId)?.name}` : 'con quien esté libre'}` : ''}</span><button type="button" className="link-button" onClick={() => setStep(1)}>Cambiar</button></p>}
+            <p className="section-description">{skippedDays > 0 ? `${skippedDays === 1 ? 'Hoy ya no quedan turnos' : 'En los próximos días no quedan turnos'}: te mostramos el primer día con horarios libres.` : 'Mostramos solo los turnos que están disponibles.'}</p>
             <div className="date-picker" role="group" aria-label="Día">
-              <button type="button" className="nav" aria-label="Días anteriores" disabled={weekOffset === 0} onClick={() => { setWeekOffset(w => Math.max(0, w - 1)); setDateIndex(0) }}><ChevronLeft size={15} /></button>
-              {dates.map((item, index) => <button type="button" key={item.toDateString()} disabled={weekOffset * 5 + index > maxDays} className={dateIndex === index ? 'is-selected' : ''} aria-pressed={dateIndex === index} aria-label={fullDayLabel(item)} onClick={() => setDateIndex(index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
-              <button type="button" className="nav" aria-label="Días siguientes" disabled={(weekOffset + 1) * 5 > maxDays} onClick={() => { setWeekOffset(w => w + 1); setDateIndex(0) }}><ChevronRight size={15} /></button>
+              <button type="button" className="nav" aria-label="Días anteriores" disabled={weekOffset === 0} onClick={() => pickDate(Math.max(0, weekOffset - 1), 0)}><ChevronLeft size={15} /></button>
+              {dates.map((item, index) => <button type="button" key={item.toDateString()} disabled={weekOffset * 5 + index > maxDays} className={dateIndex === index ? 'is-selected' : ''} aria-pressed={dateIndex === index} aria-label={fullDayLabel(item)} onClick={() => pickDate(weekOffset, index)}><small>{dayLabel(item)}</small><strong>{item.getDate()}</strong></button>)}
+              <button type="button" className="nav" aria-label="Días siguientes" disabled={(weekOffset + 1) * 5 > maxDays} onClick={() => pickDate(weekOffset + 1, 0)}><ChevronRight size={15} /></button>
             </div>
             <div className="time-heading"><span><CalendarDays size={16} /> {fullDayLabel(date)}</span><small>Hora local del negocio</small></div>
             {loadingSlots
@@ -366,19 +401,19 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
                   ? `Para hoy ya no quedan turnos disponibles: este negocio pide reservar con al menos ${business!.min_notice_hours} ${business!.min_notice_hours === 1 ? 'hora' : 'horas'} de anticipación. Probá con otro día.`
                   : 'No quedan turnos este día. Probá con otro.'}</p>
                 : <div className="time-grid" role="group" aria-label={`Horarios del ${fullDayLabel(date)}`}>{slots.map((iso) => <button type="button" key={iso} className={time === iso ? 'is-selected' : ''} aria-pressed={time === iso} onClick={() => setTime(iso)}>{timeLabel(iso)}</button>)}</div>}
-            <button className="button button--primary button--full" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ArrowRight size={17} /></button>
+            <button className="button button--primary button--full booking-step-cta" disabled={!time} onClick={() => setStep(3)}>Revisar reserva <ArrowRight size={17} /></button>
           </motion.div>}
           {step === 3 && service && <motion.form key="review" noValidate onSubmit={submitReview} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}>
-            <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">Paso 03</p><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
+            <button type="button" className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Volver</button><h2>Confirmá tu reserva</h2><p className="section-description">Dejanos tu nombre y revisá los detalles antes de confirmar.</p>
             <div className="field-grid">
               <label className={`field${fieldErrors.name ? ' is-invalid' : ''}`}><span>Nombre completo</span><div><UserRound size={17} /><input ref={nameRef} required autoComplete="name" value={name} onChange={e => { setName(personName(e.target.value)); setFieldErrors(current => ({ ...current, name: undefined })) }} aria-label="Nombre completo" aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? 'booking-name-error' : undefined} /></div>{fieldErrors.name && <small className="field-error" id="booking-name-error">{fieldErrors.name}</small>}</label>
-              <label className={`field${fieldErrors.email ? ' is-invalid' : ''}`}><span>Correo electrónico <small>(obligatorio)</small></span><div><Mail size={17} /><input ref={emailRef} required autoComplete="email" value={email} onChange={e => { setEmail(cleanEmail(e.target.value)); setFieldErrors(current => ({ ...current, email: undefined })) }} type="email" aria-label="Correo electrónico (obligatorio)" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? 'booking-email-error' : undefined} /></div>{fieldErrors.email && <small className="field-error" id="booking-email-error">{fieldErrors.email}</small>}</label>
+              <label className={`field${fieldErrors.email ? ' is-invalid' : ''}`}><span>Correo electrónico</span><div><Mail size={17} /><input ref={emailRef} required autoComplete="email" value={email} onChange={e => { setEmail(cleanEmail(e.target.value)); setFieldErrors(current => ({ ...current, email: undefined })) }} type="email" aria-label="Correo electrónico (obligatorio)" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? 'booking-email-error' : undefined} /></div>{fieldErrors.email && <small className="field-error" id="booking-email-error">{fieldErrors.email}</small>}</label>
             </div>
             <div className="review-card"><div><span>Servicio</span><strong>{service.name}</strong></div><div><span>Fecha y hora</span><strong>{fullDayLabel(date)}, {timeLabel(time)}</strong></div><div><span>Duración</span><strong>{service.duration_min} minutos</strong></div>{professionals.length > 1 && serviceProfessionals.length > 0 && <div><span>Profesional</span><strong>{serviceProfessionals.find(p => p.id === professionalId)?.name ?? (serviceProfessionals.length === 1 ? serviceProfessionals[0].name : 'Quien esté libre')}</strong></div>}<div className="review-total"><span>{service.price_mode === 'fixed' ? 'Total' : 'Precio'}</span><strong>{priceLabel(service.price, service.price_mode)}</strong></div></div>
             <button ref={confirmRef} type="submit" className="button button--primary button--full" disabled={saving}>{wipe ? <>¡Reservado! <Check size={18} /></> : saving ? <><span className="writing-loader"><PencilLine size={18} /></span> Guardando tu turno…</> : <>Confirmar reserva <Check size={18} /></>}</button>
             {error
               ? <p className="form-error" role="alert">{error}</p>
-              : <p className="form-note">Lo usamos para identificar tu reserva.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
+              : <p className="form-note">Al correo te llega la confirmación y el enlace para cancelar.{business.cancel_min_hours > 0 ? ` Podés cancelar hasta ${business.cancel_min_hours} hs antes del turno.` : ' Podés cancelar cuando quieras.'}</p>}
           <p className="form-note">Al confirmar aceptás que {business.name} y RESER usen tus datos para gestionar este turno y avisarte por email. <a href="/privacidad" target="_blank" rel="noreferrer">Política de privacidad</a>.</p>
           </motion.form>}
         </AnimatePresence>

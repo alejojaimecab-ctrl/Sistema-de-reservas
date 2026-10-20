@@ -427,7 +427,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         </label>
         <label className="onboarding-field">Tu enlace de RESER
           <div className="url-field">
-            <span>reser.com.ar/</span>
+            <span>{window.location.host}/</span>
             <input required autoComplete="off" placeholder="tu-negocio" value={slug} onChange={e => setSlug(field.slugText(e.target.value))} />
           </div>
         </label>

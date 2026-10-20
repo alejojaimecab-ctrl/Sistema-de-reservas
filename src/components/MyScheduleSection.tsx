@@ -101,12 +101,11 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
     : ''
 
   return <section className="agenda-card">
-    <div className="card-heading"><div><p className="eyebrow">Mis horarios</p><h2>Cuándo atendés</h2></div></div>
+    <div className="card-heading"><div><h2>Cuándo atendés</h2></div></div>
 
     <p
       role="status" aria-live="polite"
-      className={saveState === 'error' ? 'form-error' : 'form-note'}
-      style={{ position: 'sticky', top: 8, zIndex: 5, minHeight: 18, margin: '0 0 8px', padding: statusText ? '6px 10px' : 0, borderRadius: 8, background: statusText ? 'var(--surface)' : 'transparent', border: statusText ? '1px solid var(--border)' : 0 }}
+      className={`autosave-status ${saveState === 'error' ? 'form-error' : 'form-note'}${statusText ? ' has-text' : ''}`}
     >
       {statusText}
       {saveState === 'error' && lastFailedRef.current && <>
@@ -118,10 +117,10 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
       : loadFailed ? <p className="form-error" role="alert">No pudimos cargar tus horarios. Recargá la página para volver a intentar.</p>
       : <AvailabilityEditor days={days} availability={availability} onChange={change} />}
 
-    <p className="eyebrow" style={{ marginTop: 24 }}>Días libres</p>
+    <p className="eyebrow form-group-label">Días libres</p>
     {!loading && timeOff.length === 0 && <p className="form-note">No tenés días libres cargados.</p>}
-    {timeOff.length > 0 && <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0', display: 'grid', gap: 6 }}>
-      {timeOff.map(item => <li key={item.id} className="form-note" style={{ margin: 0 }}>
+    {timeOff.length > 0 && <ul className="timeoff-list">
+      {timeOff.map(item => <li key={item.id} className="form-note timeoff-item">
         <strong>{item.starts_on === item.ends_on ? dayLabel(item.starts_on) : `${dayLabel(item.starts_on)} al ${dayLabel(item.ends_on)}`}</strong>
         {item.reason ? ` · ${item.reason}` : ''}
         {item.resource_id === null ? ' · todo el negocio' : ''}

@@ -197,7 +197,7 @@
 .calendar-day-number { align-self: flex-start; display: grid; place-items: center; width: 25px; height: 25px; margin: -3px 0 6px -3px; border-radius: 50%; color: var(--text); font-size: 11px; font-weight: 600; }
 .calendar-day.is-today .calendar-day-number { color: var(--on-accent); background: var(--accent); }
 .calendar-day-events, .calendar-month-events { display: grid; align-content: start; gap: 4px; min-width: 0; }
-.calendar-week-event { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 4px 5px; color: var(--text); background: var(--surface-sel); border: 1px solid var(--border); border-radius: 5px; font-size: 11px; line-height: 1.2; }
+.calendar-week-event { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 4px 5px; color: var(--text); background: var(--surface-sel); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; line-height: 1.2; }
 .calendar-week-event.is-completed, .calendar-month-event.is-completed { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-border); }
 .calendar-week-event.is-noshow, .calendar-month-event.is-noshow { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
 .calendar-week-event time { flex: 0 0 auto; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -210,7 +210,7 @@
 .calendar-month-events { gap: 3px; }
 .calendar-month-event { display: flex; gap: 4px; overflow: hidden; padding: 3px 4px; color: var(--text); background: var(--surface-sel); border: 1px solid transparent; border-radius: 4px; font-size: 10px; line-height: 1.2; }
 .calendar-month-event > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.calendar-more { padding: 1px 4px; color: var(--text); font-size: 10px; font-weight: 600; }
+.calendar-more { padding: 1px 4px; color: var(--text); font-size: 11px; font-weight: 600; }
 /* Turnos del día: tarjeta propia con una fila compacta por turno (diseño del dueño).
    La tarjeta mide su propio ancho: si no entra en una fila, las acciones bajan a una segunda línea. */
 .agenda-card.calendar-day-detail { margin-top: 16px; padding: 0; overflow: hidden; container-type: inline-size; }
@@ -239,7 +239,7 @@
 .calendar-attendance:hover:not(:disabled) { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
 .calendar-attendance[aria-pressed="true"] { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
 .calendar-attendance:disabled { opacity: .58; cursor: not-allowed; }
-.calendar-attendance:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+.calendar-attendance:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .calendar-message { margin: 0; padding: 16px 0; color: var(--text-2); font-size: 11px; line-height: 1.5; }
 .calendar-message--error { padding: 18px; color: var(--danger); background: var(--surface-2); border: 1px solid var(--danger-border); border-radius: var(--r-sm); }
 .calendar-mode button:focus-visible, .calendar-navigation button:focus-visible, .calendar-today:focus-visible, .calendar-day:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -262,15 +262,15 @@
   .calendar-grid--week .calendar-weekdays { display: none; }
   .calendar-day-number { width: 22px; height: 22px; margin: -2px 0 3px -2px; font-size: 10px; }
   .calendar-day-events { gap: 2px; }
-  .calendar-week-event { align-items: center; padding: 3px; font-size: 10px; }
+  .calendar-week-event { align-items: center; padding: 3px; font-size: 11px; }
   .calendar-week-event > span { max-width: 100%; }
   .calendar-grid--week .calendar-days { grid-template-columns: 1fr; }
   .calendar-grid--week .calendar-day { display: grid; grid-template-columns: 44px 25px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 49px; padding: 7px 9px; border-right: 0; }
-  .calendar-grid--week .calendar-day-weekday { margin: 0; font-size: 10px; }
+  .calendar-grid--week .calendar-day-weekday { margin: 0; font-size: 11px; }
   .calendar-grid--week .calendar-day-number { margin: 0; }
   .calendar-grid--week .calendar-day-events { grid-column: 3; grid-row: 1; display: flex; flex-wrap: wrap; }
-  .calendar-grid--week .calendar-week-event { flex-direction: row; padding: 4px 6px; font-size: 10px; }
-  .calendar-grid--week .calendar-week-event time { font-size: 10px; }
+  .calendar-grid--week .calendar-week-event { flex-direction: row; padding: 4px 6px; font-size: 11px; }
+  .calendar-grid--week .calendar-week-event time { font-size: 11px; }
   .calendar-grid--month .calendar-day { min-height: 58px; padding: 4px 3px; }
   .calendar-grid--month .calendar-month-event { display: block; padding: 2px; font-size: 10px; }
   .calendar-grid--month .calendar-month-event > span { display: none; }
@@ -337,7 +337,7 @@
 .legal-intro { color: var(--text) !important; font-size: 16px !important; }
 .legal-switch { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
 .legal-placeholder { background: var(--warn-bg); color: var(--warn); padding: 0 4px; border-radius: 4px; border: 1px solid var(--warn-border); }
-.legal-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--text-2); line-height: 1.5; margin: 6px 0 2px; }
+.legal-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; color: var(--text-2); line-height: 1.5; margin: 6px 0 2px; }
 .legal-consent input { margin-top: 3px; flex: 0 0 auto; }
 .legal-consent a, .site-footer-links a { color: var(--text); }
 .site-footer-links { display: inline-flex; gap: 14px; margin-left: 14px; }
@@ -383,6 +383,7 @@
 .res-status--wait { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
 .res-status--bad { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-border); }
 .res-status--muted { color: var(--text-2); background: var(--surface-2); border-color: var(--border); }
+.res-status--plain { color: var(--text); background: var(--surface-sel); border-color: var(--border-hover); }
 .res-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; min-width: 0; }
 .res-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .res-actions button:hover:not(:disabled) { color: var(--text); background: var(--surface-sel); border-color: var(--border-hover); }
@@ -499,8 +500,8 @@
 }
 /* En pantallas chicas no entran los dos: queda el ingreso (el hero tiene "Empezar gratis" justo abajo) */
 @media (max-width: 480px) { .nav-actions .button--pill { display: none; } }
-.sheet-backdrop { position: fixed; inset: 0; z-index: 210; display: flex; align-items: flex-end; background: rgb(0 0 0 / .6); }
-.sheet { width: 100%; max-height: 85vh; overflow-y: auto; padding: 10px 16px calc(18px + env(safe-area-inset-bottom)); border: 1px solid var(--border); border-bottom: 0; border-radius: 20px 20px 0 0; background: var(--sheen), var(--grain), var(--surface); box-shadow: var(--hl-strong), 0 -24px 48px -12px rgb(0 0 0 / .9); }
+.sheet-backdrop { position: fixed; inset: 0 0 var(--tabbar-h, 0px) 0; z-index: 210; display: flex; align-items: flex-end; background: rgb(0 0 0 / .6); }
+.sheet { width: 100%; max-height: 85vh; overflow-y: auto; padding: 10px 16px 14px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--r-card) var(--r-card) 0 0; background: var(--sheen), var(--grain), var(--surface); box-shadow: var(--hl-strong), 0 -24px 48px -12px rgb(0 0 0 / .9); }
 .sheet-handle { display: block; width: 40px; height: 4px; margin: 0 auto 14px; border-radius: var(--r-full); background: var(--border-hover); }
 .sheet nav { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .sheet nav button, .sheet-exit { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 12px; color: var(--text-2); text-align: left; background: transparent; border: 0; border-radius: var(--r-sm); font-size: 14px; font-weight: 500; transition: color .18s ease-out, background-color .18s ease-out; }

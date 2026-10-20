@@ -275,9 +275,9 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     : ''
 
   return <section className="agenda-card">
-    <div className="card-heading"><div><p className="eyebrow">Equipo</p><h2>Profesionales y horarios</h2></div></div>
+    <div className="card-heading"><div><h2>Profesionales y horarios</h2></div></div>
 
-    <div className="calendar-mode" role="group" aria-label="Profesionales" style={{ flexWrap: 'wrap', height: 'auto', margin: '12px 0 16px' }}>
+    <div className="calendar-mode team-picker" role="group" aria-label="Profesionales">
       {professionals.map(p => <button
         type="button" key={p.id} aria-pressed={selected?.id === p.id}
         className={selected?.id === p.id ? 'is-active' : ''}
@@ -288,8 +288,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     {selected && <>
       <p
         role="status" aria-live="polite"
-        className={saveState === 'error' ? 'form-error' : 'form-note'}
-        style={{ position: 'sticky', top: 8, zIndex: 5, minHeight: 18, margin: '0 0 8px', padding: statusText ? '6px 10px' : 0, borderRadius: 8, background: statusText ? 'var(--surface)' : 'transparent', border: statusText ? '1px solid var(--border)' : 0 }}
+        className={`autosave-status ${saveState === 'error' ? 'form-error' : 'form-note'}${statusText ? ' has-text' : ''}`}
       >
         {statusText}
         {saveState === 'error' && lastFailedRef.current && <>
@@ -303,7 +302,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       <label className="onboarding-field">WhatsApp <small>(opcional)</small>
         <input type="tel" inputMode="tel" maxLength={40} autoComplete="off" placeholder="11 5555 0000" disabled={loading || loadFailed} value={whatsapp} onChange={e => edit({ whatsapp: phone(e.target.value) })} />
       </label>
-      <p className="eyebrow" style={{ marginTop: 20 }}>Servicios que ofrece</p>
+      <p className="eyebrow form-group-label">Servicios que ofrece</p>
       {services.length === 0
         ? <p className="form-note">Primero cargá tus servicios en la sección Servicios.</p>
         : <div className="service-chips" role="group" aria-label={`Servicios que ofrece ${selected.name}`}>
@@ -331,12 +330,12 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         </div>}
       {offered.size === 0 && services.length > 0 && !loading && <p className="form-note">Sin servicios asignados, nadie va a poder reservar con este profesional.</p>}
       {offeredServices.some(service => service.booking_mode === 'whatsapp') && !whatsapp.trim() && <p className="form-note">Este profesional ofrece servicios por WhatsApp pero no tiene número: se usa el teléfono del negocio (Configuración), si lo cargaste.</p>}
-      <p className="eyebrow" style={{ marginTop: 20 }}>Horarios</p>
+      <p className="eyebrow form-group-label">Horarios</p>
       {loading && <p className="form-note" role="status">Cargando…</p>}
       {onlyWhatsapp
         ? <p className="form-note">Todo lo que ofrece este profesional se coordina por WhatsApp: no hace falta cargar horarios en RESER.</p>
         : <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+      <div className="inline-row">
         <button type="button" className="button button--secondary" disabled={busy} onClick={() => void toggleActive()}>
           {selected.is_active ? 'Desactivar profesional' : 'Reactivar profesional'}
         </button>
@@ -346,14 +345,28 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       </div>
     </>}
 
-    <p className="eyebrow" style={{ marginTop: 28 }}>Sumar un profesional</p>
-    <TeamInvite businessId={businessId} />
-    <form style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }} onSubmit={e => { e.preventDefault(); void add() }}>
-      <label className="onboarding-field" style={{ flex: '1 1 220px', margin: 0 }}>
-        <input aria-label="Nombre del nuevo profesional" maxLength={60} autoComplete="off" autoCapitalize="words" placeholder="Ej: Juan Pérez" value={newName} onChange={e => setNewName(personName(e.target.value))} />
-      </label>
-      <button type="submit" className="button button--secondary" disabled={busy || !newName.trim()}><Plus size={16} /> Agregar</button>
-    </form>
+    {/* Sumar a alguien queda plegado: Equipo se usa sobre todo para editar a los que ya están.
+        Las dos formas dicen qué cambia entre una y otra. */}
+    <details className="team-add" open={professionals.length <= 1}>
+      <summary><Plus size={16} aria-hidden="true" /> Sumar un profesional</summary>
+      <div className="team-add-options">
+        <div className="team-add-option">
+          <strong>Que entre con su propia cuenta</strong>
+          <p>Le mandás un enlace, crea su cuenta y ve su agenda y sus turnos desde su celular.</p>
+          <TeamInvite businessId={businessId} />
+        </div>
+        <div className="team-add-option">
+          <strong>Agregarlo vos, solo con el nombre</strong>
+          <p>Aparece en la agenda y en la reserva, pero sus turnos los manejás vos.</p>
+          <form className="inline-row is-tight" onSubmit={e => { e.preventDefault(); void add() }}>
+            <label className="onboarding-field grow-field is-flush">
+              <input aria-label="Nombre del nuevo profesional" maxLength={60} autoComplete="off" autoCapitalize="words" placeholder="Ej: Juan Pérez" value={newName} onChange={e => setNewName(personName(e.target.value))} />
+            </label>
+            <button type="submit" className="button button--secondary" disabled={busy || !newName.trim()}><Plus size={16} /> Agregar</button>
+          </form>
+        </div>
+      </div>
+    </details>
     {message && <p className="form-note" role="status">{message}</p>}
     {dialog}
   </section>
@@ -397,11 +410,11 @@ function TeamInvite({ businessId }: { businessId: string }) {
     {link ? <>
       <p className="form-note">Enlace de equipo · vence el {new Date(invite!.expires_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}</p>
       <InviteLink link={link} whatsappUrl={whatsappUrl} />
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      <div className="inline-row is-flush">
         <button type="button" className="text-button" disabled={busy} onClick={() => void createLink()}>Generar un enlace nuevo</button>
         <button type="button" className="text-button" disabled={busy} onClick={() => void run(() => revokeStaffInvite(invite!.token))}>Anular enlace</button>
       </div>
-    </> : <button type="button" className="button button--secondary button--small" style={{ marginTop: 8 }} disabled={busy} onClick={() => void createLink()}>
+    </> : <button type="button" className="button button--secondary button--small spaced-top" disabled={busy} onClick={() => void createLink()}>
       <UsersRound size={14} /> {expired ? 'Generar un enlace nuevo' : 'Crear enlace de equipo'}
     </button>}
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -428,8 +441,8 @@ function InviteLink({ link, whatsappUrl }: { link: string; whatsappUrl: string |
   }
 
   return <>
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '8px 0' }}>
-      <label className="onboarding-field" style={{ flex: '1 1 260px', minWidth: 0, margin: 0 }}>
+    <div className="inline-row is-tight">
+      <label className="onboarding-field grow-field is-flush">
         <input ref={inputRef} readOnly aria-label="Enlace de invitación" value={link} onFocus={e => e.target.select()} />
       </label>
       <button type="button" className="button button--secondary button--small" onClick={() => void copy()}>
