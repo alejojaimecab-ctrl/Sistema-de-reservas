@@ -20,6 +20,7 @@ import { SegmentIndicator } from './SegmentIndicator'
 import { NewDot, ShareLinkCard, TodayCard } from './SummaryCards'
 import { isNewReservation, useNewSince } from '../lib/newReservations'
 import { ErrorBoundary } from './ErrorBoundary'
+import { ClientProfile } from './ClientProfile'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -148,6 +149,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [historyVersion, setHistoryVersion] = useState(0)
   const [cancelNotice, setCancelNotice] = useState<{ text: string; isError: boolean } | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
+  // Perfil del cliente que se abre al tocar su nombre en "Próximos días"
+  const [profileReservation, setProfileReservation] = useState<Reservation | null>(null)
   const activeProfessionals = professionals.filter(p => p.is_active)
   const reloadProfessionals = async () => {
     if (business) setProfessionals(await listProfessionals(business.id))
@@ -304,7 +307,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         {/* Los de hoy ya están en "Hoy": acá van los de los próximos días */}
         <section className="agenda-card">
           <div className="card-heading"><h2>Próximos días</h2><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} isNew={isNew} />
+          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} onOpenClient={setProfileReservation} isNew={isNew} />
+          <ClientProfile businessId={business.id} reservation={profileReservation} showProfessional={activeProfessionals.length > 1} onClose={() => setProfileReservation(null)} onCancel={cancelReservation} />
         </section>
       </>}
 
@@ -609,9 +613,9 @@ function CreateBusinessCard() {
   </section>
 }
 
-function ReservationList({ reservations, showProfessional, onCancel, isNew }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void; isNew: (reservation: Reservation) => boolean }) {
+function ReservationList({ reservations, showProfessional, onCancel, onOpenClient, isNew }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void; onOpenClient: (reservation: Reservation) => void; isNew: (reservation: Reservation) => boolean }) {
   if (reservations.length === 0) {
-    return <p style={{ color: 'var(--text-3)', fontSize: 13, padding: '12px 0' }}>Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
+    return <p className="res-empty">Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
   return <div className="agenda-list">{reservations.map((r, index) => {
     const date = new Date(r.starts_at)
@@ -619,7 +623,7 @@ function ReservationList({ reservations, showProfessional, onCancel, isNew }: { 
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
       <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
       <span className="avatar">{initials(clientName)}</span>
-      <span className="reservation-info">{isNew(r) && <NewDot />}<strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
+      <span className="reservation-info">{isNew(r) && <NewDot />}<strong><button type="button" className="client-link" aria-haspopup="dialog" aria-label={`Ver el perfil de ${clientName}`} onClick={() => onOpenClient(r)}>{clientName}</button></strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? priceLabel(Number(r.services.price), r.services.price_mode ?? 'fixed') : ''}</b>
       <button type="button" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(r)}><CalendarX size={16} /></button>
     </motion.div>

@@ -247,3 +247,58 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .team-add-option > strong { color: var(--text); font-size: 14px; font-weight: 600; }
 .team-add-option > p { margin: 0 0 4px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
 .team-add-option .form-note { text-align: left; }
+
+/* ── Perfil del cliente: panel lateral en escritorio, hoja desde abajo en el celular ── */
+.profile-backdrop { position: fixed; inset: 0; z-index: 230; display: flex; justify-content: flex-end; background: rgb(0 0 0 / .6); }
+.profile-panel { display: flex; flex-direction: column; gap: 22px; width: min(420px, 100%); height: 100%; overflow-y: auto; padding: 22px 22px 26px; border-left: 1px solid var(--border); background: var(--sheen), var(--grain), var(--surface); box-shadow: var(--hl-strong), -24px 0 48px -12px rgb(0 0 0 / .9); }
+.profile-header { display: flex; align-items: center; gap: 14px; }
+.profile-avatar { width: 48px; height: 48px; font-size: 15px; }
+.profile-identity { flex: 1; min-width: 0; }
+.profile-identity h2 { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.profile-identity p { margin: 3px 0 0; color: var(--text-3); font-size: 12px; }
+.profile-close { width: 40px; height: 40px; flex: none; align-self: flex-start; }
+.profile-close:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.profile-contact { display: grid; gap: 6px; }
+.profile-contact a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; color: var(--text-2); font-size: 13px; text-decoration: none; overflow-wrap: anywhere; transition: color .18s ease-out; }
+.profile-contact a:hover { color: var(--text); }
+.profile-contact a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-sm); }
+.profile-section { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--border); }
+.profile-section h3 { margin: 0; color: var(--text); font-size: 14px; font-weight: 600; }
+.profile-facts { display: grid; gap: 10px; margin: 0; }
+.profile-facts > div { display: flex; justify-content: space-between; gap: 16px; }
+.profile-facts dt { color: var(--text-3); font-size: 13px; }
+.profile-facts dd { margin: 0; color: var(--text); font-size: 13px; font-weight: 500; text-align: right; }
+.profile-facts dd.is-capitalized::first-letter { text-transform: uppercase; }
+/* Cuatro datos en fila, chicos y alineados: no son tarjetas de métricas, son una línea de resumen */
+.profile-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border: 1px solid var(--border); border-radius: var(--r-item); background: var(--surface-inset, var(--surface-2)); box-shadow: var(--inset, none); }
+.profile-stats > div { display: grid; gap: 2px; padding: 12px 10px; text-align: center; }
+.profile-stats > div + div { border-left: 1px solid var(--border); }
+.profile-stats dt { order: 2; color: var(--text-3); font-size: 11px; }
+.profile-stats dd { order: 1; margin: 0; color: var(--text); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.profile-note { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+.profile-subhead { margin: 6px 0 0; color: var(--text-2); font-size: 12px; font-weight: 600; }
+.profile-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.profile-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; border-top: 1px solid var(--border); font-size: 13px; }
+.profile-list li:first-child { border-top: 0; }
+.profile-list-when { flex: none; width: 92px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.profile-list-what { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-loading { display: grid; gap: 8px; }
+.profile-loading span { display: block; height: 52px; border-radius: var(--r-item); border: 1px solid var(--border); background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / .045) 50%, transparent 80%) var(--surface-2); background-size: 220% 100%; animation: relief-shimmer 1.3s linear infinite; }
+.profile-footer { margin-top: auto; padding-top: 4px; }
+.profile-footer .button { width: 100%; }
+/* El nombre del cliente en las listas abre su perfil: parece texto, se comporta como enlace */
+.client-link { padding: 0; color: inherit; font: inherit; font-weight: 600; text-align: left; background: none; border: 0; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .18s ease-out; }
+.client-link:hover { text-decoration-color: currentColor; }
+.client-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 800px) {
+  .profile-backdrop { align-items: flex-end; }
+  .profile-panel { width: 100%; height: auto; max-height: 88vh; border-left: 0; border-top: 1px solid var(--border); border-radius: var(--r-card) var(--r-card) 0 0; padding-bottom: calc(22px + env(safe-area-inset-bottom)); box-shadow: var(--hl-strong), 0 -24px 48px -12px rgb(0 0 0 / .9); }
+}
+@media (prefers-reduced-motion: reduce) { .profile-loading span { animation: none; } }
+
+/* Las preguntas de confirmación siempre quedan por encima de todo (la hoja Más, el perfil del cliente, la barra) */
+.confirm-backdrop { z-index: 300; }
+/* El nombre-enlace vive dentro de filas cuyos botones son cuadrados de 32px: acá vuelve a ser texto */
+.reservation-row .client-link { display: inline; width: auto; height: auto; max-width: 100%; padding: 0; color: inherit; background: none; border: 0; border-radius: 0; font-size: inherit; overflow-wrap: anywhere; }
+.reservation-row .client-link:hover { color: inherit; background: none; }
+.profile-footer .button.res-danger { width: 100%; }

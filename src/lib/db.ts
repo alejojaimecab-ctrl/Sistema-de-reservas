@@ -47,6 +47,7 @@ export type Reservation = {
   created_at?: string
   source?: 'public' | 'manual'
   status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+  client_id?: string
   clients: { name: string } | null
   services: { name: string; price: number; price_mode?: 'fixed' | 'from' | 'ask' } | null
   resources: { name: string } | null
@@ -148,7 +149,7 @@ export async function listReservations(businessId: string): Promise<Reservation[
   if (!(await ownsBusiness(businessId))) return []
   const { data } = await supabase
     .from('reservations')
-    .select('id, starts_at, created_at, source, status, clients(name), services(name, price, price_mode), resources(name)')
+    .select('id, starts_at, created_at, source, status, client_id, clients(name), services(name, price, price_mode), resources(name)')
     .eq('business_id', businessId)
     .gte('starts_at', new Date().toISOString())
     .neq('status', 'cancelled')
@@ -195,6 +196,43 @@ export async function getReservationForAlert(id: string): Promise<(Reservation &
     .maybeSingle()
   if (error || !data) return null
   return data as unknown as Reservation & { source: 'public' | 'manual' }
+}
+
+// Perfil de un cliente: sus datos de contacto y todos sus turnos en este negocio (los de cualquier estado).
+// Un cliente es el mismo cuando reserva con el mismo nombre y email (book_public lo reutiliza).
+export type ClientProfile = {
+  client: { id: string; name: string; email: string | null; phone: string | null } | null
+  reservations: {
+    id: string
+    starts_at: string
+    status: Reservation['status']
+    cancelled_by: 'client' | 'owner' | null
+    source?: 'public' | 'manual'
+    services: Reservation['services']
+    resources: Reservation['resources']
+  }[]
+  error: string | null
+}
+
+export async function getClientProfile(businessId: string, clientId: string): Promise<ClientProfile> {
+  if (!(await canUseBusiness(businessId))) return { client: null, reservations: [], error: 'No se pudo validar el acceso al negocio.' }
+  const [clientResult, reservationsResult] = await Promise.all([
+    supabase.from('clients').select('id, name, email, phone').eq('id', clientId).eq('business_id', businessId).maybeSingle(),
+    supabase
+      .from('reservations')
+      .select('id, starts_at, status, cancelled_by, source, services(name, price, price_mode), resources(name)')
+      .eq('business_id', businessId)
+      .eq('client_id', clientId)
+      .order('starts_at', { ascending: false })
+      .limit(300),
+  ])
+  if (clientResult.error) return { client: null, reservations: [], error: friendlyError(clientResult.error) }
+  if (reservationsResult.error) return { client: null, reservations: [], error: friendlyError(reservationsResult.error) }
+  return {
+    client: clientResult.data as ClientProfile['client'],
+    reservations: (reservationsResult.data ?? []) as unknown as ClientProfile['reservations'],
+    error: null,
+  }
 }
 
 // Historial completo de reservas del negocio (pasadas, futuras y canceladas) para la sección Reservas.
