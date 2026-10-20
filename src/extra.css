@@ -633,3 +633,43 @@ a.brand:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 .login-unconfirmed .form-note { margin: 0; }
 .onboarding-card > p.login-signup { margin: 22px 0 0; padding-top: 18px; color: var(--text-2); border-top: 1px solid var(--border); font-size: 13px; text-align: center; }
 .login-signup .text-button { margin-left: 4px; color: var(--text); font-size: 13px; font-weight: 500; }
+
+/* Texto que solo leen los lectores de pantalla (por ejemplo "Enlace copiado") */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+
+/* Resumen: "Hoy" (para marcar y lo que queda del día) y "Tu enlace de reservas" arriba de todo */
+.dashboard-top { align-items: start; margin-bottom: 18px; }
+.today-card { container-type: inline-size; }
+.today-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.today-heading h2, .share-card h2 { margin: 0; color: var(--text); font-size: 18px; font-weight: 600; letter-spacing: -.015em; }
+.today-heading span { color: var(--text-2); font-size: 12px; }
+.today-group + .today-group { margin-top: 20px; }
+.today-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; color: var(--text); font-size: 14px; font-weight: 600; }
+.today-group h3 span { min-width: 22px; padding: 1px 7px; color: var(--warn); border: 1px solid var(--border); border-radius: var(--r-full); font-size: 12px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
+.today-hint { margin: 0 0 8px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+.today-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.today-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; row-gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); }
+.today-row--plain { grid-template-columns: 96px minmax(0, 1fr); }
+.today-row time { color: var(--text); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.today-row time::first-letter { text-transform: uppercase; }
+.today-row-info { display: grid; gap: 2px; min-width: 0; }
+.today-row-info strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.today-row-info span { overflow: hidden; color: var(--text-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.today-row-actions { display: flex; gap: 6px; }
+.today-empty { margin: 6px 0 0; color: var(--text-2); font-size: 13px; }
+.today-more { margin-top: 10px; }
+@container (max-width: 520px) {
+  .today-row, .today-row--plain { grid-template-columns: 72px minmax(0, 1fr); }
+  .today-row-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+}
+.share-card > p { margin: 6px 0 14px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.share-url { width: 100%; height: 40px; padding: 0 12px; color: var(--text); background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r-item); box-shadow: var(--inset); font: inherit; font-size: 13px; text-overflow: ellipsis; }
+.share-url:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.share-actions { display: grid; gap: 8px; margin-top: 12px; }
+.share-actions .button { width: 100%; justify-content: center; }
+.share-note { margin: 10px 0 0; }
+.share-qr { display: grid; justify-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.share-qr img { width: 168px; height: 168px; background: var(--accent); border-radius: var(--r-sm); }
+.share-qr small { color: var(--text-2); font-size: 12px; }
+/* Los enlaces con forma de botón (WhatsApp, Descargar QR) se ven como los demás botones */
+a.button { text-decoration: none; }

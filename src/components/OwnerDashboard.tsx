@@ -17,6 +17,7 @@ import { PendingInviteCard, readPendingInvite } from './JoinTeam'
 import { useConfirm } from './ConfirmDialog'
 import { describeReservation, useReservationAlerts } from '../lib/reservationAlerts'
 import { SegmentIndicator } from './SegmentIndicator'
+import { ShareLinkCard, TodayCard } from './SummaryCards'
 import { ErrorBoundary } from './ErrorBoundary'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
@@ -247,15 +248,21 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, transition: { duration: 0.12, ease: 'easeIn' } }}
       >
       {active === 'Resumen' && <>
+        {/* Arriba lo que se hace hoy: marcar los turnos que ya pasaron y compartir el enlace para que lleguen reservas */}
+        <section className="dashboard-grid dashboard-top">
+          <TodayCard reservations={upcomingReservations} loading={agendaLoading} showProfessional={activeProfessionals.length > 1} onStatusChanged={reservationStatusChanged} onSeeAll={() => setActive('Reservas')} />
+          <ShareLinkCard name={business.name} slug={business.slug} />
+        </section>
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Turnos para hoy" value={String(stats?.todayCount ?? 0)} detail="Reservas confirmadas" />
           <Metric icon={<UsersRound size={19} />} label="Clientes este mes" value={String(stats?.monthClients ?? 0)} detail="Clientes únicos con turno" />
           <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={stats?.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Sobre los turnos que marcaste" />
         </section>
-        <section className="dashboard-grid"><div className="agenda-card">
-          <div className="card-heading"><div><p className="eyebrow">Tu agenda</p><h2>Próximas reservas</h2></div><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
-        </div></section>
+        {/* Los de hoy ya están en "Hoy": acá van los de los próximos días */}
+        <section className="agenda-card">
+          <div className="card-heading"><h2>Próximos días</h2><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
+          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} />
+        </section>
       </>}
 
       {active === 'Agenda' && (
