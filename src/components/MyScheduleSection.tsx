@@ -7,6 +7,7 @@ import {
   type AvailabilityMap,
 } from './AvailabilityEditor'
 import { getAvailability, listTimeOff, setAvailability, type TimeOff } from '../lib/db'
+import { friendlyError } from '../lib/errorMessages'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -63,7 +64,7 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
       try {
         error = await setAvailability(businessId, resourceId, availabilitySlotsFromMap(map))
       } catch (failure) {
-        error = failure instanceof Error ? failure.message : 'Error inesperado.'
+        error = failure instanceof Error ? friendlyError(failure.message) : 'Error inesperado.'
       }
       if (error) {
         lastFailedRef.current = map

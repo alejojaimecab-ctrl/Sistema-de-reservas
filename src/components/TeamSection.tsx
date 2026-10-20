@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, MessageCircle, Plus, Trash2, UsersRound } from 'lucide-react'
 import { SegmentIndicator } from './SegmentIndicator'
 import { useAuth } from '../lib/auth'
+import { friendlyError } from '../lib/errorMessages'
 import { copyText } from '../lib/clipboard'
 import { personName, phone } from '../lib/fieldRules'
 import { joinUrl } from '../lib/routes'
@@ -112,7 +113,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
       try {
         error = await persist(draft)
       } catch (failure) {
-        error = failure instanceof Error ? failure.message : 'Error inesperado.'
+        error = failure instanceof Error ? friendlyError(failure.message) : 'Error inesperado.'
       }
       if (error) {
         lastFailedRef.current = draft

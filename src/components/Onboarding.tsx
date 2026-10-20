@@ -7,6 +7,7 @@ import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
+import { friendlyError, SLUG_TAKEN } from '../lib/errorMessages'
 import { createBusinessWithSetup } from '../lib/db'
 import { slugify } from '../lib/routes'
 import * as field from '../lib/fieldRules'
@@ -111,7 +112,7 @@ function removeLocalDraft() {
     localStorage.removeItem(draftKey)
     return null
   } catch (error) {
-    return error instanceof Error ? error.message : 'No se pudo borrar el borrador local.'
+    return error instanceof Error ? friendlyError(error.message) : 'No se pudo borrar el borrador local.'
   }
 }
 
@@ -180,7 +181,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         localStorage.setItem(draftKey, JSON.stringify(draft))
         setDraftStatus('Avance guardado en este dispositivo.')
       } catch (saveError) {
-        const detail = saveError instanceof Error ? saveError.message : 'No se pudo guardar el avance.'
+        const detail = saveError instanceof Error ? friendlyError(saveError.message) : 'No se pudo guardar el avance.'
         setDraftStatus(`No pudimos guardar el avance: ${detail}`)
       }
     }, 250)
@@ -248,7 +249,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       setAvailability(emptyAvailability())
       setDraftStatus(null)
     } catch (discardError) {
-      const detail = discardError instanceof Error ? discardError.message : 'No se pudo borrar el borrador.'
+      const detail = discardError instanceof Error ? friendlyError(discardError.message) : 'No se pudo borrar el borrador.'
       setDraftStatus(`No pudimos borrar el borrador: ${detail}`)
     }
   }
@@ -273,7 +274,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         signUpError = await signUp(email.trim(), password, ownerName.trim())
       } catch (signUpFailure) {
         setBusy(false)
-        const detail = signUpFailure instanceof Error ? signUpFailure.message : 'error inesperado'
+        const detail = signUpFailure instanceof Error ? friendlyError(signUpFailure.message) : 'error inesperado'
         setError(`No pudimos crear la cuenta por un problema de conexión: ${detail}`)
         return
       }
@@ -288,13 +289,13 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         const { data: { session: activeSession }, error: sessionError } = await supabase.auth.getSession()
         if (sessionError) {
           setBusy(false)
-          setError(`La cuenta se creó, pero no pudimos verificar la sesión: ${sessionError.message}`)
+          setError(`La cuenta se creó, pero no pudimos verificar la sesión: ${authErrorMessage(sessionError.message)}`)
           return
         }
         activeUserId = activeSession?.user.id ?? null
       } catch (sessionFailure) {
         setBusy(false)
-        const detail = sessionFailure instanceof Error ? sessionFailure.message : 'error inesperado'
+        const detail = sessionFailure instanceof Error ? friendlyError(sessionFailure.message) : 'error inesperado'
         setError(`La cuenta se creó, pero no pudimos verificar la sesión: ${detail}`)
         return
       }
@@ -312,7 +313,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         }))
       } catch (storageError) {
         setBusy(false)
-        const detail = storageError instanceof Error ? storageError.message : 'No se pudo guardar el avance.'
+        const detail = storageError instanceof Error ? friendlyError(storageError.message) : 'No se pudo guardar el avance.'
         setError(`No pudimos guardar los datos del negocio para retomarlos después de confirmar el email: ${detail}`)
         return
       }
@@ -333,13 +334,13 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       })
     } catch (setupFailure) {
       setBusy(false)
-      const detail = setupFailure instanceof Error ? setupFailure.message : 'error inesperado'
+      const detail = setupFailure instanceof Error ? friendlyError(setupFailure.message) : 'error inesperado'
       setError(`No pudimos guardar el negocio: ${detail}. Tu avance sigue guardado; volvé a intentar.`)
       return
     }
     setBusy(false)
     if (setupError) {
-      setError(setupError.includes('duplicate')
+      setError(setupError === SLUG_TAKEN
         ? 'Ese enlace ya está en uso. Elegí otro.'
         : `No pudimos guardar el negocio: ${setupError}. Tu avance sigue guardado; corregí el problema y volvé a intentar.`)
       return
@@ -353,7 +354,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   async function resendEmail() {
     setResend({ state: 'sending', error: null })
     const resendError = await resendConfirmation(email)
-    setResend(resendError ? { state: 'idle', error: `No pudimos reenviarlo: ${resendError}` } : { state: 'sent', error: null })
+    setResend(resendError ? { state: 'idle', error: authErrorMessage(resendError) } : { state: 'sent', error: null })
   }
 
   // El alta no termina en un callejón: dice qué falta, dónde abrir el enlace (lo cargado queda en este navegador) y deja pedir otro mail

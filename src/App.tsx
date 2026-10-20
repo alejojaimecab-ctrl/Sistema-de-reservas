@@ -183,12 +183,12 @@ function Root() {
   if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
   if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />
   if (view === 'dashboard') {
-    if (!session) return <Login onBack={() => setView('home')} />
+    if (!session) return <Login onBack={() => setView('home')} onCreateAccount={() => { goTo('/'); setView('onboarding') }} />
     return <OwnerDashboard onExit={() => setView('home')} />
   }
   if (view === 'login') {
     if (session) return <OwnerDashboard onExit={() => setView('home')} />
-    return <Login onBack={() => setView('home')} />
+    return <Login onBack={() => setView('home')} onCreateAccount={() => { goTo('/'); setView('onboarding') }} />
   }
   if (view === 'onboarding') return <Onboarding onBack={() => setView('home')} onFinish={() => setView('dashboard')} />
 

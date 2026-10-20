@@ -4,6 +4,7 @@ import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis,
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
+import { friendlyError } from '../lib/errorMessages'
 import { copyText } from '../lib/clipboard'
 import * as field from '../lib/fieldRules'
 import { bookingUrl, goTo, panelSectionFromPath, slugify } from '../lib/routes'
@@ -165,7 +166,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       })
       .catch(loadError => {
         if (!active) return
-        setAgendaError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los próximos turnos.')
+        setAgendaError(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los próximos turnos.')
       })
       .finally(() => {
         if (active) setAgendaLoading(false)
@@ -513,16 +514,16 @@ function CreateBusinessCard() {
         : await createBusiness(session.user.id, input)
     } catch (createError) {
       setBusy(false)
-      const detail = createError instanceof Error ? createError.message : 'error inesperado'
+      const detail = createError instanceof Error ? friendlyError(createError.message) : 'error inesperado'
       setError(`No pudimos crear el negocio: ${detail}. Tus datos siguen guardados; volvé a intentar.`)
       return
     }
     setBusy(false)
-    if (err) { setError(err.includes('duplicate') ? 'Ese enlace ya está en uso. Elegí otro.' : err); return }
+    if (err) { setError(err); return }
     try {
       localStorage.removeItem('reser-pending-setup')
     } catch (storageError) {
-      const detail = storageError instanceof Error ? storageError.message : 'error inesperado'
+      const detail = storageError instanceof Error ? friendlyError(storageError.message) : 'error inesperado'
       console.error('El negocio se creó, pero no se pudieron borrar los datos pendientes:', detail)
     }
     await refreshBusiness()
@@ -617,7 +618,7 @@ function ManualReservationForm({
       setServiceId(usable[0]?.id ?? '')
     }).catch(loadError => {
       if (!active) return
-      setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los servicios.')
+      setError(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los servicios.')
     }).finally(() => {
       if (active) setLoadingServices(false)
     })
@@ -653,7 +654,7 @@ function ManualReservationForm({
         if (!active) return
         setSlots([])
         setSlotsFailed(true)
-        setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar los horarios disponibles.')
+        setError(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los horarios disponibles.')
       })
       .finally(() => {
         if (active) setLoadingSlots(false)
@@ -690,7 +691,7 @@ function ManualReservationForm({
         resources: professionals.find(p => p.id === resourceId) ? { name: professionals.find(p => p.id === resourceId)!.name } : null,
       })
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'No pudimos guardar la reserva.')
+      setError(submitError instanceof Error ? friendlyError(submitError.message) : 'No pudimos guardar la reserva.')
     } finally {
       setSaving(false)
     }
@@ -864,7 +865,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, loading, err
       }
     } catch (updateError) {
       onStatusChange(reservation.id, previousStatus)
-      setAttendanceError(`No pudimos actualizar el turno de ${clientName}: ${updateError instanceof Error ? updateError.message : 'Ocurrió un error inesperado.'}`)
+      setAttendanceError(`No pudimos actualizar el turno de ${clientName}: ${updateError instanceof Error ? friendlyError(updateError.message) : 'Ocurrió un error inesperado.'}`)
     } finally {
       setPendingAttendance(current => {
         const next = new Set(current)
@@ -1323,7 +1324,7 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
     setMessage(null)
     const error = await updateBusiness(businessId, { name: name.trim(), slug: slugify(slug), cancel_min_hours: cancelHours, min_notice_hours: minNotice, max_advance_days: maxAdvance, phone: phone.trim() || null, address: address.trim() || null })
     setBusy(false)
-    if (error) { setMessage(error.includes('duplicate') ? 'Ese enlace ya está en uso.' : error); return }
+    if (error) { setMessage(error); return }
     await onSaved()
     setMessage('Cambios guardados ✓')
   }

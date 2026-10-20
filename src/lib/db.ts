@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { slugProblem } from './routes'
+import { friendlyError } from './errorMessages'
 
 // Fase 6: filtro explícito del dueño en cada query (defensa en profundidad sobre RLS).
 // Devuelve los ids de negocios del usuario autenticado; [] si no hay sesión.
@@ -72,7 +73,7 @@ export async function createBusinessWithSetup(
     .from('businesses')
     .insert({ owner_id: user.id, name: input.name, slug: input.slug })
     .select('id').single()
-  if (error) return error.message
+  if (error) return friendlyError(error)
   const businessId = business.id as string
 
   if (input.services.length > 0) {
@@ -111,7 +112,7 @@ export async function createBusiness(ownerId: string, input: { name: string; slu
   const { error } = await supabase
     .from('businesses')
     .insert({ owner_id: user.id, name: input.name, slug: input.slug })
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 export async function getDashboardStats(businessId: string): Promise<DashboardStats> {
@@ -173,7 +174,7 @@ export async function listAgendaReservations(
       .order('starts_at', { ascending: true })
       .range(offset, offset + pageSize - 1)
 
-    if (error) return { reservations: [], error: error.message }
+    if (error) return { reservations: [], error: friendlyError(error) }
 
     const page = (data ?? []) as unknown as Reservation[]
     reservations.push(...page)
@@ -221,7 +222,7 @@ export async function listAllReservations(
       .order('starts_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
-    if (error) return { reservations: [], error: error.message }
+    if (error) return { reservations: [], error: friendlyError(error) }
 
     const page = (data ?? []) as unknown as HistoryReservation[]
     reservations.push(...page)
@@ -237,7 +238,7 @@ export async function updateReservationStatus(
   status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>,
 ): Promise<string | null> {
   const { error } = await supabase.rpc('set_reservation_status', { p_reservation_id: id, p_status: status })
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 export async function listReservationServices(
@@ -253,7 +254,7 @@ export async function listReservationServices(
     .eq('is_active', true)
     .eq('booking_mode', 'online') // los servicios por WhatsApp no tienen agenda en RESER
     .order('name')
-  if (error) return { services: [], error: error.message }
+  if (error) return { services: [], error: friendlyError(error) }
   return { services: data ?? [], error: null }
 }
 
@@ -278,7 +279,7 @@ export async function createOwnerReservation(input: {
     p_phone: input.phone?.trim() || null,
     p_resource_id: input.resourceId ?? null,
   })
-  if (error) return { id: null, error: error.message }
+  if (error) return { id: null, error: friendlyError(error) }
   const result = data as { id?: string } | null
   if (!result?.id) return { id: null, error: 'No pudimos confirmar el alta de la reserva.' }
   return { id: result.id, error: null }
@@ -396,7 +397,7 @@ export async function bookPublic(input: {
     const booked = data as { resource_name?: string; cancel_token?: string } | null
     return { professionalName: booked?.resource_name ?? null, cancelToken: booked?.cancel_token ?? null, error: null }
   }
-  if (BOOK_PUBLIC_KNOWN_ERRORS.some(msg => error.message.includes(msg))) return { professionalName: null, cancelToken: null, error: error.message }
+  if (BOOK_PUBLIC_KNOWN_ERRORS.some(msg => error.message.includes(msg))) return { professionalName: null, cancelToken: null, error: friendlyError(error) }
   console.warn('book_public falló con un error no mapeado:', error.message)
   return { professionalName: null, cancelToken: null, error: BOOK_PUBLIC_FALLBACK }
 }
@@ -438,7 +439,7 @@ export async function cancelReservationByToken(token: string): Promise<string | 
 
 export async function cancelOwnerReservation(id: string): Promise<string | null> {
   const { error } = await supabase.rpc('cancel_reservation_owner', { p_reservation_id: id })
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 export async function listServices(businessId: string): Promise<Service[]> {
@@ -453,13 +454,13 @@ type ServiceInput = { name: string; duration_min: number; price: number; price_m
 export async function createService(businessId: string, svc: ServiceInput) {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
   const { error } = await supabase.from('services').insert({ business_id: businessId, ...svc })
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 export async function updateService(id: string, svc: ServiceInput) {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('services').update(svc).eq('id', id).in('business_id', owned)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // Un servicio con reservas no se puede borrar (la base lo impide): hay que desactivarlo.
@@ -468,15 +469,15 @@ export async function deleteService(id: string) {
   const { error } = await supabase.from('services').delete().eq('id', id).in('business_id', owned)
   if (!error) return null
   return error.code === '23503'
-    ? 'Este servicio ya tiene reservas, por eso no se puede eliminar. Desactivalo y tus clientes dejan de verlo (las reservas se conservan).'
-    : error.message
+    ? 'Este servicio ya tiene reservas, por eso no se puede eliminar. Destildá «Visible para tus clientes»: deja de aparecer y las reservas se conservan.'
+    : friendlyError(error)
 }
 
 // Desactivar oculta el servicio a los clientes sin perder las reservas; se puede reactivar.
 export async function setServiceActive(id: string, isActive: boolean) {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('services').update({ is_active: isActive }).eq('id', id).in('business_id', owned)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // --- Logo del negocio (Storage: bucket público business-logos, carpeta = id del negocio) ---
@@ -538,7 +539,7 @@ export async function uploadBusinessLogo(
 export async function removeBusinessLogo(businessId: string, currentPath: string | null): Promise<string | null> {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
   const { error } = await supabase.from('businesses').update({ logo_path: null }).eq('id', businessId)
-  if (error) return error.message
+  if (error) return friendlyError(error)
   if (currentPath) await supabase.storage.from('business-logos').remove([currentPath])
   return null
 }
@@ -557,7 +558,7 @@ export async function updateBusiness(id: string, input: {
   const problem = slugProblem(input.slug)
   if (problem) return problem
   const { error } = await supabase.from('businesses').update(input).eq('id', id).eq('owner_id', user.id)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // --- Días libres (feriados y vacaciones) ---
@@ -588,7 +589,7 @@ export async function createTimeOff(
     ends_on: input.endsOn,
     reason: input.reason.trim() || null,
   })
-  if (error) return { affected: 0, error: error.message }
+  if (error) return { affected: 0, error: friendlyError(error) }
 
   // Los turnos ya reservados en esos días no se cancelan solos: avisamos cuántos son.
   const from = new Date(`${input.startsOn}T00:00:00`)
@@ -605,7 +606,7 @@ export async function createTimeOff(
 export async function deleteTimeOff(id: string): Promise<string | null> {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('time_off').delete().eq('id', id).in('business_id', owned)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // --- Profesionales (resources): cada uno con su propia disponibilidad y agenda ---
@@ -624,7 +625,7 @@ export async function listProfessionals(businessId: string): Promise<Professiona
 // Si nunca tuvo reservas se borra; si tiene historial se archiva y sus reservas conservan su nombre (migración 030).
 export async function deleteProfessional(id: string): Promise<{ archived: boolean; error: string | null }> {
   const { data, error } = await supabase.rpc('delete_professional', { p_resource_id: id })
-  if (error) return { archived: false, error: error.message }
+  if (error) return { archived: false, error: friendlyError(error) }
   return { archived: (data as { mode?: string } | null)?.mode === 'archived', error: null }
 }
 
@@ -633,7 +634,7 @@ export async function createProfessional(businessId: string, name: string): Prom
   if (!name.trim()) return { id: null, error: 'Escribí el nombre del profesional.' }
   const { data, error } = await supabase
     .from('resources').insert({ business_id: businessId, name: name.trim() }).select('id').single()
-  return error ? { id: null, error: error.message } : { id: data.id as string, error: null }
+  return error ? { id: null, error: friendlyError(error) } : { id: data.id as string, error: null }
 }
 
 export async function updateProfessional(
@@ -649,7 +650,7 @@ export async function updateProfessional(
   }
   const { data, error } = await supabase
     .from('resources').update(patch).eq('id', id).in('business_id', owned).select('id').maybeSingle()
-  if (error) return error.message
+  if (error) return friendlyError(error)
   return data ? null : 'No encontramos ese profesional.'
 }
 
@@ -665,7 +666,7 @@ export async function listResourceServices(businessId: string): Promise<Resource
 export async function setProfessionalServices(businessId: string, resourceId: string, serviceIds: string[]): Promise<string | null> {
   if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio'
   const { data, error } = await supabase.from('resource_services').select('service_id').eq('resource_id', resourceId)
-  if (error) return error.message
+  if (error) return friendlyError(error)
   const current = new Set((data ?? []).map(row => row.service_id as string))
   const wanted = new Set(serviceIds)
   const toAdd = serviceIds.filter(id => !current.has(id))
@@ -708,7 +709,7 @@ export async function setAvailability(businessId: string, resourceId: string, sl
     const { error } = await supabase.from('availability').delete()
       .eq('business_id', businessId).eq('resource_id', resourceId)
       .eq('day_of_week', day).in('slot_index', slotIndexes)
-    if (error) return error.message
+    if (error) return friendlyError(error)
   }
 
   if (toAdd.length === 0) return null
@@ -717,7 +718,7 @@ export async function setAvailability(businessId: string, resourceId: string, sl
     return { business_id: businessId, resource_id: resourceId, day_of_week: day, slot_index: slotIndex }
   })
   const { error } = await supabase.from('availability').insert(rows)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // --- Cuentas de los profesionales (migraciones 029-033): el dueño invita a su equipo con un solo enlace; cada persona
@@ -734,14 +735,14 @@ export async function listStaffAccess(businessId: string): Promise<{ invites: St
 // Enlace de equipo del negocio: sirve para varias personas; crear uno nuevo anula el anterior.
 export async function createTeamInvite(businessId: string): Promise<{ token: string | null; error: string | null }> {
   const { data, error } = await supabase.rpc('create_team_invite', { p_business_id: businessId })
-  if (error) return { token: null, error: error.message }
+  if (error) return { token: null, error: friendlyError(error) }
   return { token: (data as { token?: string } | null)?.token ?? null, error: null }
 }
 
 export async function revokeStaffInvite(token: string): Promise<string | null> {
   const owned = await ownedBusinessIds()
   const { error } = await supabase.from('staff_invites').delete().eq('token', token).in('business_id', owned)
-  return error ? error.message : null
+  return error ? friendlyError(error) : null
 }
 
 // open: enlace de equipo (sin profesional cargado: el perfil se crea al aceptar)

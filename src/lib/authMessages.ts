@@ -1,3 +1,5 @@
+import { friendlyError } from './errorMessages'
+
 // Mensajes de Supabase Auth en español y la regla de contraseña del proyecto
 // (Supabase → Authentication → Policies: mínimo 6 caracteres, con minúsculas, mayúsculas y números).
 
@@ -20,5 +22,5 @@ export function authErrorMessage(message: string): string {
   if (/email not confirmed/i.test(message)) return 'Todavía no confirmaste tu email: abrí el último mail de RESER que te llegó.'
   if (/invalid login credentials/i.test(message)) return 'Email o contraseña incorrectos'
   if (/unable to validate email|invalid format|email address .*invalid/i.test(message)) return 'Ese email no parece válido. Revisalo.'
-  return message
+  return friendlyError(message)
 }
