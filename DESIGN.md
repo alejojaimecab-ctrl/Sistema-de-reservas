@@ -105,7 +105,7 @@ Negro profundo, grises neutros sin tinte y un único acento blanco que marca dó
 - los campos van hundidos;
 - los botones suben al pasar el mouse y se hunden al presionarlos.
 
-Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única excepción son los títulos de los paneles de funciones de la portada, que usan **Source Serif 4** (400), por un diseño del dueño del producto. Esos paneles son planos: borde fino, etiqueta en mayúsculas arriba, título con serif y un fragmento de la interfaz.
+Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única excepción es **Source Serif 4** (400) en dos lugares de la portada, por pedido del dueño del producto: los títulos de los paneles de funciones y la segunda línea del título principal ("Hacelo rendir.", en itálica y gris), que hace de contrapunto editorial al Inter bold de la primera. Esos paneles son planos: borde fino, etiqueta en mayúsculas arriba, título con serif y un fragmento de la interfaz.
 
 ## Reglas clave
 

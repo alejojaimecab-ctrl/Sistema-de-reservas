@@ -100,9 +100,9 @@
 ## 2. Tipografía
 
 - **Familia principal:** `Inter`, sans-serif neo-grotesca. Se carga desde Google Fonts con los pesos 400, 500, 600 y 700.
-- **Serif editorial (excepción, diseño del dueño, 2026-10-19):** `Source Serif 4` 400 (token `--font-serif`). Va **solo** en los títulos de los paneles de funciones de la portada (`.feature-panel h3`) y en la inicial del remitente del mail de ejemplo. No se usa en el panel ni en la reserva.
+- **Serif editorial (excepción, diseño del dueño, 2026-10-19):** `Source Serif 4` 400 (token `--font-serif`). Va **solo** en los títulos de los paneles de funciones de la portada (`.feature-panel h3`), en la inicial del remitente del mail de ejemplo y, en itálica 400, en la segunda línea del título principal ("Hacelo rendir.", `.hero h1 em`, pedido del dueño el 2026-10-20). No se usa en el panel ni en la reserva.
 - `font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;`
-- **No se usan** serif, cursivas decorativas ni monoespaciadas.
+- **No se usan** serif (fuera de la excepción de arriba), cursivas decorativas ni monoespaciadas.
 - **Números** (precios, horas, fechas y contadores): `font-variant-numeric: tabular-nums;`
 
 | Estilo | Tamaño | Peso | Interlineado | Tracking | Uso |
