@@ -1,13 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Copy, LayoutDashboard, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, LayoutDashboard, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import { friendlyError } from '../lib/errorMessages'
-import { copyText } from '../lib/clipboard'
 import * as field from '../lib/fieldRules'
-import { bookingUrl, goTo, mapsUrl, panelSectionFromPath, slugify } from '../lib/routes'
+import { goTo, mapsUrl, panelSectionFromPath, slugify } from '../lib/routes'
 import { addressProblem, joinAddress, PROVINCES, splitAddress, type AddressParts } from '../lib/address'
 import { EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
@@ -226,11 +225,6 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
   return <div className="dashboard">
     <aside className="dashboard-sidebar"><Brand />
-      <div className="business-switch">
-        <span className="mini-logo" style={logoUrl(business.logo_path) ? { backgroundImage: `url(${logoUrl(business.logo_path)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{initials(business.name)}</span>
-        <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
-        <CopyLinkButton slug={business.slug} />
-      </div>
       <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}</button>)}</nav>
       <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
@@ -345,7 +339,6 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     </nav>
     <AnimatePresence>
       {moreOpen && <MoreSheet
-        business={business}
         sections={sections.slice(3)}
         active={active}
         onPick={key => { setActive(key); setMoreOpen(false) }}
@@ -356,9 +349,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   </div>
 }
 
-// Hoja que sube desde abajo en el celular: el negocio con su enlace, las secciones que no entran en la barra y Cerrar sesión
-function MoreSheet({ business, sections, active, onPick, onClose, onSignOut }: {
-  business: { name: string; slug: string; logo_path: string | null }
+// Hoja que sube desde abajo en el celular: las secciones que no entran en la barra y Cerrar sesión
+function MoreSheet({ sections, active, onPick, onClose, onSignOut }: {
   sections: SectionItem[]
   active: SectionKey
   onPick: (key: SectionKey) => void
@@ -375,7 +367,6 @@ function MoreSheet({ business, sections, active, onPick, onClose, onSignOut }: {
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); opener?.focus() }
   }, [])
-  const logo = logoUrl(business.logo_path)
   return <motion.div className="sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.16 } }} onClick={onClose}>
     <motion.div
       ref={sheetRef}
@@ -389,11 +380,6 @@ function MoreSheet({ business, sections, active, onPick, onClose, onSignOut }: {
       onClick={event => event.stopPropagation()}
     >
       <span className="sheet-handle" aria-hidden="true" />
-      <div className="business-switch">
-        <span className="mini-logo" style={logo ? { backgroundImage: `url(${logo})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>{initials(business.name)}</span>
-        <span><strong>{business.name}</strong><small>{window.location.host}/{business.slug}</small></span>
-        <CopyLinkButton slug={business.slug} />
-      </div>
       <nav>{sections.map(({ key, label, icon: Icon }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => onPick(key)}><Icon size={18} />{label}</button>)}</nav>
       <button type="button" className="sheet-exit" onClick={onSignOut}><LogOut size={17} /> Cerrar sesión</button>
     </motion.div>
@@ -1564,21 +1550,6 @@ function ConfigSection({ businessId, onSaved }: { businessId: string; onSaved: (
       {busy ? 'Guardando…' : 'Guardar cambios'}
     </button>
   </section>
-}
-
-function CopyLinkButton({ slug }: { slug: string }) {
-  const [copied, setCopied] = useState(false)
-  async function copy() {
-    if (await copyText(bookingUrl(slug))) {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1800)
-    } else {
-      window.prompt('Copiá el enlace de reservas:', bookingUrl(slug))
-    }
-  }
-  return <button type="button" className="icon-button" style={{ marginLeft: 'auto', width: 30, height: 30 }} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace de reservas'} title={copied ? 'Copiado' : 'Copiar enlace de reservas'} onClick={() => void copy()}>
-    {copied ? <Check size={15} /> : <Copy size={15} />}
-  </button>
 }
 
 function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {

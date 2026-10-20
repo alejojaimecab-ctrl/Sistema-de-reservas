@@ -502,7 +502,6 @@
 .sheet-backdrop { position: fixed; inset: 0; z-index: 210; display: flex; align-items: flex-end; background: rgb(0 0 0 / .6); }
 .sheet { width: 100%; max-height: 85vh; overflow-y: auto; padding: 10px 16px calc(18px + env(safe-area-inset-bottom)); border: 1px solid var(--border); border-bottom: 0; border-radius: 20px 20px 0 0; background: var(--sheen), var(--grain), var(--surface); box-shadow: var(--hl-strong), 0 -24px 48px -12px rgb(0 0 0 / .9); }
 .sheet-handle { display: block; width: 40px; height: 4px; margin: 0 auto 14px; border-radius: var(--r-full); background: var(--border-hover); }
-.sheet .business-switch { margin-bottom: 10px; }
 .sheet nav { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .sheet nav button, .sheet-exit { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 12px; color: var(--text-2); text-align: left; background: transparent; border: 0; border-radius: var(--r-sm); font-size: 14px; font-weight: 500; transition: color .18s ease-out, background-color .18s ease-out; }
 .sheet nav button.is-active { color: var(--text); background: var(--surface-sel); box-shadow: var(--hl-strong), inset 0 0 0 1px var(--border); }

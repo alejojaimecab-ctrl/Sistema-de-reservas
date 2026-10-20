@@ -6,7 +6,26 @@
 /* ── Luz ambiente ───────────────────────────────────────────── */
 .site-shell { background: radial-gradient(ellipse 70% 55% at 78% -8%, rgb(255 255 255 / .075), transparent 62%), radial-gradient(ellipse 50% 40% at 0% 40%, rgb(255 255 255 / .025), transparent 70%), var(--grain), var(--bg); }
 .dashboard { background: radial-gradient(ellipse 55% 38% at 72% -12%, rgb(255 255 255 / .05), transparent 70%), var(--bg); }
-.booking-shell, .onboarding { background-image: radial-gradient(ellipse 60% 45% at 50% -10%, rgb(255 255 255 / .06), transparent 68%), var(--grain); }
+.onboarding { background-image: radial-gradient(ellipse 60% 45% at 50% -10%, rgb(255 255 255 / .06), transparent 68%), var(--grain); }
+/* Reserva pública, según la captura del dueño: negro parejo y una columna de luz sobre la mitad izquierda,
+   más clara hacia su borde (que corta neto justo antes de la tarjeta) y arriba, apagándose hacia abajo */
+.booking-shell { --booking-bg: #07080c; position: relative; isolation: isolate; background: var(--booking-bg); }
+.booking-shell::before {
+  content: ''; position: absolute; z-index: -1; top: 0; left: 0; pointer-events: none;
+  width: min(calc(50% + 110px), calc(100% - 478px)); height: 100vh;
+  background: linear-gradient(to right, transparent 12%, rgb(255 255 255 / .035) 45%, rgb(255 255 255 / .068) 82%, rgb(255 255 255 / .09));
+  -webkit-mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / .77) 17%, rgb(0 0 0 / .41) 43%, rgb(0 0 0 / .14) 60%, transparent 72%);
+  mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / .77) 17%, rgb(0 0 0 / .41) 43%, rgb(0 0 0 / .14) 60%, transparent 72%);
+}
+.booking-shell--success::before { width: 100%; }
+/* Sin aire de sobra abajo, para que los tres pasos entren en la pantalla y la página no cambie de alto al avanzar;
+   y el lugar de la barra de scroll siempre reservado, para que si aparece nada se corra de costado */
+html { scrollbar-gutter: stable; }
+@media (min-width: 801px) {
+  .booking-shell:not(.booking-shell--success) { padding-bottom: 0; }
+  .booking-shell .booking-layout { padding: 28px 0 24px; }
+}
+@media (max-width: 800px) { .booking-shell::before { width: 100%; height: 70vh; } }
 ::selection { color: var(--on-accent); background: rgb(255 255 255 / .88); }
 
 /* ── Tarjetas: borde de luz (más claro arriba), brillo en la cara, grano y sombra en capas ── */
@@ -119,3 +138,13 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .service-option.is-selected .option-check { animation: none; }
   .slot-skeleton { animation: none; }
 }
+
+/* ── Barra de pasos de la reserva: el tramo se llena de izquierda a derecha y el punto se enciende al llegar ── */
+.stepper > :not(:first-child)::before {
+  background: linear-gradient(var(--accent), var(--accent)) left / 0% 100% no-repeat var(--disabled);
+  transition: background-size .25s var(--ease-out) .12s !important;
+}
+.stepper > .is-active::before { background-size: 100% 100%; transition: background-size .55s var(--ease-out) !important; }
+.stepper > .is-active:not(:first-child)::after { transition: background-color .2s ease-out .45s, box-shadow .18s ease-out !important; }
+/* Los !important ganan al apagado general de extra.css: con "reducir movimiento" el llenado sigue,
+   porque es un cambio de color en su lugar (nada se desplaza) y es lo que muestra el avance */
