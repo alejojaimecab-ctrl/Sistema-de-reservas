@@ -287,7 +287,7 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .profile-footer { margin-top: auto; padding-top: 4px; }
 .profile-footer .button { width: 100%; }
 /* El nombre del cliente en las listas abre su perfil: parece texto, se comporta como enlace */
-.client-link { padding: 0; color: inherit; font: inherit; font-weight: 600; text-align: left; background: none; border: 0; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .18s ease-out; }
+.client-link { padding: 0; color: inherit; font: inherit; text-align: left; background: none; border: 0; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .18s ease-out; }
 .client-link:hover { text-decoration-color: currentColor; }
 .client-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 @media (max-width: 800px) {

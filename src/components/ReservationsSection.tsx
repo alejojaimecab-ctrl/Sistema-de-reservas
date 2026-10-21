@@ -43,8 +43,9 @@ function statusInfo(r: HistoryReservation, now: number): { label: string; tone: 
   return new Date(r.starts_at).getTime() < now ? { label: 'Sin marcar', tone: 'wait' } : { label: 'Confirmado', tone: 'plain' }
 }
 
-export function ReservationsSection({ businessId, professionals, reloadKey, onCancel, onStatusChanged, preset }: {
+export function ReservationsSection({ businessId, professionals, reloadKey, onCancel, onStatusChanged, onOpenClient, preset }: {
   businessId: string
+  onOpenClient: (reservation: Reservation) => void // tocar el nombre abre el perfil del cliente
   preset?: ReservationsPreset | null // "Ver los N en Reservas" del Resumen: abre directo en los turnos pasados sin marcar
   professionals: Professional[]
   reloadKey: number // cambia cuando se carga una reserva nueva a mano: se vuelve a traer todo
@@ -208,7 +209,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
           return <article className="res-row" key={r.id}>
             <time dateTime={r.starts_at}><strong>{dateLabel(r.starts_at)}</strong><span>{timeLabel(r.starts_at)}</span></time>
             <div className="res-info">
-              <strong>{name}</strong>
+              <strong><button type="button" className="client-link" aria-haspopup="dialog" aria-label={`Ver el perfil de ${name}`} onClick={() => onOpenClient(r)}>{name}</button></strong>
               <small>{r.clients?.email ?? 'Sin email'}</small>
               <small>{r.services?.name ?? 'Servicio'}{professionals.length > 1 && r.resources ? ` · con ${r.resources.name}` : ''}{r.services ? ` · ${priceLabel(Number(r.services.price), r.services.price_mode ?? 'fixed')}` : ''}</small>
             </div>

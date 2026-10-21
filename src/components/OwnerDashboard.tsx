@@ -149,7 +149,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [historyVersion, setHistoryVersion] = useState(0)
   const [cancelNotice, setCancelNotice] = useState<{ text: string; isError: boolean } | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
-  // Perfil del cliente que se abre al tocar su nombre en "Próximos días"
+  // Perfil del cliente que se abre al tocar su nombre en la Agenda o en Reservas
   const [profileReservation, setProfileReservation] = useState<Reservation | null>(null)
   const activeProfessionals = professionals.filter(p => p.is_active)
   const reloadProfessionals = async () => {
@@ -283,6 +283,17 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       />}
       {cancelNotice && <p className={cancelNotice.isError ? 'calendar-message calendar-message--error' : 'reservation-form-success'} role={cancelNotice.isError ? 'alert' : 'status'}>{cancelNotice.text}</p>}
       {confirmDialog}
+      <ClientProfile
+        businessId={business.id}
+        reservation={profileReservation}
+        showProfessional={activeProfessionals.length > 1}
+        onClose={() => setProfileReservation(null)}
+        onCancel={async reservation => {
+          const cancelled = await cancelReservation(reservation)
+          if (cancelled) setHistoryVersion(version => version + 1)
+          return cancelled
+        }}
+      />
 
       {/* Si una sección falla, solo ella muestra el error: el menú y el resto del panel siguen funcionando */}
       <ErrorBoundary variant="section" resetKey={active}>
@@ -307,8 +318,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         {/* Los de hoy ya están en "Hoy": acá van los de los próximos días */}
         <section className="agenda-card">
           <div className="card-heading"><h2>Próximos días</h2><button className="link-button" onClick={() => setActive('Reservas')}>Ver todas</button></div>
-          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} onOpenClient={setProfileReservation} isNew={isNew} />
-          <ClientProfile businessId={business.id} reservation={profileReservation} showProfessional={activeProfessionals.length > 1} onClose={() => setProfileReservation(null)} onCancel={cancelReservation} />
+          <ReservationList reservations={reservations.filter(r => new Date(r.starts_at).toDateString() !== new Date().toDateString())} showProfessional={activeProfessionals.length > 1} onCancel={cancelReservation} isNew={isNew} />
         </section>
       </>}
 
@@ -317,6 +327,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           reservations={upcomingReservations}
           showProfessional={activeProfessionals.length > 1}
           onCancel={cancelReservation}
+          onOpenClient={setProfileReservation}
           isNew={isNew}
           businessId={business.id}
           businessSlug={business.slug}
@@ -355,6 +366,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             reloadKey={historyVersion}
             onCancel={cancelReservation}
             onStatusChanged={reservationStatusChanged}
+            onOpenClient={setProfileReservation}
           />
         </section>
       )}
@@ -613,7 +625,7 @@ function CreateBusinessCard() {
   </section>
 }
 
-function ReservationList({ reservations, showProfessional, onCancel, onOpenClient, isNew }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void; onOpenClient: (reservation: Reservation) => void; isNew: (reservation: Reservation) => boolean }) {
+function ReservationList({ reservations, showProfessional, onCancel, isNew }: { reservations: Reservation[]; showProfessional: boolean; onCancel: (reservation: Reservation) => void; isNew: (reservation: Reservation) => boolean }) {
   if (reservations.length === 0) {
     return <p className="res-empty">Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
@@ -623,7 +635,7 @@ function ReservationList({ reservations, showProfessional, onCancel, onOpenClien
     return <motion.div className="reservation-row" key={r.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
       <time>{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</time>
       <span className="avatar">{initials(clientName)}</span>
-      <span className="reservation-info">{isNew(r) && <NewDot />}<strong><button type="button" className="client-link" aria-haspopup="dialog" aria-label={`Ver el perfil de ${clientName}`} onClick={() => onOpenClient(r)}>{clientName}</button></strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
+      <span className="reservation-info">{isNew(r) && <NewDot />}<strong>{clientName}</strong><small>{r.services?.name ?? 'Servicio'}{showProfessional && r.resources ? ` · con ${r.resources.name}` : ''}</small></span>
       <b>{r.services ? priceLabel(Number(r.services.price), r.services.price_mode ?? 'fixed') : ''}</b>
       <button type="button" aria-label={`Cancelar turno de ${clientName}`} title="Cancelar turno" onClick={() => onCancel(r)}><CalendarX size={16} /></button>
     </motion.div>
@@ -927,10 +939,11 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
+  onOpenClient: (reservation: Reservation) => void
   isNew: (reservation: Reservation) => boolean
   businessId: string
   businessSlug: string
@@ -1164,7 +1177,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, isNew, busin
                 <time className="calendar-appointment-time" dateTime={reservation.starts_at}><strong>{clockLabel(date)}</strong></time>
                 <span className="calendar-appointment-avatar" aria-hidden="true"><UserRound size={16} /></span>
                 <div className="calendar-appointment-info">
-                  {isNew(reservation) && <NewDot />}<strong>{clientName}</strong>
+                  {isNew(reservation) && <NewDot />}<strong><button type="button" className="client-link" aria-haspopup="dialog" aria-label={`Ver el perfil de ${clientName}`} onClick={() => onOpenClient(reservation)}>{clientName}</button></strong>
                   <span>{reservation.services?.name ?? 'Servicio'}{showProfessional && reservation.resources ? ` · con ${reservation.resources.name}` : ''}</span>
                 </div>
                 {reservation.services && <b className="calendar-appointment-price">{priceLabel(Number(reservation.services.price), reservation.services.price_mode ?? 'fixed')}</b>}

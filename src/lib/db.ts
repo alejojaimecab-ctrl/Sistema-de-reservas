@@ -171,7 +171,7 @@ export async function listAgendaReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, created_at, source, status, clients(name), services(name, price, price_mode), resources(name)')
+      .select('id, starts_at, created_at, source, status, client_id, clients(name), services(name, price, price_mode), resources(name)')
       .eq('business_id', businessId)
       .neq('status', 'cancelled')
       .order('starts_at', { ascending: true })
@@ -257,7 +257,7 @@ export async function listAllReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, ends_at, status, cancelled_by, service_id, resource_id, clients(name, email), services(name, price, price_mode), resources(name)')
+      .select('id, starts_at, ends_at, status, cancelled_by, source, service_id, resource_id, client_id, clients(name, email), services(name, price, price_mode), resources(name)')
       .eq('business_id', businessId)
       .order('starts_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
