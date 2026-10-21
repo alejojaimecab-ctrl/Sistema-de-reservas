@@ -117,8 +117,3 @@ export function professionalsInPlan(professionals: { id: string; is_active: bool
   const active = professionals.filter(p => p.is_active)
   return new Set((limit === null ? active : active.slice(0, limit)).map(p => p.id))
 }
-
-// El plan más barato que trae esta función (para decir "parte del plan Básico")
-export function planFor(feature: Feature): PlanInfo {
-  return PLANS[PLAN_ORDER.find(plan => hasFeature(plan, feature)) ?? 'pro']
-}

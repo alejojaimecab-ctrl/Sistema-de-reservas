@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, CalendarDays, MapPin, MessageCircle, Phone, Check, ChevronLeft, ChevronRight, CirclePlay, Mail, PencilLine, UserRound, UsersRound } from 'lucide-react'
 import { demoServices, priceLabel } from '../data/demo'
-import { bookPublic, getPublicBusiness, getPublicSlots, listPublicProfessionals, listPublicResourceServices, listPublicServices, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
+import { bookPublic, getPublicPage, getPublicSlots, type PublicBusiness, type PublicProfessional, type PublicService, type ResourceService } from '../lib/db'
 import { logoUrl } from '../lib/db'
 import { addressForMaps } from '../lib/address'
 import { SuccessCheck } from './SuccessCheck'
@@ -147,24 +147,14 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         return
       }
       if (!slug) { setLoadingServices(false); return }
-      const { business: biz, failed } = await getPublicBusiness(slug)
+      const page = await getPublicPage(slug)
       if (cancelled) return
-      if (failed) { setLoadFailed(true); setLoadingServices(false); return }
-      setBusiness(biz)
-      if (biz) {
-        const { services: svcs, failed: servicesFailed } = await listPublicServices(biz.slug)
-        if (cancelled) return
-        if (servicesFailed) { setLoadFailed(true); setLoadingServices(false); return }
-        const [{ professionals: team }, teamOffers] = await Promise.all([
-          listPublicProfessionals(biz.slug),
-          listPublicResourceServices(biz.slug),
-        ])
-        if (cancelled) return
-        setOffers(teamOffers)
-        setServices(svcs)
-        setService(svcs[0] ?? null)
-        setProfessionals(team)
-      }
+      if (page.failed) { setLoadFailed(true); setLoadingServices(false); return }
+      setBusiness(page.business)
+      setOffers(page.offers)
+      setServices(page.services)
+      setService(page.services[0] ?? null)
+      setProfessionals(page.professionals)
       setLoadingServices(false)
     })()
     return () => { cancelled = true }

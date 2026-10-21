@@ -7,7 +7,7 @@ import { downloadBlob } from '../lib/xlsx'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import {
-  listAllReservations, listBusinessAvailability, listClientFirstVisits, listStatsReservations, listTimeOffBetween, updateMonthlyGoal,
+  listAllReservations, listBusinessAvailability, listStatsReservations, listTimeOffBetween, updateMonthlyGoal,
   type HistoryReservation, type OpenSlot, type StatsReservation, type TimeOff,
 } from '../lib/db'
 import {
@@ -59,7 +59,7 @@ function buildTrend(daily: Stats['daily']): TrendPoint[] {
 
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '').replace(/ de /g, ' ')
 
-type PeriodData = { current: StatsReservation[]; previous: StatsReservation[]; firstVisits: Map<string, string> | null; availability: OpenSlot[]; timeOff: TimeOff[] }
+type PeriodData = { current: StatsReservation[]; previous: StatsReservation[]; availability: OpenSlot[]; timeOff: TimeOff[] }
 
 // Estadísticas del negocio (plan Pro): cómo le fue en un período, cómo viene contra el anterior,
 // cuánto se llenó la agenda, la meta del mes y qué clientes conviene recuperar.
@@ -83,15 +83,12 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
       listStatsReservations(businessId, previous.from, range.to),
       listBusinessAvailability(businessId),
       listTimeOffBetween(businessId, range.from, range.to),
-    ]).then(async ([result, availability, timeOff]) => {
+    ]).then(([result, availability, timeOff]) => {
       if (!active) return
       if (result.error) { setError(result.error); return }
       const current = result.reservations.filter(r => new Date(r.starts_at) >= range.from)
       const before = result.reservations.filter(r => new Date(r.starts_at) < range.from)
-      setData({ current, previous: before, firstVisits: null, availability, timeOff })
-      const attendedIds = [...new Set(current.filter(r => r.status === 'completed' && r.client_id).map(r => r.client_id as string))]
-      const firstVisits = await listClientFirstVisits(businessId, attendedIds)
-      if (active) setData(existing => existing && { ...existing, firstVisits })
+      setData({ current, previous: before, availability, timeOff })
     }).catch(() => { if (active) setError('Revisá tu conexión e intentá de nuevo.') })
     return () => { active = false }
   }, [businessId, range, previous, retry])
@@ -103,7 +100,18 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
     return () => { active = false }
   }, [businessId, retry])
 
-  const stats: Stats | null = useMemo(() => data ? computeStats(range, data.current, data.previous, data.firstVisits) : null, [data, range])
+  // Primera visita de cada cliente (para separar nuevos de los que vuelven), sacada de la historia completa
+  const firstVisits = useMemo(() => {
+    if (!history) return null
+    const first = new Map<string, string>()
+    for (const r of history) {
+      if (!r.client_id || r.status === 'cancelled') continue
+      const known = first.get(r.client_id)
+      if (!known || new Date(r.starts_at) < new Date(known)) first.set(r.client_id, r.starts_at)
+    }
+    return first
+  }, [history])
+  const stats: Stats | null = useMemo(() => data ? computeStats(range, data.current, data.previous, firstVisits) : null, [data, range, firstVisits])
   const occupancy: Occupancy | null = useMemo(() => data ? computeOccupancy(range, data.current, data.availability, data.timeOff) : null, [data, range])
   const previousOccupancy: Occupancy | null = useMemo(() => data ? computeOccupancy(previous, data.previous, data.availability, []) : null, [data, previous])
   const clients: ClientsOverview | null = useMemo(() => history ? computeClients(history) : null, [history])

@@ -2,30 +2,40 @@ import { supabase } from './supabase'
 import { slugProblem } from './routes'
 import { friendlyError } from './errorMessages'
 
-// Fase 6: filtro explícito del dueño en cada query (defensa en profundidad sobre RLS).
-// Devuelve los ids de negocios del usuario autenticado; [] si no hay sesión.
-async function ownedBusinessIds(): Promise<string[]> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-  const { data } = await supabase.from('businesses').select('id').eq('owner_id', user.id)
-  return (data ?? []).map(b => b.id as string)
+// Fase 6: filtro explícito del dueño en cada query (defensa en profundidad sobre RLS, que es la que de verdad protege).
+// La sesión se lee del navegador (getSession, sin viajar al servidor) y los negocios del usuario se recuerdan:
+// solo se vuelven a pedir si aparece uno que no estaba (por ejemplo, recién creado).
+let ownedCache: { userId: string; ids: string[] } | null = null
+
+async function sessionUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user.id ?? null
+}
+
+// Ids de los negocios del usuario autenticado; [] si no hay sesión
+async function ownedBusinessIds(refresh = false): Promise<string[]> {
+  const userId = await sessionUserId()
+  if (!userId) return []
+  if (refresh || ownedCache?.userId !== userId) {
+    const { data } = await supabase.from('businesses').select('id').eq('owner_id', userId)
+    ownedCache = { userId, ids: (data ?? []).map(b => b.id as string) }
+  }
+  return ownedCache.ids
 }
 
 // true si el negocio pertenece al usuario autenticado
 async function ownsBusiness(businessId: string): Promise<boolean> {
-  return (await ownedBusinessIds()).includes(businessId)
+  return (await ownedBusinessIds()).includes(businessId) || (await ownedBusinessIds(true)).includes(businessId)
 }
 
 // true si el usuario es el dueño o un profesional con cuenta del negocio (migración 029).
 // Qué ve cada uno lo limita la base: un profesional solo recibe su agenda, sus reservas y sus horarios.
 async function canUseBusiness(businessId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
-  const [owned, staff] = await Promise.all([
-    supabase.from('businesses').select('id').eq('id', businessId).eq('owner_id', user.id).maybeSingle(),
-    supabase.from('staff_members').select('resource_id').eq('business_id', businessId).eq('user_id', user.id).maybeSingle(),
-  ])
-  return Boolean(owned.data || staff.data)
+  if (await ownsBusiness(businessId)) return true
+  const userId = await sessionUserId()
+  if (!userId) return false
+  const { data } = await supabase.from('staff_members').select('resource_id').eq('business_id', businessId).eq('user_id', userId).maybeSingle()
+  return Boolean(data)
 }
 
 export type BookingMode = 'online' | 'whatsapp'
@@ -78,6 +88,11 @@ export async function createBusinessWithSetup(
     .select('id').single()
   if (error) return friendlyError(error)
   const businessId = business.id as string
+  // Sin transacción: si falla un paso se borra el negocio (sus filas caen en cascada) y el reintento arranca limpio
+  const undo = async (failure: { message: string; code?: string }) => {
+    await supabase.from('businesses').delete().eq('id', businessId)
+    return friendlyError(failure)
+  }
 
   if (input.services.length > 0) {
     const { error: svcError } = await supabase.from('services').insert(
@@ -85,7 +100,7 @@ export async function createBusinessWithSetup(
         .filter(s => s.name.trim() !== '')
         .map(s => ({ business_id: businessId, name: s.name.trim(), duration_min: s.duration || 30, price: s.price || 0 }))
     )
-    if (svcError) return svcError.message
+    if (svcError) return undo(svcError)
   }
 
   // Los borradores anteriores guardaban horas completas; cada una se expande
@@ -101,7 +116,7 @@ export async function createBusinessWithSetup(
   })
   if (rows.length > 0) {
     const { error: avError } = await supabase.from('availability').insert(rows)
-    if (avError) return avError.message
+    if (avError) return undo(avError)
   }
 
   return null
@@ -125,22 +140,23 @@ export async function getDashboardStats(businessId: string): Promise<DashboardSt
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
-  const [today, month, attended] = await Promise.all([
+  const [today, month, completed, noShow] = await Promise.all([
     supabase.from('reservations').select('id', { count: 'exact', head: true })
       .eq('business_id', businessId).gte('starts_at', startOfDay).lt('starts_at', endOfDay)
       .neq('status', 'cancelled'),
     supabase.from('reservations').select('client_id')
       .eq('business_id', businessId).gte('starts_at', startOfMonth).neq('status', 'cancelled'),
-    supabase.from('reservations').select('status')
-      .eq('business_id', businessId).lt('starts_at', now.toISOString()),
+    supabase.from('reservations').select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId).eq('status', 'completed'),
+    supabase.from('reservations').select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId).eq('status', 'no_show'),
   ])
 
   const monthClients = new Set((month.data ?? []).map(r => r.client_id)).size
   // Asistencia real: de los turnos que el dueño ya marcó, cuántos vinieron
-  const marked = (attended.data ?? []).filter(r => r.status === 'completed' || r.status === 'no_show')
-  const attendanceRate = marked.length === 0
-    ? null
-    : Math.round((marked.filter(r => r.status === 'completed').length / marked.length) * 100)
+  const attendedCount = completed.count ?? 0
+  const marked = attendedCount + (noShow.count ?? 0)
+  const attendanceRate = marked === 0 ? null : Math.round((attendedCount / marked) * 100)
 
   return { todayCount: today.count ?? 0, monthClients, attendanceRate }
 }
@@ -325,25 +341,6 @@ export async function updateMonthlyGoal(businessId: string, goal: number | null)
   return error ? friendlyError(error) : null
 }
 
-// Primera vez que cada cliente tuvo un turno (no cancelado) en el negocio: separa clientes nuevos de los que vuelven
-export async function listClientFirstVisits(businessId: string, clientIds: string[]): Promise<Map<string, string>> {
-  const first = new Map<string, string>()
-  if (clientIds.length === 0 || !(await ownsBusiness(businessId))) return first
-  for (let i = 0; i < clientIds.length; i += 200) {
-    const { data } = await supabase
-      .from('reservations')
-      .select('client_id, starts_at')
-      .eq('business_id', businessId)
-      .in('client_id', clientIds.slice(i, i + 200))
-      .neq('status', 'cancelled')
-      .order('starts_at', { ascending: true })
-    for (const row of (data ?? []) as { client_id: string; starts_at: string }[]) {
-      if (!first.has(row.client_id)) first.set(row.client_id, row.starts_at)
-    }
-  }
-  return first
-}
-
 // Historial completo de reservas del negocio (pasadas, futuras y canceladas) para la sección Reservas.
 export type HistoryReservation = Reservation & {
   ends_at: string
@@ -457,18 +454,13 @@ export type PublicService = {
   booking_mode: BookingMode
 }
 
-// `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
-// la UI mostraba el empty state ante un error de red.
-export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, show_badge').eq('slug', slug).maybeSingle()
-  return { business: data ?? null, failed: !!error }
-}
-
-export async function listPublicServices(slug: string): Promise<{ services: PublicService[]; failed: boolean }> {
-  const { data, error } = await supabase
-    .from('public_services').select('id, business_slug, name, duration_min, price, price_mode, booking_mode')
-    .eq('business_slug', slug).order('name')
-  return { services: data ?? [], failed: !!error }
+// La página de reservas de un negocio en un solo pedido (migración 037): el negocio, sus servicios, sus profesionales
+// y qué ofrece cada uno. `failed` distingue "no existe ese negocio" (business null) de "no pudimos conectar".
+export type PublicPage = { business: PublicBusiness | null; services: PublicService[]; professionals: PublicProfessional[]; offers: ResourceService[] }
+export async function getPublicPage(slug: string): Promise<PublicPage & { failed: boolean }> {
+  const { data, error } = await supabase.rpc('public_booking_page', { p_slug: slug })
+  const page = data as Omit<PublicPage, 'business'> & { business: PublicBusiness } | null
+  return { business: page?.business ?? null, services: page?.services ?? [], professionals: page?.professionals ?? [], offers: page?.offers ?? [], failed: !!error }
 }
 
 // Slots libres de un día para UN servicio (función security definer, Fase 8).
@@ -476,18 +468,6 @@ export async function listPublicServices(slug: string): Promise<{ services: Publ
 // calculados en la zona horaria del negocio. Devuelve starts_at en
 // timestamptz; la UI los muestra en hora local.
 export type PublicProfessional = { id: string; name: string; whatsapp: string | null }
-
-export async function listPublicResourceServices(slug: string): Promise<ResourceService[]> {
-  const { data } = await supabase.from('public_resource_services').select('resource_id, service_id').eq('business_slug', slug)
-  return data ?? []
-}
-
-export async function listPublicProfessionals(slug: string): Promise<{ professionals: PublicProfessional[]; failed: boolean }> {
-  const { data, error } = await supabase
-    .from('public_resources').select('id, name, whatsapp')
-    .eq('business_slug', slug).order('created_at', { ascending: true })
-  return { professionals: data ?? [], failed: !!error }
-}
 
 // resourceId null = "cualquier profesional": la base asigna el primero libre.
 export async function getPublicSlots(slug: string, serviceId: string, date: Date, resourceId: string | null = null): Promise<{ slots: string[]; failed: boolean }> {
@@ -522,6 +502,7 @@ const BOOK_PUBLIC_KNOWN_ERRORS = [
   'Ese profesional no ofrece este servicio',
   'Demasiadas reservas con ese email, probá más tarde',
   'Demasiadas reservas desde esta conexión, probá más tarde',
+  'Este negocio no está tomando más reservas para ese mes',
 ]
 const BOOK_PUBLIC_FALLBACK = 'No pudimos guardar tu reserva. Probá de nuevo en unos minutos.'
 
