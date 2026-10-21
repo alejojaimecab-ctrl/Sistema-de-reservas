@@ -19,6 +19,7 @@ import { describeReservation, useReservationAlerts } from '../lib/reservationAle
 import { SegmentIndicator } from './SegmentIndicator'
 import { NewDot, ShareLinkCard, TodayCard } from './SummaryCards'
 import { isNewReservation, useNewSince } from '../lib/newReservations'
+import { applyReservationChange, mergeReservations, missingRanges, type DateRange } from '../lib/agenda'
 import { ErrorBoundary } from './ErrorBoundary'
 import { ClientProfile } from './ClientProfile'
 import { StatsLocked, StatsSection } from './StatsSection'
@@ -155,6 +156,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([])
   const [agendaLoading, setAgendaLoading] = useState(true)
   const [agendaError, setAgendaError] = useState<string | null>(null)
+  // Semanas que la Agenda ya tiene cargadas (de from, inclusive, a to)
+  const agendaRangeRef = useRef<DateRange | null>(null)
   const [showNewReservation, setShowNewReservation] = useState(false)
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -210,7 +213,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     setAgendaLoading(true)
     setAgendaError(null)
     setUpcomingReservations([])
-    listAgendaReservations(business.id)
+    const range = initialAgendaRange(new Date())
+    agendaRangeRef.current = range
+    listAgendaReservations(business.id, range.from, range.to)
       .then(result => {
         if (!active) return
         setUpcomingReservations(result.reservations)
@@ -235,10 +240,33 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     if (business && !isStaff) void getDashboardStats(business.id).then(setStats)
   }
 
-  // Llegó una reserva por tiempo real (o se reconectó): Agenda, Resumen y Reservas se actualizan sin recargar
-  function refreshReservations() {
+  // La Agenda se movió a semanas que no estaban cargadas: se traen solo esas
+  function extendAgenda(wanted: DateRange) {
+    const loaded = agendaRangeRef.current
+    if (!business || !loaded) return
+    const missing = missingRanges(loaded, wanted)
+    if (missing.length === 0) return
+    agendaRangeRef.current = { from: wanted.from < loaded.from ? wanted.from : loaded.from, to: wanted.to > loaded.to ? wanted.to : loaded.to }
+    setAgendaLoading(true)
+    void Promise.all(missing.map(part => listAgendaReservations(business.id, part.from, part.to)))
+      .then(results => {
+        const failed = results.find(result => result.error)
+        if (failed) setAgendaError(failed.error)
+        setUpcomingReservations(current => mergeReservations(current, results.flatMap(result => result.reservations)))
+      })
+      .finally(() => setAgendaLoading(false))
+  }
+
+  // Llegó una reserva por tiempo real: entra solo esa. Si se reconectó, se vuelven a traer las semanas cargadas.
+  // Agenda, Resumen y Reservas se actualizan sin recargar.
+  function refreshReservations(change?: { id: string; reservation: Reservation | null }) {
     if (!business) return
-    void listAgendaReservations(business.id).then(result => { if (!result.error) setUpcomingReservations(result.reservations) })
+    if (change) {
+      setUpcomingReservations(current => applyReservationChange(current, change.id, change.reservation))
+    } else if (agendaRangeRef.current) {
+      const { from, to } = agendaRangeRef.current
+      void listAgendaReservations(business.id, from, to).then(result => { if (!result.error) setUpcomingReservations(result.reservations) })
+    }
     if (!isStaff) {
       void listReservations(business.id).then(setReservations)
       void getDashboardStats(business.id).then(setStats)
@@ -346,6 +374,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           onCreated={addCreatedReservation}
           loading={agendaLoading}
           error={agendaError}
+          onRangeChange={extendAgenda}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
             current.map(reservation => reservation.id === id ? { ...reservation, status } : reservation),
           )}
@@ -940,6 +969,14 @@ function monthDates(date: Date) {
   return Array.from({ length: totalDays }, (_, index) => addDays(start, index))
 }
 
+// Lo que la Agenda trae al abrir: la grilla del mes actual y, como mínimo, la semana que viene ("Próximos 7 días")
+function initialAgendaRange(now: Date): DateRange {
+  const grid = monthDates(now)
+  const gridEnd = addDays(grid[grid.length - 1], 1)
+  const weekAhead = addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), 8)
+  return { from: grid[0], to: gridEnd > weekAhead ? gridEnd : weekAhead }
+}
+
 function moveMonth(date: Date, amount: number) {
   const targetMonth = new Date(date.getFullYear(), date.getMonth() + amount, 1)
   const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate()
@@ -960,7 +997,7 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onRangeChange, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
@@ -973,6 +1010,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
   onCreated: (reservation: Reservation) => void
   loading: boolean
   error: string | null
+  onRangeChange: (range: DateRange) => void
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
 }) {
   const [mode, setMode] = useState<CalendarMode>('week')
@@ -1015,6 +1053,12 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
   }, [businessSlug, freeServiceId, selectedKey, isPastDay, fixedResourceId, reservations.length])
   const today = new Date()
   const dates = mode === 'week' ? weekDates(selectedDate) : monthDates(selectedDate)
+  // Avisa qué días se ven para que el panel traiga los turnos que falten
+  const rangeFrom = dates[0].getTime()
+  const rangeTo = addDays(dates[dates.length - 1], 1).getTime()
+  useEffect(() => {
+    onRangeChange({ from: new Date(rangeFrom), to: new Date(rangeTo) })
+  }, [rangeFrom, rangeTo, onRangeChange])
   const reservationsByDate = new Map<string, Reservation[]>()
 
   reservations.forEach(reservation => {

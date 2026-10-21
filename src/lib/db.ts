@@ -174,8 +174,13 @@ export async function listReservations(businessId: string): Promise<Reservation[
   return (data ?? []) as unknown as Reservation[]
 }
 
+const AGENDA_COLUMNS = 'id, starts_at, created_at, source, status, client_id, clients(name), services(name, price, price_mode), resources(name)'
+
+// Turnos de la Agenda entre dos fechas: el panel pide solo las semanas que se ven, no todo el historial
 export async function listAgendaReservations(
   businessId: string,
+  from: Date,
+  to: Date,
 ): Promise<{ reservations: Reservation[]; error: string | null }> {
   if (!(await canUseBusiness(businessId))) {
     return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
@@ -187,8 +192,10 @@ export async function listAgendaReservations(
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, starts_at, created_at, source, status, client_id, clients(name), services(name, price, price_mode), resources(name)')
+      .select(AGENDA_COLUMNS)
       .eq('business_id', businessId)
+      .gte('starts_at', from.toISOString())
+      .lt('starts_at', to.toISOString())
       .neq('status', 'cancelled')
       .order('starts_at', { ascending: true })
       .range(offset, offset + pageSize - 1)
@@ -203,15 +210,12 @@ export async function listAgendaReservations(
   return { reservations, error: null }
 }
 
-// Una reserva puntual, para el aviso de reserva nueva. El RLS deja ver al dueño las de su negocio y al profesional las suyas.
-export async function getReservationForAlert(id: string): Promise<(Reservation & { source: 'public' | 'manual' }) | null> {
-  const { data, error } = await supabase
-    .from('reservations')
-    .select('id, starts_at, status, source, clients(name), services(name, price, price_mode), resources(name)')
-    .eq('id', id)
-    .maybeSingle()
-  if (error || !data) return null
-  return data as unknown as Reservation & { source: 'public' | 'manual' }
+// Una reserva puntual: la que llegó o cambió por tiempo real, para el aviso y para sumarla a la Agenda.
+// El RLS deja ver al dueño las de su negocio y al profesional las suyas (null si no la ve).
+export async function getAgendaReservation(id: string): Promise<{ reservation: Reservation | null; error: string | null }> {
+  const { data, error } = await supabase.from('reservations').select(AGENDA_COLUMNS).eq('id', id).maybeSingle()
+  if (error) return { reservation: null, error: friendlyError(error) }
+  return { reservation: data as unknown as Reservation | null, error: null }
 }
 
 // Perfil de un cliente: sus datos de contacto y todos sus turnos en este negocio (los de cualquier estado).

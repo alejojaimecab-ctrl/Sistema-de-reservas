@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { getReservationForAlert, type Reservation } from './db'
+import { getAgendaReservation, type Reservation } from './db'
 
 // Avisos de reservas nuevas en el panel. Con la pestaña abierta (aunque esté en segundo plano o minimizada):
 // suena un aviso, aparece la notificación del sistema (Windows) y el título de la pestaña cuenta las que llegaron.
@@ -63,7 +63,9 @@ export function describeReservation(reservation: Reservation) {
 }
 
 export function useReservationAlerts(businessId: string | null, handlers: {
-  onChange: () => void // llegó o cambió cualquier reserva (también las manuales) o se reconectó: actualizar las listas
+  // Llegó o cambió una reserva (también las manuales): trae esa sola, ya leída (null si no se ve).
+  // Sin datos: se reconectó o no se pudo leer la reserva, hay que volver a traer las listas.
+  onChange: (change?: { id: string; reservation: Reservation | null }) => void
   onOpen: () => void // clic en la notificación del sistema
 }) {
   const [enabled, setEnabled] = useState(readPref)
@@ -152,22 +154,28 @@ export function useReservationAlerts(businessId: string | null, handlers: {
       } catch { /* algunos navegadores (Chrome en Android) solo notifican desde un service worker */ }
     }
 
+    // Se lee solo la reserva que cambió; si falla, se piden las listas de nuevo para no perderla
+    const readChanged = (id: string) => getAgendaReservation(id).then(({ reservation, error }) => {
+      handlersRef.current.onChange(error ? undefined : { id, reservation })
+      return reservation
+    })
+
     let subscribedBefore = false
     const channel = supabase
       .channel(`reservas-nuevas-${businessId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reservations', filter: `business_id=eq.${businessId}` }, payload => {
         const row = payload.new as { id?: string; source?: string }
-        handlersRef.current.onChange()
-        if (row.source !== 'public' || !row.id) return
-        void getReservationForAlert(row.id).then(reservation => {
-          if (!reservation) return
+        if (!row.id) return
+        void readChanged(row.id).then(reservation => {
+          if (!reservation || row.source !== 'public') return
           setLatest(reservation)
           if (enabledRef.current && leaderRef.current) alertNewReservation(reservation)
         })
       })
       // Un turno que cambia (por ejemplo, lo cancela el cliente) también se ve al instante, sin sonido
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservations', filter: `business_id=eq.${businessId}` }, () => {
-        handlersRef.current.onChange()
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservations', filter: `business_id=eq.${businessId}` }, payload => {
+        const id = (payload.new as { id?: string }).id
+        if (id) void readChanged(id)
       })
       .subscribe(status => {
         if (status !== 'SUBSCRIBED') return
