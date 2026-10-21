@@ -11,6 +11,7 @@ import { addressProblem, joinAddress, PROVINCES, splitAddress, type AddressParts
 import { EyeOff } from 'lucide-react'
 import { TeamSection } from './TeamSection'
 import { TimeOffSection } from './TimeOffSection'
+import { SplitPanels } from './SplitPanels'
 import { ReservationsSection, type ReservationsPreset } from './ReservationsSection'
 import { MyScheduleSection } from './MyScheduleSection'
 import { PendingInviteCard, readPendingInvite } from './JoinTeam'
@@ -46,7 +47,6 @@ const OWNER_SECTIONS: SectionItem[] = [
   { key: 'Estadísticas', label: 'Estadísticas', icon: ChartColumn },
   { key: 'Servicios', label: 'Servicios', icon: Sparkles },
   { key: 'Equipo', label: 'Equipo', icon: UserRound },
-  { key: 'Días libres', label: 'Días libres', icon: CalendarOff },
   { key: 'Configuración', label: 'Configuración', icon: Settings2 },
   { key: 'Tu plan', label: 'Tu plan', icon: Gem },
 ]
@@ -105,7 +105,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     : OWNER_SECTIONS.map(section => section.key === 'Estadísticas' && !statsUnlocked ? { ...section, locked: true } : section)
   const [selectedSection, setSelectedSection] = useState<SectionKey>(() => sectionFromPath() ?? (isStaff ? 'Agenda' : 'Resumen'))
   // Si cambia el rol (por ejemplo, al aceptar una invitación) se muestra una sección que exista para ese rol
-  const active = sections.some(section => section.key === selectedSection) ? selectedSection : sections[0].key
+  // Días libres no está en el menú: es el segundo panel de Equipo, pero conserva su dirección (/panel/dias-libres)
+  const active = sections.some(section => section.key === selectedSection) || (!isStaff && selectedSection === 'Días libres') ? selectedSection : sections[0].key
+  const navActive: SectionKey = active === 'Días libres' ? 'Equipo' : active
   const activeRef = useRef(active)
   activeRef.current = active
   // Una sección con cambios sin guardar (Configuración) puede frenar la salida: devuelve false si el dueño se queda
@@ -306,7 +308,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
   return <div className="dashboard">
     <aside className="dashboard-sidebar"><Brand />
-      <nav>{sections.map(({ key, label, icon: Icon, locked }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}{locked && <PlanLock />}</button>)}</nav>
+      <nav>{sections.map(({ key, label, icon: Icon, locked }) => <button className={navActive === key ? 'is-active' : ''} aria-current={navActive === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{navActive === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}{locked && <PlanLock />}</button>)}</nav>
       <button className="sidebar-exit" onClick={() => void requestSignOut()}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
     <main className="dashboard-main">
@@ -314,7 +316,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         {/* El título nombra la sección en la que estás; el saludo queda solo en el Resumen */}
         <div><p className="eyebrow">{todayLabel()}</p><h1>{active === 'Resumen'
           ? <>{greeting()}, {firstNameCapitalized(profile?.full_name) ?? 'bienvenido'}</>
-          : sections.find(section => section.key === active)?.label ?? active}</h1></div>
+          : sections.find(section => section.key === navActive)?.label ?? active}</h1></div>
         <div className="dashboard-header-actions">
           {!isStaff && <TrialBadge business={business} onOpen={() => void setActive('Tu plan')} />}
           <AlertsToggle alerts={alerts} />
@@ -340,7 +342,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       <ErrorBoundary variant="section" resetKey={active}>
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
-        key={active}
+        key={navActive}
         initial={reduceMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0, transition: { duration: 0.26, ease: [0.16, 1, 0.3, 1] } }}
         exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, transition: { duration: 0.12, ease: 'easeIn' } }}
@@ -420,9 +422,12 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             onOpenClient={(clientId, name) => setProfileReservation({ id: `cliente-${clientId}`, client_id: clientId, starts_at: '', status: 'confirmed', clients: { name }, services: null, resources: null })} />
         : <StatsLocked onSeePlans={() => void setActive('Tu plan')} />)}
       {active === 'Servicios' && <ServicesSection businessId={business.id} onOpenTeam={() => void setActive('Equipo')} />}
-      {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
-      {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals}
-        professionalLimit={PLANS[plan].limits.professionals} canInvite={hasFeature(plan, 'staff-accounts')} onSeePlans={() => void setActive('Tu plan')} />}
+      {/* Equipo y Días libres comparten pantalla: uno abierto y el otro plegado de costado */}
+      {navActive === 'Equipo' && <SplitPanels open={active} onOpen={key => void setActive(key as SectionKey)} panels={[
+        { key: 'Equipo', label: 'Profesionales y horarios', icon: UserRound, content: <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals}
+          professionalLimit={PLANS[plan].limits.professionals} canInvite={hasFeature(plan, 'staff-accounts')} onSeePlans={() => void setActive('Tu plan')} /> },
+        { key: 'Días libres', label: 'Días libres', icon: CalendarOff, content: <TimeOffSection businessId={business.id} professionals={professionals} /> },
+      ]} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} onLeaveGuard={guard => { leaveGuardRef.current = guard }}
         canBrand={hasFeature(plan, 'branding')} onSeePlans={() => void setActive('Tu plan')} />}
       {active === 'Tu plan' && <PlanSection business={business} professionals={professionals} />}
@@ -434,17 +439,17 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
     {/* En el celular la barra lateral no entra: las secciones van en una barra fija abajo, el resto en "Más" */}
     <nav className="dashboard-tabbar" aria-label="Secciones del panel">
-      {sections.slice(0, 3).map(({ key, label, icon: Icon }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => { setMoreOpen(false); void setActive(key) }}>
-        {active === key && <SegmentIndicator group={tabGroup} />}<Icon size={19} /><span>{label}</span>
+      {sections.slice(0, 3).map(({ key, label, icon: Icon }) => <button type="button" key={key} className={navActive === key ? 'is-active' : ''} aria-current={navActive === key ? 'page' : undefined} onClick={() => { setMoreOpen(false); void setActive(key) }}>
+        {navActive === key && <SegmentIndicator group={tabGroup} />}<Icon size={19} /><span>{label}</span>
       </button>)}
-      <button type="button" className={sections.slice(3).some(section => section.key === active) ? 'is-active' : ''} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(open => !open)}>
-        {sections.slice(3).some(section => section.key === active) && <SegmentIndicator group={tabGroup} />}<Ellipsis size={19} /><span>Más</span>
+      <button type="button" className={sections.slice(3).some(section => section.key === navActive) ? 'is-active' : ''} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(open => !open)}>
+        {sections.slice(3).some(section => section.key === navActive) && <SegmentIndicator group={tabGroup} />}<Ellipsis size={19} /><span>Más</span>
       </button>
     </nav>
     <AnimatePresence>
       {moreOpen && <MoreSheet
         sections={sections.slice(3)}
-        active={active}
+        active={navActive}
         onPick={key => { setActive(key); setMoreOpen(false) }}
         onClose={() => setMoreOpen(false)}
         onSignOut={() => { setMoreOpen(false); void requestSignOut() }}

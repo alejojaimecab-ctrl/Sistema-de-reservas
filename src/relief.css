@@ -688,6 +688,8 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .plan-billing button.is-active .plan-billing-save { color: var(--text-2); }
 
 .plan-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+/* El precio se achica con el ancho de la tarjeta y "por mes" baja si no entra: con tres columnas angostas se salía */
+.plan-card { container-type: inline-size; }
 .plan-card {
   position: relative; display: flex; flex-direction: column; gap: 6px; padding: 28px 26px 26px; border-radius: var(--r-card);
   border: 1px solid transparent;
@@ -701,14 +703,49 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
     var(--edge-hover) border-box, linear-gradient(var(--border-hover), var(--border-hover)) border-box;
   box-shadow: var(--hl-strong), 0 2px 4px rgb(0 0 0 / .45), 0 30px 60px -24px rgb(0 0 0 / .95);
 }
-.plan-card--featured::before { content: ''; position: absolute; top: -1px; left: 22%; right: 22%; height: 1px; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .85), transparent); }
+/* Los planes pagos en su metal (pedido del dueño; excepción a la paleta sin color, como el verde de WhatsApp):
+   Básico plata y Pro oro (el Gratis queda liso). Borde de metal, un halo suave, título, etiqueta y tildes del color,
+   y un brillo lento que cruza la tarjeta cada tanto (a destiempo entre las tres). Precio y botón quedan blancos */
+.plan-card--basico { --m1: #f5f6f9; --m2: #b9bec9; --m3: #6b707a; --glow: 196 202 214; --sheen-delay: 2.4s; }
+.plan-card--pro { --m1: #f6e4a6; --m2: #d4a94e; --m3: #9c6f24; --glow: 212 169 78; --sheen-delay: 4.8s; }
+.plan-card--basico, .plan-card--pro {
+  background: var(--sheen) padding-box, var(--grain) padding-box,
+    linear-gradient(160deg, rgb(var(--glow) / .09), transparent 45%) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, var(--m1), var(--m3) 38%, var(--m2) 68%, var(--m1)) border-box;
+  box-shadow: var(--hl), var(--elev-2), 0 0 40px -16px rgb(var(--glow) / .30);
+}
+/* El Pro sigue siendo el destacado: superficie más clara, sombra más honda y halo más fuerte */
+.plan-card--featured {
+  background: var(--sheen) padding-box, var(--grain) padding-box,
+    linear-gradient(160deg, rgb(var(--glow) / .10), transparent 45%) padding-box,
+    linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+    linear-gradient(135deg, var(--m1), var(--m3) 38%, var(--m2) 68%, var(--m1)) border-box;
+  box-shadow: var(--hl-strong), 0 2px 4px rgb(0 0 0 / .45), 0 30px 60px -24px rgb(0 0 0 / .95), 0 0 46px -14px rgb(var(--glow) / .38);
+}
+.plan-card--basico::before, .plan-card--pro::before { content: ''; position: absolute; top: -1px; left: 18%; right: 18%; height: 1px; background: linear-gradient(90deg, transparent, var(--m1), transparent); }
+.plan-card--basico::after, .plan-card--pro::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgb(var(--glow) / .10) 48%, rgb(255 255 255 / .10) 50%, rgb(var(--glow) / .10) 52%, transparent 62%);
+  background-size: 260% 100%; background-repeat: no-repeat;
+  animation: plan-metal-sheen 7s cubic-bezier(.45, 0, .2, 1) var(--sheen-delay) infinite both;
+}
+@keyframes plan-metal-sheen { 0%, 55% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
+/* Lo pidió el dueño aunque Windows tenga "reducir movimiento": es lento, chico y no mueve nada de lugar */
+@media (prefers-reduced-motion: reduce) {
+  .plan-card--basico::after, .plan-card--pro::after { animation-duration: 7s !important; animation-iteration-count: infinite !important; }
+}
+.plan-card.plan-card--basico h3, .plan-card.plan-card--pro h3 { background: linear-gradient(135deg, var(--m1), var(--m2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.plan-card--basico .plan-tag, .plan-card--pro .plan-tag { color: #17130d; background: linear-gradient(135deg, var(--m1), var(--m2)); border-color: transparent; }
+.plan-card--basico .plan-list li svg, .plan-card--pro .plan-list li svg { color: var(--m2); }
+.plan-card--basico .plan-list, .plan-card--pro .plan-list { border-top-color: rgb(var(--glow) / .22); }
 .plan-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
 .plan-card h3 { margin: 0; color: var(--text); font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
 .plan-tag { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; color: var(--text); background: var(--surface-sel); border: 1px solid var(--border-hover); border-radius: var(--r-full); font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: var(--hl); }
 .plan-tag--current { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .plan-tagline { margin: 0 0 14px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
-.plan-price { position: relative; display: flex; align-items: baseline; gap: 8px; min-height: 52px; }
-.plan-price strong { display: inline-block; color: var(--text); font-size: 44px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.plan-price { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-height: 52px; }
+.plan-price strong { display: inline-block; color: var(--text); font-size: clamp(30px, 17cqi, 44px); font-weight: 700; letter-spacing: -.035em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .plan-price > span { color: var(--text-3); font-size: 13px; }
 .plan-price-note { min-height: 18px; margin: 0 0 18px; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 .plan-price-note s, .plan-offer s { color: var(--text-3); text-decoration-thickness: 1px; }
@@ -819,3 +856,58 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .booking-made-with a { color: var(--text-2); font-weight: 600; text-decoration: none; }
 .booking-made-with a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .trial-badge, .plan-billing button { white-space: nowrap; }
+
+/* ── Equipo y Días libres: dos paneles en el mismo lugar, uno abierto y el otro plegado en una solapa que asoma
+   por detrás de la tarjeta, como la pestaña de una carpeta (más oscura, de alto completo, metida unos píxeles
+   abajo de la tarjeta que le tira sombra). Al cambiar, el nuevo se descubre desde la solapa y tapa al anterior
+   (SplitPanels.tsx). En el celular la solapa es una barra arriba ── */
+.split { position: relative; }
+.split-stage { display: grid; }
+.split--tab-right .split-stage { margin-right: var(--tab); }
+.split--tab-left .split-stage { margin-left: var(--tab); }
+/* Los dos paneles miden lo mismo (lo del más alto), así al cambiar no se ajusta el alto de golpe */
+.split-pane { grid-area: 1 / 1; min-width: 0; display: flex; flex-direction: column; }
+.split-pane > :last-child { flex: 1; }
+.split-pane.is-open { position: relative; z-index: 2; }
+/* El plegado sigue montado (no recarga sus datos) y da su alto, pero no se ve. Con opacidad y no con visibility:
+   visibility se hereda y, al volver a mostrarse, cada botón y campo con transición la animaba por su cuenta
+   (cientos de transiciones: el contenido se armaba de a pedazos). inert lo deja fuera del foco y los clics */
+.split-pane:not(.is-open):not(.is-leaving) { opacity: 0; pointer-events: none; }
+.split-pane.is-leaving { position: relative; z-index: 1; }
+.split-tab {
+  --tuck: 18px; /* cuánto queda metida abajo de la tarjeta */
+  position: absolute; top: 0; bottom: 0; z-index: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+  width: calc(var(--tab) + var(--tuck)); padding: 18px 0;
+  color: var(--text-3); cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+  border: 1px solid transparent; border-radius: var(--r-card);
+  background: var(--sheen) padding-box, var(--grain) padding-box, linear-gradient(var(--surface-inset), var(--surface-inset)) padding-box,
+    var(--edge) border-box, linear-gradient(var(--border), var(--border)) border-box;
+  transition: color .18s ease-out, transform .28s var(--ease-out);
+}
+/* A la derecha de la tarjeta: se mete por la izquierda y la sombra de la tarjeta cae de ese lado. A la izquierda, espejado */
+.split--tab-right .split-tab { right: 0; padding-left: var(--tuck); box-shadow: inset 14px 0 16px -12px rgb(0 0 0 / .85), var(--elev-1); }
+.split--tab-left .split-tab { left: 0; padding-right: var(--tuck); box-shadow: inset -14px 0 16px -12px rgb(0 0 0 / .85), var(--elev-1); }
+/* El ícono y el nombre acompañan el scroll dentro de la solapa, así se ven aunque la tarjeta sea larga */
+.split-tab-label { position: sticky; top: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* En la compu la solapa muestra solo el ícono: el nombre en vertical se leía de costado */
+.split-tab-label span { display: none; }
+.split-tab svg { flex: none; color: var(--text-2); transition: color .18s ease-out; }
+.split-tab:hover { color: var(--text); }
+.split-tab:hover svg { color: var(--text); }
+.split--tab-right .split-tab:hover { transform: translateX(5px); }
+.split--tab-left .split-tab:hover { transform: translateX(-5px); }
+/* Mientras el cajón entra: lo que sale de los bordes no se ve (el panel arranca detrás de la solapa) */
+.split.is-switching { overflow: hidden; }
+.split.is-switching .split-stage { overflow: hidden; }
+.split-pane.is-leaving { transform-origin: 50% 0; }
+.split-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+@media (max-width: 800px) {
+  .split--tab-right .split-stage, .split--tab-left .split-stage { margin: 0; }
+  .split--tab-right .split-tab, .split--tab-left .split-tab {
+    position: relative; flex-direction: row; align-items: center; width: 100%; min-height: 52px; margin: 0 0 12px; padding: 0 18px;
+    box-shadow: var(--inset);
+  }
+  .split-tab-label { position: static; flex-direction: row; }
+  .split-tab-label span { display: inline; }
+  .split--tab-right .split-tab:hover, .split--tab-left .split-tab:hover { transform: none; }
+}

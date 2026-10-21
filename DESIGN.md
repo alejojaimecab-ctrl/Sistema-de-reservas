@@ -195,6 +195,7 @@ Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única e
 ## Reglas clave
 
 - Todo color sale de un token `var(--…)` definido en `src/styles.css`. Sin azul, celeste ni degradés de color.
+  - Excepción, por pedido del dueño: las tarjetas de los planes pagos van en metal: **Básico plata y Pro oro**; el Gratis queda liso (tokens locales `--m1/--m2/--m3/--glow` en `.plan-card--basico/--pro`, `src/relief.css`). Llevan borde y halo del metal, título, etiqueta y tildes del color y un brillo lento que las cruza cada 7 s, a destiempo entre las dos. El precio y el botón siguen blancos; el Pro sigue siendo el destacado.
 - Un solo CTA blanco por pantalla. Los secundarios van con superficie y borde sutil.
 - Las opciones seleccionables usan el patrón radio-card: borde claro y check blanco al elegirlas.
 - Verde, rojo y ámbar apagados solo para estados (atendido, no vino, pendiente o error), siempre acompañados de un ícono o un texto.

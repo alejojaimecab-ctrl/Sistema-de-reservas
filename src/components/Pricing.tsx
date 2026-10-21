@@ -38,7 +38,7 @@ function PlanCard({ plan, billing, current, action }: { plan: PlanInfo; billing:
   const titleId = useId()
   // El Pro se vende contra el Básico: cuánto más sale por mes, con la misma forma de pago
   const extra = perMonth(PLANS.pro, billing) - perMonth(PLANS.basico, billing)
-  return <article className={`plan-card${featured ? ' plan-card--featured' : ''}${current ? ' is-current' : ''}`} aria-labelledby={titleId}>
+  return <article className={`plan-card plan-card--${plan.key}${featured ? ' plan-card--featured' : ''}${current ? ' is-current' : ''}`} aria-labelledby={titleId}>
     <div className="plan-card-head">
       <h3 id={titleId}>{plan.name}</h3>
       {current ? <span className="plan-tag plan-tag--current">Tu plan</span> : featured && <span className="plan-tag">El más elegido</span>}
