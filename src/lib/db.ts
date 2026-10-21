@@ -354,8 +354,13 @@ export type HistoryReservation = Reservation & {
   clients: { name: string; email: string | null } | null
 }
 
-export async function listAllReservations(
+const HISTORY_COLUMNS = 'id, starts_at, ends_at, status, cancelled_by, source, service_id, resource_id, client_id, clients(name, email), services(name, price, price_mode), resources(name)'
+
+// La sección Reservas trae desde una fecha en adelante (las próximas, todas) y las anteriores de a tramos [from, to)
+export async function listHistoryReservations(
   businessId: string,
+  from: Date,
+  to?: Date,
 ): Promise<{ reservations: HistoryReservation[]; error: string | null }> {
   if (!(await canUseBusiness(businessId))) {
     return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
@@ -365,10 +370,13 @@ export async function listAllReservations(
   const pageSize = 500
 
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('reservations')
-      .select('id, starts_at, ends_at, status, cancelled_by, source, service_id, resource_id, client_id, clients(name, email), services(name, price, price_mode), resources(name)')
+      .select(HISTORY_COLUMNS)
       .eq('business_id', businessId)
+      .gte('starts_at', from.toISOString())
+    if (to) query = query.lt('starts_at', to.toISOString())
+    const { data, error } = await query
       .order('starts_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
@@ -380,6 +388,42 @@ export async function listAllReservations(
   }
 
   return { reservations, error: null }
+}
+
+// Cuántas reservas hay antes de una fecha (las que la sección Reservas todavía no trajo); null si falló
+export async function countReservationsBefore(businessId: string, before: Date): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('reservations').select('id', { count: 'exact', head: true })
+    .eq('business_id', businessId).lt('starts_at', before.toISOString())
+  return error ? null : count ?? 0
+}
+
+// Una reserva con los datos de la sección Reservas: la que llegó o cambió por tiempo real (null si no se ve)
+export async function getHistoryReservation(id: string): Promise<{ reservation: HistoryReservation | null; error: string | null }> {
+  const { data, error } = await supabase.from('reservations').select(HISTORY_COLUMNS).eq('id', id).maybeSingle()
+  if (error) return { reservation: null, error: friendlyError(error) }
+  return { reservation: data as unknown as HistoryReservation | null, error: null }
+}
+
+// Totales por cliente para la parte de Clientes de Estadísticas, calculados en la base (client_stats, migración 039)
+export type ClientAggregate = {
+  client_id: string
+  name: string
+  email: string | null
+  first_visit: string
+  visits: number
+  first_completed: string | null
+  last_completed: string | null
+  revenue: number
+  no_shows: number
+  has_upcoming: boolean
+}
+
+export async function listClientStats(businessId: string): Promise<{ clients: ClientAggregate[]; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) return { clients: [], error: 'No se pudo validar el acceso al negocio.' }
+  const { data, error } = await supabase.rpc('client_stats', { p_business_id: businessId })
+  if (error) return { clients: [], error: friendlyError(error) }
+  return { clients: ((data ?? []) as ClientAggregate[]).map(row => ({ ...row, revenue: Number(row.revenue) || 0 })), error: null }
 }
 
 // La base valida que sea el dueño o el profesional del turno (set_reservation_status, migración 029).

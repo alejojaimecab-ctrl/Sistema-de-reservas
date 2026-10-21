@@ -12,7 +12,7 @@ export function missingRanges(loaded: DateRange, wanted: DateRange): DateRange[]
 }
 
 // Suma turnos a la lista sin repetirlos: los que llegan reemplazan a los que ya estaban
-export function mergeReservations(current: Reservation[], incoming: Reservation[]): Reservation[] {
+export function mergeReservations<T extends Reservation>(current: T[], incoming: T[]): T[] {
   const ids = new Set(incoming.map(reservation => reservation.id))
   return [...current.filter(reservation => !ids.has(reservation.id)), ...incoming]
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())

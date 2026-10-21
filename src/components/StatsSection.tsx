@@ -7,8 +7,8 @@ import { downloadBlob } from '../lib/xlsx'
 import { formatPrice } from '../data/demo'
 import { useAuth } from '../lib/auth'
 import {
-  listAllReservations, listBusinessAvailability, listStatsReservations, listTimeOffBetween, updateMonthlyGoal,
-  type HistoryReservation, type OpenSlot, type StatsReservation, type TimeOff,
+  listBusinessAvailability, listClientStats, listStatsReservations, listTimeOffBetween, updateMonthlyGoal,
+  type ClientAggregate, type OpenSlot, type StatsReservation, type TimeOff,
 } from '../lib/db'
 import {
   buildRange, comparisonLabel, computeClients, computeGoal, computeOccupancy, computeStats, delta, previousRange, rangeLabel, shiftRange,
@@ -67,7 +67,7 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
   const { business, refreshBusiness } = useAuth()
   const [range, setRange] = useState<StatsRange>(() => buildRange('month', new Date()))
   const [data, setData] = useState<PeriodData | null>(null)
-  const [history, setHistory] = useState<HistoryReservation[] | null>(null)
+  const [history, setHistory] = useState<ClientAggregate[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [retry, setRetry] = useState(0)
   const kindGroup = useId()
@@ -93,24 +93,15 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
     return () => { active = false }
   }, [businessId, range, previous, retry])
 
-  // Los clientes se miran en toda la historia (no cambia con el período)
+  // Los clientes se miran en toda la historia (no cambia con el período): la base la resume en una fila por cliente
   useEffect(() => {
     let active = true
-    listAllReservations(businessId).then(result => { if (active) setHistory(result.error ? [] : result.reservations) })
+    listClientStats(businessId).then(result => { if (active) setHistory(result.error ? [] : result.clients) })
     return () => { active = false }
   }, [businessId, retry])
 
-  // Primera visita de cada cliente (para separar nuevos de los que vuelven), sacada de la historia completa
-  const firstVisits = useMemo(() => {
-    if (!history) return null
-    const first = new Map<string, string>()
-    for (const r of history) {
-      if (!r.client_id || r.status === 'cancelled') continue
-      const known = first.get(r.client_id)
-      if (!known || new Date(r.starts_at) < new Date(known)) first.set(r.client_id, r.starts_at)
-    }
-    return first
-  }, [history])
+  // Primera visita de cada cliente (para separar nuevos de los que vuelven)
+  const firstVisits = useMemo(() => history ? new Map(history.map(row => [row.client_id, row.first_visit])) : null, [history])
   const stats: Stats | null = useMemo(() => data ? computeStats(range, data.current, data.previous, firstVisits) : null, [data, range, firstVisits])
   const occupancy: Occupancy | null = useMemo(() => data ? computeOccupancy(range, data.current, data.availability, data.timeOff) : null, [data, range])
   const previousOccupancy: Occupancy | null = useMemo(() => data ? computeOccupancy(previous, data.previous, data.availability, []) : null, [data, previous])

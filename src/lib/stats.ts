@@ -1,4 +1,4 @@
-import type { StatsReservation } from './db'
+import type { ClientAggregate, StatsReservation } from './db'
 
 // Cálculos de la sección Estadísticas. Sin React ni base de datos: recibe turnos y devuelve números, así más adelante
 // se puede pasar a una función de Postgres sin tocar la pantalla. Todo se agrupa en la zona horaria del negocio.
@@ -370,8 +370,7 @@ export function computeOccupancy(
 
 // ── Clientes: frecuencia, en riesgo, los mejores y los que más faltan ───────
 // Se mira toda la historia del negocio, no solo el período: hace falta para saber cada cuánto viene cada uno.
-
-type HistoryLike = { client_id?: string | null; starts_at: string; status: StatsReservation['status']; clients: { name: string; email?: string | null } | null; services: StatsReservation['services'] }
+// La base la resume en una fila por cliente (client_stats), así no se bajan todos los turnos.
 
 export type ClientInsight = {
   id: string
@@ -401,31 +400,18 @@ const median = (values: number[]) => {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-export function computeClients(history: HistoryLike[], now = Date.now()): ClientsOverview {
-  const byClient = new Map<string, { name: string; email: string | null; visits: number[]; revenue: number; noShows: number; hasUpcoming: boolean }>()
-  for (const r of history) {
-    if (!r.client_id || r.status === 'cancelled') continue
-    const entry = byClient.get(r.client_id) ?? { name: r.clients?.name ?? 'Cliente', email: r.clients?.email ?? null, visits: [], revenue: 0, noShows: 0, hasUpcoming: false }
-    const time = new Date(r.starts_at).getTime()
-    if (r.status === 'completed') {
-      entry.visits.push(time)
-      entry.revenue += r.services?.price_mode === 'ask' ? 0 : Number(r.services?.price ?? 0) || 0
-    } else if (r.status === 'no_show') entry.noShows += 1
-    else if (time >= now) entry.hasUpcoming = true
-    byClient.set(r.client_id, entry)
-  }
-
-  const insights: ClientInsight[] = [...byClient].map(([id, entry]) => {
-    const visits = entry.visits.sort((a, b) => a - b)
-    const gaps = visits.slice(1).map((time, index) => (time - visits[index]) / DAY_MS)
-    const everyDays = gaps.length > 0 ? Math.round(gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length) : null
-    const last = visits.length > 0 ? visits[visits.length - 1] : null
+export function computeClients(rows: ClientAggregate[], now = Date.now()): ClientsOverview {
+  const insights: ClientInsight[] = rows.map(row => {
+    const first = row.first_completed ? new Date(row.first_completed).getTime() : null
+    const last = row.last_completed ? new Date(row.last_completed).getTime() : null
+    // El promedio de los días entre visitas es (última − primera) / (visitas − 1)
+    const everyDays = row.visits >= 2 && first !== null && last !== null ? Math.round((last - first) / DAY_MS / (row.visits - 1)) : null
     return {
-      id, name: entry.name, email: entry.email, visits: visits.length, revenue: entry.revenue, noShows: entry.noShows,
+      id: row.client_id, name: row.name || 'Cliente', email: row.email, visits: row.visits, revenue: row.revenue, noShows: row.no_shows,
       lastVisit: last === null ? null : new Date(last).toISOString(),
       everyDays,
       daysSince: last === null ? null : Math.floor((now - last) / DAY_MS),
-      hasUpcoming: entry.hasUpcoming,
+      hasUpcoming: row.has_upcoming,
     }
   })
 

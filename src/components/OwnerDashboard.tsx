@@ -162,6 +162,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [historyVersion, setHistoryVersion] = useState(0)
+  // Última reserva que llegó, cambió o se anotó: la sección Reservas trae solo esa
+  const [historyChange, setHistoryChange] = useState<{ id: string; n: number } | null>(null)
   const [cancelNotice, setCancelNotice] = useState<{ text: string; isError: boolean } | null>(null)
   const { confirm, dialog: confirmDialog } = useConfirm()
   // Perfil del cliente que se abre al tocar su nombre en la Agenda o en Reservas
@@ -236,7 +238,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     const byTime = (a: Reservation, b: Reservation) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
     setReservations(current => [...current, reservation].sort(byTime).slice(0, 10))
     setUpcomingReservations(current => [...current, reservation].sort(byTime))
-    setHistoryVersion(version => version + 1)
+    setHistoryChange(current => ({ id: reservation.id, n: (current?.n ?? 0) + 1 }))
     if (business && !isStaff) void getDashboardStats(business.id).then(setStats)
   }
 
@@ -271,7 +273,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       void listReservations(business.id).then(setReservations)
       void getDashboardStats(business.id).then(setStats)
     }
-    setHistoryVersion(version => version + 1)
+    if (change) setHistoryChange(current => ({ id: change.id, n: (current?.n ?? 0) + 1 }))
+    else setHistoryVersion(version => version + 1)
   }
   const alerts = useReservationAlerts(business?.id ?? null, {
     onChange: refreshReservations,
@@ -403,6 +406,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             businessId={business.id}
             professionals={professionals}
             reloadKey={historyVersion}
+            change={historyChange}
             onCancel={cancelReservation}
             onStatusChanged={reservationStatusChanged}
             onOpenClient={setProfileReservation}

@@ -3,9 +3,10 @@ import { SegmentIndicator } from './SegmentIndicator'
 import { CalendarX, Check, RotateCcw, Search, X } from 'lucide-react'
 import { priceLabel } from '../data/demo'
 import {
-  listAllReservations, updateReservationStatus,
+  countReservationsBefore, getHistoryReservation, listHistoryReservations, updateReservationStatus,
   type HistoryReservation, type Professional, type Reservation,
 } from '../lib/db'
+import { mergeReservations } from '../lib/agenda'
 
 type Period = 'upcoming' | 'past' | 'all'
 type StatusFilter = 'active' | 'unmarked' | 'confirmed' | 'completed' | 'no_show' | 'cancelled' | 'all'
@@ -22,6 +23,10 @@ function readFilters(): { period: Period; status: StatusFilter } | null {
 type Tone = 'ok' | 'wait' | 'bad' | 'muted' | 'plain'
 
 const PAGE = 50
+// No se baja todo el historial: se traen las próximas y los últimos 2 meses, y las anteriores de a 2 meses a pedido
+const HISTORY_MONTHS = 2
+const monthsBefore = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() - months, date.getDate())
+const sinceLabel = (date: Date) => date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
 
 // Sin tildes y en minúsculas: "lucia" encuentra "Lucía"
 const norm = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -43,12 +48,13 @@ function statusInfo(r: HistoryReservation, now: number): { label: string; tone: 
   return new Date(r.starts_at).getTime() < now ? { label: 'Sin marcar', tone: 'wait' } : { label: 'Confirmado', tone: 'plain' }
 }
 
-export function ReservationsSection({ businessId, professionals, reloadKey, onCancel, onStatusChanged, onOpenClient, preset }: {
+export function ReservationsSection({ businessId, professionals, reloadKey, change, onCancel, onStatusChanged, onOpenClient, preset }: {
   businessId: string
   onOpenClient: (reservation: Reservation) => void // tocar el nombre abre el perfil del cliente
   preset?: ReservationsPreset | null // "Ver los N en Reservas" del Resumen: abre directo en los turnos pasados sin marcar
   professionals: Professional[]
-  reloadKey: number // cambia cuando se carga una reserva nueva a mano: se vuelve a traer todo
+  reloadKey: number // cambia cuando el tiempo real se reconecta: se vuelven a traer las que ya estaban cargadas
+  change: { id: string; n: number } | null // una reserva que llegó, cambió o se anotó a mano: se trae solo esa
   onCancel: (reservation: Reservation) => Promise<boolean>
   onStatusChanged: (id: string, status: 'confirmed' | 'completed' | 'no_show') => void
 }) {
@@ -68,24 +74,55 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [retry, setRetry] = useState(0)
+  const [since, setSince] = useState(() => monthsBefore(new Date(new Date().setHours(0, 0, 0, 0)), HISTORY_MONTHS))
+  const [older, setOlder] = useState<number | null>(null) // reservas anteriores a "since" que todavía no se trajeron
+  const [loadingOlder, setLoadingOlder] = useState(false)
 
   const periodGroup = useId()
 
-  // Si ya están los datos de este negocio (por ejemplo, llegó una reserva nueva), se actualiza sin mostrar "Cargando…"
+  // Si ya están los datos de este negocio (por ejemplo, se reconectó), se actualiza sin mostrar "Cargando…"
   const loadedForRef = useRef<string | null>(null)
   useEffect(() => {
     let active = true
     if (loadedForRef.current !== businessId) setLoading(true)
-    listAllReservations(businessId).then(result => {
+    Promise.all([listHistoryReservations(businessId, since), countReservationsBefore(businessId, since)]).then(([result, count]) => {
       if (!active) return
       setAll(result.reservations)
+      setOlder(count)
       setError(result.error)
       setNow(Date.now())
       setLoading(false)
       loadedForRef.current = result.error ? null : businessId
     })
     return () => { active = false }
+    // "since" solo cambia al traer las anteriores, que se suman aparte (loadOlder)
   }, [businessId, reloadKey, retry])
+
+  // Llegó, cambió o se anotó una reserva: se trae solo esa. Si no se pudo leer, se recarga la lista.
+  const firstChangeRef = useRef(change)
+  useEffect(() => {
+    if (!change || change === firstChangeRef.current) return
+    let active = true
+    getHistoryReservation(change.id).then(result => {
+      if (!active) return
+      if (result.error) { setRetry(n => n + 1); return }
+      setAll(current => result.reservation ? mergeReservations(current, [result.reservation]) : current.filter(item => item.id !== change.id))
+      setNow(Date.now())
+    })
+    return () => { active = false }
+  }, [change])
+
+  async function loadOlder() {
+    const from = monthsBefore(since, HISTORY_MONTHS)
+    setLoadingOlder(true)
+    setActionError(null)
+    const [result, count] = await Promise.all([listHistoryReservations(businessId, from, since), countReservationsBefore(businessId, from)])
+    setLoadingOlder(false)
+    if (result.error) { setActionError(`No pudimos traer las reservas anteriores: ${result.error}`); return }
+    setAll(current => mergeReservations(current, result.reservations))
+    setSince(from)
+    setOlder(count)
+  }
 
   // Cada vez que cambia un filtro se vuelve a empezar desde el primer resultado
   useEffect(() => { setVisible(PAGE) }, [query, period, statusFilter, professionalId, serviceId])
@@ -146,11 +183,13 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
   if (error) return <p className="form-error" role="alert">
     No pudimos cargar las reservas: {error} <button type="button" className="text-button" onClick={() => setRetry(n => n + 1)}>Reintentar</button>
   </p>
-  if (all.length === 0) {
+  if (all.length === 0 && older === 0) {
     return <p className="res-empty">Todavía no hay reservas. Las que lleguen desde tu enlace o agregues manualmente van a aparecer acá.</p>
   }
 
   const shown = list.slice(0, visible)
+  // Las pasadas llegan hasta "since": se ofrecen las anteriores cuando ya se ve todo lo traído
+  const canLoadOlder = period !== 'upcoming' && older !== 0 && list.length <= shown.length
 
   return <div className="res-section">
     <div className="res-filters">
@@ -193,7 +232,7 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
       </div>
     </div>
 
-    <p className="res-count" role="status">{list.length} {list.length === 1 ? 'reserva' : 'reservas'}</p>
+    <p className="res-count" role="status">{list.length} {list.length === 1 ? 'reserva' : 'reservas'}{period !== 'upcoming' && older !== 0 ? ` desde el ${sinceLabel(since)}` : ''}</p>
     {actionError && <p className="form-error" role="alert">{actionError}</p>}
 
     {list.length === 0
@@ -230,6 +269,13 @@ export function ReservationsSection({ businessId, professionals, reloadKey, onCa
       <button type="button" className="button button--secondary button--small" onClick={() => setVisible(v => v + PAGE)}>
         Ver más ({list.length - shown.length} restantes)
       </button>
+    </div>}
+
+    {canLoadOlder && <div className="res-more">
+      <button type="button" className="button button--secondary button--small" disabled={loadingOlder} onClick={() => void loadOlder()}>
+        {loadingOlder ? 'Trayendo…' : `Traer ${HISTORY_MONTHS} meses más`}
+      </button>
+      {older !== null && <p className="form-note">Quedan {older} {older === 1 ? 'reserva anterior' : 'reservas anteriores'} al {sinceLabel(since)}.</p>}
     </div>}
   </div>
 }
