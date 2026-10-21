@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, ChartColumn, CalendarX, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, LayoutDashboard, Lock, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, ChartColumn, CalendarX, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Gem, LayoutDashboard, Lock, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
@@ -22,7 +22,8 @@ import { isNewReservation, useNewSince } from '../lib/newReservations'
 import { ErrorBoundary } from './ErrorBoundary'
 import { ClientProfile } from './ClientProfile'
 import { StatsLocked, StatsSection } from './StatsSection'
-import { businessPlan, hasFeature } from '../lib/plans'
+import { PLANS, effectivePlan, hasFeature } from '../lib/plans'
+import { PlanNote, PlanSection, TrialBadge } from './PlanSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -32,7 +33,7 @@ import {
 
 type OwnerDashboardProps = { onExit: () => void }
 
-type SectionKey = 'Resumen' | 'Agenda' | 'Reservas' | 'Estadísticas' | 'Servicios' | 'Equipo' | 'Días libres' | 'Configuración' | 'Mis horarios'
+type SectionKey = 'Resumen' | 'Agenda' | 'Reservas' | 'Estadísticas' | 'Servicios' | 'Equipo' | 'Días libres' | 'Configuración' | 'Tu plan' | 'Mis horarios'
 // locked: la sección se ve pero su contenido es de un plan más alto (lleva un candado)
 type SectionItem = { key: SectionKey; label: string; icon: typeof LayoutDashboard; locked?: boolean }
 
@@ -46,6 +47,7 @@ const OWNER_SECTIONS: SectionItem[] = [
   { key: 'Equipo', label: 'Equipo', icon: UserRound },
   { key: 'Días libres', label: 'Días libres', icon: CalendarOff },
   { key: 'Configuración', label: 'Configuración', icon: Settings2 },
+  { key: 'Tu plan', label: 'Tu plan', icon: Gem },
 ]
 // Un profesional con cuenta solo ve lo suyo: sin estadísticas, servicios, equipo, días libres ni configuración.
 const STAFF_SECTIONS: SectionItem[] = [
@@ -57,7 +59,7 @@ const STAFF_SECTIONS: SectionItem[] = [
 // Cada sección tiene su dirección: /panel, /panel/agenda, /panel/dias-libres…
 const SECTION_PATHS: Record<SectionKey, string> = {
   Resumen: '', Agenda: 'agenda', Reservas: 'reservas', Estadísticas: 'estadisticas', Servicios: 'servicios', Equipo: 'equipo',
-  'Días libres': 'dias-libres', Configuración: 'configuracion', 'Mis horarios': 'mis-horarios',
+  'Días libres': 'dias-libres', Configuración: 'configuracion', 'Tu plan': 'plan', 'Mis horarios': 'mis-horarios',
 }
 function sectionFromPath(): SectionKey | null {
   const path = panelSectionFromPath(window.location.pathname)
@@ -94,7 +96,9 @@ function initials(name: string) {
 export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
   const isStaff = role === 'staff'
-  const statsUnlocked = hasFeature({ isOwner: !isStaff, plan: businessPlan() }, 'advanced-stats')
+  // El plan que vale ahora (durante la prueba, el Pro): decide qué secciones y funciones se abren
+  const plan = effectivePlan(business)
+  const statsUnlocked = !isStaff && hasFeature(plan, 'advanced-stats')
   const sections = isStaff
     ? STAFF_SECTIONS
     : OWNER_SECTIONS.map(section => section.key === 'Estadísticas' && !statsUnlocked ? { ...section, locked: true } : section)
@@ -280,7 +284,10 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <div><p className="eyebrow">{todayLabel()}</p><h1>{active === 'Resumen'
           ? <>{greeting()}, {firstNameCapitalized(profile?.full_name) ?? 'bienvenido'}</>
           : sections.find(section => section.key === active)?.label ?? active}</h1></div>
-        <AlertsToggle alerts={alerts} />
+        <div className="dashboard-header-actions">
+          {!isStaff && <TrialBadge business={business} onOpen={() => void setActive('Tu plan')} />}
+          <AlertsToggle alerts={alerts} />
+        </div>
       </header>
 
       {alerts.latest && <NewReservationBanner
@@ -376,11 +383,14 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
       {active === 'Estadísticas' && (statsUnlocked
         ? <StatsSection businessId={business.id} onOpenUnmarked={() => void setActive('Reservas', 'unmarked')} />
-        : <StatsLocked />)}
+        : <StatsLocked onSeePlans={() => void setActive('Tu plan')} />)}
       {active === 'Servicios' && <ServicesSection businessId={business.id} onOpenTeam={() => void setActive('Equipo')} />}
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
-      {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
-      {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} onLeaveGuard={guard => { leaveGuardRef.current = guard }} />}
+      {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals}
+        professionalLimit={PLANS[plan].limits.professionals} canInvite={hasFeature(plan, 'staff-accounts')} onSeePlans={() => void setActive('Tu plan')} />}
+      {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} onLeaveGuard={guard => { leaveGuardRef.current = guard }}
+        canBrand={hasFeature(plan, 'branding')} onSeePlans={() => void setActive('Tu plan')} />}
+      {active === 'Tu plan' && <PlanSection business={business} professionals={professionals} />}
       {active === 'Mis horarios' && staffResource && <MyScheduleSection businessId={business.id} resourceId={staffResource.id} days={days} />}
       </motion.div>
       </AnimatePresence>
@@ -1541,7 +1551,7 @@ function ServicesSection({ businessId, onOpenTeam }: { businessId: string; onOpe
   </section>
 }
 
-function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: string; onSaved: () => Promise<void>; onLeaveGuard: (guard: (() => Promise<boolean>) | null) => void }) {
+function ConfigSection({ businessId, onSaved, onLeaveGuard, canBrand, onSeePlans }: { businessId: string; onSaved: () => Promise<void>; onLeaveGuard: (guard: (() => Promise<boolean>) | null) => void; canBrand: boolean; onSeePlans: () => void }) {
   const { business } = useAuth()
   const { confirm, choose, dialog } = useConfirm()
   const [name, setName] = useState(business?.name ?? '')
@@ -1663,15 +1673,16 @@ function ConfigSection({ businessId, onSaved, onLeaveGuard }: { businessId: stri
     <div className="config-logo">
       <span className={`mini-logo config-logo-preview${logo ? ' has-image' : ''}`} aria-hidden="true" style={logo ? { backgroundImage: `url(${logo})` } : undefined}>{initials(name)}</span>
       <div className="config-logo-body">
+        {!canBrand && <PlanNote onSeePlans={onSeePlans}>Tu logo en la página de reservas es parte del plan {PLANS.basico.name}.{business?.logo_path ? ' Mientras tanto no se muestra.' : ''}</PlanNote>}
         <div className="config-logo-actions">
           {/* Un botón de verdad (con foco y Enter) que abre el selector de archivos escondido */}
-          <button type="button" className="button button--secondary button--small" disabled={logoBusy} aria-describedby="config-logo-hint" onClick={() => logoInputRef.current?.click()}>
+          {canBrand && <button type="button" className="button button--secondary button--small" disabled={logoBusy} aria-describedby="config-logo-hint" onClick={() => logoInputRef.current?.click()}>
             {logoBusy ? 'Subiendo…' : business?.logo_path ? 'Cambiar logo' : 'Subir logo'}
-          </button>
+          </button>}
           <input ref={logoInputRef} type="file" hidden tabIndex={-1} accept="image/png,image/jpeg,image/webp" onChange={e => { void changeLogo(e.target.files?.[0]); e.target.value = '' }} />
           {business?.logo_path && <button type="button" className="text-button" disabled={logoBusy} onClick={() => void clearLogo()}>Quitar</button>}
         </div>
-        <small id="config-logo-hint" className="config-logo-hint">PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>
+        {canBrand && <small id="config-logo-hint" className="config-logo-hint">PNG, JPG o WebP, hasta 10 MB: la ajustamos sola. Funciona mejor si es cuadrado.</small>}
       </div>
     </div>
     <label className="onboarding-field">Teléfono <small>(opcional)</small>

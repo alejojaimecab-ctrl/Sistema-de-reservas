@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, MessageCircle, Plus, Trash2, UsersRound } from 'lucide-react'
 import { SegmentIndicator } from './SegmentIndicator'
+import { PlanNote } from './PlanSection'
+import { PLANS, professionalsInPlan } from '../lib/plans'
 import { useAuth } from '../lib/auth'
 import { friendlyError } from '../lib/errorMessages'
 import { copyText } from '../lib/clipboard'
@@ -34,11 +36,14 @@ const editableName = (name: string) => name === UNNAMED ? '' : name
 const shownName = (name: string) => name === UNNAMED ? 'Sin nombre' : name
 const nameInText = (name: string) => name === UNNAMED ? 'este profesional' : name
 
-export function TeamSection({ businessId, days, professionals, onChanged }: {
+export function TeamSection({ businessId, days, professionals, onChanged, professionalLimit, canInvite, onSeePlans }: {
   businessId: string
   days: AvailabilityDay[]
   professionals: Professional[]
   onChanged: () => Promise<void>
+  professionalLimit: number | null // cuántos activos incluye el plan (null = sin límite)
+  canInvite: boolean // cuentas para el equipo (desde el Básico)
+  onSeePlans: () => void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = professionals.find(p => p.id === selectedId) ?? professionals[0] ?? null
@@ -66,6 +71,10 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   // Profesionales con al menos un servicio (los que se suman con el enlace de equipo llegan sin ninguno)
   const [servedIds, setServedIds] = useState<Set<string> | null>(null)
   const activeCount = professionals.filter(p => p.is_active).length
+  // Límite del plan: los que pasan del límite siguen acá pero no reciben turnos (la base hace lo mismo)
+  const inPlan = professionalsInPlan(professionals, professionalLimit)
+  const atLimit = professionalLimit !== null && activeCount >= professionalLimit
+  const limitText = professionalLimit === null ? '' : `Tu plan incluye hasta ${professionalLimit} ${professionalLimit === 1 ? 'profesional' : 'profesionales'}.`
   const offeredServices = services.filter(service => offered.has(service.id))
   const onlyWhatsapp = offeredServices.length > 0 && offeredServices.every(service => service.booking_mode === 'whatsapp')
 
@@ -288,10 +297,13 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         type="button" key={p.id} aria-pressed={selected?.id === p.id}
         className={selected?.id === p.id ? 'is-active' : ''}
         onClick={() => void selectProfessional(p.id)}
-      >{selected?.id === p.id && <SegmentIndicator group={pickerGroup} />}{shownName(p.name)}{p.is_active ? '' : ' (inactivo)'}{p.is_active && servedIds && !servedIds.has(p.id) ? ' · sin servicios' : ''}</button>)}
+      >{selected?.id === p.id && <SegmentIndicator group={pickerGroup} />}{shownName(p.name)}{p.is_active ? '' : ' (inactivo)'}{p.is_active && servedIds && !servedIds.has(p.id) ? ' · sin servicios' : ''}{p.is_active && !inPlan.has(p.id) ? ' · fuera del plan' : ''}</button>)}
     </div>
 
     {selected && <>
+      {selected.is_active && !inPlan.has(selected.id) && <PlanNote onSeePlans={onSeePlans}>
+        {limitText} {nameInText(selected.name)} sigue en tu equipo, pero no aparece en tu página ni recibe turnos.
+      </PlanNote>}
       <p
         role="status" aria-live="polite"
         className={`autosave-status ${saveState === 'error' ? 'form-error' : 'form-note'}${statusText ? ' has-text' : ''}`}
@@ -342,7 +354,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         ? <p className="form-note">Todo lo que ofrece este profesional se coordina por WhatsApp: no hace falta cargar horarios en RESER.</p>
         : <AvailabilityEditor days={days} availability={availability} onChange={map => edit({ availability: map })} />}
       <div className="inline-row">
-        <button type="button" className="button button--secondary" disabled={busy} onClick={() => void toggleActive()}>
+        <button type="button" className="button button--secondary" disabled={busy || (!selected.is_active && atLimit)} title={!selected.is_active && atLimit ? limitText : undefined} onClick={() => void toggleActive()}>
           {selected.is_active ? 'Desactivar profesional' : 'Reactivar profesional'}
         </button>
         <button type="button" className="button button--secondary team-remove" disabled={busy} onClick={() => void remove()}>
@@ -355,11 +367,13 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
         Las dos formas dicen qué cambia entre una y otra. */}
     <details className="team-add" open={professionals.length <= 1}>
       <summary><Plus size={16} aria-hidden="true" /> Sumar un profesional</summary>
-      <div className="team-add-options">
+      {atLimit ? <PlanNote onSeePlans={onSeePlans}>{limitText} Para sumar a alguien más, pasate a un plan más alto.</PlanNote>
+      : <div className="team-add-options">
         <div className="team-add-option">
           <strong>Que entre con su propia cuenta</strong>
           <p>Le mandás un enlace, crea su cuenta y ve su agenda y sus turnos desde su celular.</p>
-          <TeamInvite businessId={businessId} />
+          {canInvite ? <TeamInvite businessId={businessId} />
+            : <PlanNote onSeePlans={onSeePlans}>Las cuentas para tu equipo son parte del plan {PLANS.basico.name}.</PlanNote>}
         </div>
         <div className="team-add-option">
           <strong>Agregarlo vos, solo con el nombre</strong>
@@ -371,7 +385,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
             <button type="submit" className="button button--secondary" disabled={busy || !newName.trim()}><Plus size={16} /> Agregar</button>
           </form>
         </div>
-      </div>
+      </div>}
     </details>
     {message && <p className="form-note" role="status">{message}</p>}
     {dialog}

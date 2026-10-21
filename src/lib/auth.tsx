@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import type { Plan } from './plans'
 
 export type Profile = { id: string; full_name: string }
 export type Business = {
@@ -14,6 +15,8 @@ export type Business = {
   address: string | null
   logo_path: string | null
   monthly_goal: number | null // meta de ganancias por mes (Estadísticas, migración 035)
+  plan: Plan // el contratado; durante la prueba vale el Pro (ver effectivePlan, migración 036)
+  trial_ends_at: string | null
 }
 // owner: el dueño del negocio (ve todo). staff: un profesional con cuenta (solo su agenda; migración 029).
 export type Role = 'owner' | 'staff'
@@ -38,7 +41,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const BUSINESS_COLUMNS = 'id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, monthly_goal'
+const BUSINESS_COLUMNS = 'id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, monthly_goal, plan, trial_ends_at'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)

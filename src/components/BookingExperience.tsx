@@ -338,8 +338,10 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
     </motion.div>
   </section>
 
+  // Desde el plan Básico la página es solo del negocio: sin la marca de RESER arriba ni el "Hecho con RESER" abajo
+  const showReser = demo || business.show_badge !== false
   return <section className="booking-shell">
-    <div className="booking-topbar"><button className="text-button booking-brand" onClick={onBack} aria-label="RESER, ir al inicio">RESER</button>{demo && <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span>}</div>
+    {showReser && <div className="booking-topbar"><button className="text-button booking-brand" onClick={onBack} aria-label="RESER, ir al inicio">RESER</button>{demo && <span className="booking-demo-badge"><CirclePlay size={14} /> Demostración · no se guarda</span>}</div>}
     <div className="booking-layout">
       {/* La página es del negocio: su logo y su nombre van primero, sin publicidad de RESER entre el cliente y los servicios */}
       <aside className="booking-intro">
@@ -418,6 +420,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
           </motion.form>}
         </AnimatePresence>
         </AutoHeight>
+        {/* Plan Gratis: la marca va al pie de la tarjeta, después de todo lo que el cliente tiene que hacer */}
+        {showReser && !demo && <p className="booking-made-with">Hecho con <a href="/">RESER</a>: armá tu página de reservas gratis</p>}
         {wipe?.phase === 'cover' && <GreenWipe phase="cover" x={wipe.x} y={wipe.y} onDone={() => { setCompleted(true); setSaving(false); setWipe(w => w && { ...w, phase: 'reveal' }) }} />}
       </div>
     </div>

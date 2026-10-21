@@ -19,6 +19,8 @@ export type MailReservation = {
     cancel_min_hours: number
     phone: string | null
     address: string | null
+    plan: string // gratis, basico o pro (migración 036)
+    trial_ends_at: string | null
   } | null
 }
 

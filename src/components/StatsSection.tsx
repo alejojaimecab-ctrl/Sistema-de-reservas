@@ -176,21 +176,11 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
   </div>
 }
 
-// Sin el plan Pro la sección se ve igual: una muestra borrosa (inventada, no son sus datos) y qué trae el plan.
-// Todavía no hay cobro, así que "Ver el plan Pro" despliega lo que incluye en lugar de llevar a pagar.
+// Sin el plan Pro la sección se ve igual: una muestra borrosa (inventada, no son sus datos) y el acceso a Tu plan.
 const LOCKED_KPIS = [['Ganancias', '$ 1.240.000'], ['Clientes atendidos', '186'], ['Ocupación', '72%'], ['Asistencia', '94%']]
 const LOCKED_BARS = [46, 72, 58, 64, 51, 92, 38]
-const PRO_INCLUDES = [
-  'Ganancias y ticket promedio, comparados con el período anterior',
-  'Una meta para el mes y cuánto te falta',
-  'Ocupación de la agenda y tus horarios más pedidos',
-  'Clientes para recuperar y los que más vienen',
-  'Exportar todo a Excel o PDF',
-]
 
-export function StatsLocked() {
-  const [open, setOpen] = useState(false)
-  const detailsId = useId()
+export function StatsLocked({ onSeePlans }: { onSeePlans: () => void }) {
   return <div className="stats stats-locked">
     <div className="stats-locked-preview" aria-hidden="true" inert>
       <div className="stats-kpis">
@@ -205,13 +195,7 @@ export function StatsLocked() {
       <span className="stats-locked-icon"><Lock size={22} aria-hidden="true" /></span>
       <h2 id="stats-locked-title">Disponible en el plan Pro</h2>
       <p>Ganancias del mes, clientes atendidos, tu mejor día de la semana y más, todo en un solo lugar.</p>
-      <button type="button" className="button button--primary" aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(value => !value)}>
-        {open ? 'Ocultar' : 'Ver el plan Pro'}
-      </button>
-      {open && <div className="stats-locked-details" id={detailsId}>
-        <ul>{PRO_INCLUDES.map(item => <li key={item}><Check size={15} aria-hidden="true" />{item}</li>)}</ul>
-        <small>Los planes pagos todavía no están habilitados. Cuando puedas pasarte al Pro, te avisamos por email.</small>
-      </div>}
+      <button type="button" className="button button--primary" onClick={onSeePlans}>Ver el plan Pro</button>
     </section>
   </div>
 }

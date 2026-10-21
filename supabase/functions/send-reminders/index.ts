@@ -40,7 +40,7 @@ const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
 const SELECT =
   'id,starts_at,status,cancel_token,cancelled_by,' +
   'clients(name,email,phone),services(name),resources(name),' +
-  'businesses(name,slug,timezone,owner_id,cancel_min_hours,phone,address)'
+  'businesses(name,slug,timezone,owner_id,cancel_min_hours,phone,address,plan,trial_ends_at)'
 
 const serviceHeaders = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
 
@@ -109,6 +109,14 @@ async function sendEvent(type: 'booked' | 'cancelled', id: string, byOwner: bool
   return { ok: true, resultados }
 }
 
+// El recordatorio de 1 h es del plan Básico en adelante (durante la prueba del Pro, también)
+function remindersIncluded(r: MailReservation): boolean {
+  const b = r.businesses
+  if (!b) return false
+  if (b.trial_ends_at && new Date(b.trial_ends_at).getTime() > Date.now()) return true
+  return b.plan !== 'gratis'
+}
+
 async function sendReminders() {
   const now = Date.now()
   const from = new Date(now + 50 * 60_000).toISOString()
@@ -119,6 +127,11 @@ async function sendReminders() {
 
   const resultados: Array<Result & { id: string }> = []
   for (const r of rows) {
+    // Plan Gratis: sin recordatorio. No se marca como enviado: si pasa a un plan pago antes del turno, le llega.
+    if (!remindersIncluded(r)) {
+      resultados.push({ id: r.id, to: '', ok: false, detalle: 'plan gratis' })
+      continue
+    }
     const email = r.clients?.email
     if (email) {
       const owner = r.businesses ? await ownerEmail(r.businesses.owner_id) : null

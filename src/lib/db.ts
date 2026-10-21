@@ -259,6 +259,15 @@ export type StatsReservation = {
   clients?: { name: string } | null
 }
 
+// Turnos del mes que cuentan para el cupo del plan Gratis (todos menos los cancelados, igual que la base)
+export async function countMonthReservations(businessId: string, from: Date, to: Date): Promise<number | null> {
+  const { count, error } = await supabase
+    .from('reservations').select('id', { count: 'exact', head: true })
+    .eq('business_id', businessId).neq('status', 'cancelled')
+    .gte('starts_at', from.toISOString()).lt('starts_at', to.toISOString())
+  return error ? null : count ?? 0
+}
+
 export async function listStatsReservations(
   businessId: string,
   from: Date,
@@ -435,7 +444,8 @@ export type PublicBusiness = {
   max_advance_days: number
   phone: string | null
   address: string | null
-  logo_path: string | null
+  logo_path: string | null // null en el plan Gratis aunque tenga uno cargado (migración 036)
+  show_badge?: boolean // plan Gratis: la página lleva la marca "Hecho con RESER"
 }
 export type PublicService = {
   id: string
@@ -450,7 +460,7 @@ export type PublicService = {
 // `failed` distingue "no existe ese negocio" de "no pudimos conectar": sin eso
 // la UI mostraba el empty state ante un error de red.
 export async function getPublicBusiness(slug: string): Promise<{ business: PublicBusiness | null; failed: boolean }> {
-  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path').eq('slug', slug).maybeSingle()
+  const { data, error } = await supabase.from('public_businesses').select('slug, name, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, show_badge').eq('slug', slug).maybeSingle()
   return { business: data ?? null, failed: !!error }
 }
 
@@ -758,7 +768,7 @@ export async function listProfessionals(businessId: string): Promise<Professiona
   if (!(await canUseBusiness(businessId))) return []
   const { data } = await supabase
     .from('resources').select('id, name, is_active, whatsapp')
-    .eq('business_id', businessId).is('deleted_at', null).order('created_at', { ascending: true })
+    .eq('business_id', businessId).is('deleted_at', null).order('created_at', { ascending: true }).order('id', { ascending: true })
   return data ?? []
 }
 
