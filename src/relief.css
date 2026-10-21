@@ -302,3 +302,70 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .reservation-row .client-link { display: inline; width: auto; height: auto; max-width: 100%; padding: 0; color: inherit; background: none; border: 0; border-radius: 0; font-size: inherit; overflow-wrap: anywhere; }
 .reservation-row .client-link:hover { color: inherit; background: none; }
 .profile-footer .button.res-danger { width: 100%; }
+
+/* ── Agenda: cambiar de día desde el propio detalle (flechas en todos lados, tira de la semana en el celular) ── */
+.calendar-detail-nav { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.calendar-detail-nav > div { min-width: 0; }
+.calendar-detail-arrow { position: relative; display: grid; place-items: center; flex: none; width: 34px; height: 34px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer; transition: color .16s ease-out, background-color .16s ease-out, border-color .16s ease-out; }
+.calendar-detail-arrow:hover { color: var(--text); background: var(--surface-sel); border-color: var(--border-hover); }
+.calendar-detail-arrow:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.calendar-detail-today { flex: none; height: 34px; }
+.day-strip { display: none; }
+@media (max-width: 800px) {
+  .day-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 12px 12px 0; }
+  .day-strip button { display: grid; justify-items: center; gap: 2px; min-height: 56px; padding: 6px 0; color: var(--text-2); background: transparent; border: 1px solid transparent; border-radius: var(--r-item); cursor: pointer; transition: background-color .16s ease-out, border-color .16s ease-out, color .16s ease-out; }
+  .day-strip small { font-size: 11px; text-transform: capitalize; }
+  .day-strip strong { color: var(--text); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .day-strip button.is-today strong { text-decoration: underline; text-decoration-color: var(--border-hover); text-underline-offset: 4px; }
+  .day-strip button.is-selected { color: var(--text); background: var(--surface-sel); border-color: var(--border-strong); }
+  .day-strip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .day-strip-dot { width: 4px; height: 4px; border-radius: var(--r-full); background: transparent; }
+  .day-strip-dot.has-turns { background: var(--text-2); }
+  .calendar-detail-heading { flex-wrap: wrap; align-items: center; }
+  .calendar-detail-nav { flex: 1 1 100%; }
+  .calendar-detail-nav > div { flex: 1; }
+  /* Flechas y "Hoy" se tocan en 44px aunque se vean de 34 */
+  .calendar-detail-arrow::after, .calendar-detail-today::after, .calendar-navigation button::after { content: ''; position: absolute; inset: -5px; }
+  .calendar-detail-today, .calendar-navigation button { position: relative; }
+  /* Vista Semana en el celular: nada por debajo de 11px (los 10px quedan solo para el calendario mensual) */
+  .calendar-grid--week .calendar-day-number, .calendar-grid--week .calendar-more { font-size: 11px; }
+}
+
+/* Nombre que abre el perfil: subrayado punteado siempre visible (así se descubre) y un área de toque más alta */
+.client-link { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--text-3); text-decoration-thickness: 1px; }
+.client-link:hover { text-decoration-style: solid; text-decoration-color: currentColor; }
+.calendar-appointment-info strong, .res-row strong { overflow: visible; }
+.calendar-appointment-info .client-link, .res-section .client-link { display: block; max-width: 100%; margin: -10px 0; padding: 10px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Perfil: manija en la hoja del celular y fechas con hora en las listas */
+.profile-handle { display: none; }
+.profile-list-when { width: 112px; }
+@media (max-width: 800px) {
+  .profile-handle { display: block; width: 40px; height: 4px; margin: -8px auto -10px; border-radius: var(--r-full); background: var(--border-hover); }
+}
+
+/* Autoguardado de Equipo y Mis horarios: "Guardando… / Cambios guardados" flota abajo, siempre a la vista
+   aunque estés editando el domingo al final de la página */
+.autosave-hint { margin: 4px 0 0; color: var(--text-3); font-size: 12px; }
+.autosave-status.has-text { position: fixed; top: auto; left: 50%; bottom: 24px; z-index: 240; max-width: calc(100% - 32px); margin: 0; padding: 10px 16px; transform: translateX(-50%); border-radius: var(--r-full); box-shadow: var(--hl), var(--elev-2); }
+@media (max-width: 800px) { .autosave-status.has-text { bottom: calc(var(--tabbar-h, 0px) + 12px); } }
+
+/* "Hoy": lo último que marcaste, con Deshacer */
+.today-undo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 10px 12px; color: var(--text-2); font-size: 13px; background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-item); }
+
+/* Celular: el encabezado de cada sección en una sola fila; "Activar avisos" queda como ícono al lado del título
+   (el texto sigue ahí para el lector de pantalla) */
+@media (max-width: 800px) {
+  .dashboard-header { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .dashboard-header > div:first-child { min-width: 0; }
+  .alerts-toggle { flex: none; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  .alerts-toggle-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+}
+
+/* Agenda: un turno atendido se marca con el avatar y el botón en verde, sin teñir toda la fila */
+.calendar-appointment.is-completed { background: transparent; border-top-color: var(--border); }
+.calendar-appointment.is-completed .calendar-appointment-info span { color: var(--text-2); }
+.calendar-appointment.is-completed .calendar-appointment-price { color: var(--text); }
+/* Reserva, paso 2: "Cambiar" a la derecha del resumen, sin bajar a una línea propia */
+.booking-choice { flex-wrap: nowrap; align-items: center; }
+.booking-choice > span { flex: 1; min-width: 0; }
+.booking-choice > .link-button { flex: none; }

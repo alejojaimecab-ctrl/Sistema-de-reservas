@@ -29,6 +29,12 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  // "Cambios guardados" flota abajo un momento y se va solo (los errores se quedan hasta reintentar)
+  useEffect(() => {
+    if (saveState !== 'saved') return
+    const timer = window.setTimeout(() => setSaveState(current => current === 'saved' ? 'idle' : current), 2500)
+    return () => window.clearTimeout(timer)
+  }, [saveState])
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Los cambios se juntan en `pendingRef` y se guardan en fila (`chainRef`): dos guardados nunca se pisan.
@@ -101,7 +107,7 @@ export function MyScheduleSection({ businessId, resourceId, days }: {
     : ''
 
   return <section className="agenda-card">
-    <div className="card-heading"><div><h2>Cuándo atendés</h2></div></div>
+    <div className="card-heading"><div><h2>Cuándo atendés</h2><p className="autosave-hint">Los cambios se guardan solos: no hace falta tocar ningún botón.</p></div></div>
 
     <p
       role="status" aria-live="polite"

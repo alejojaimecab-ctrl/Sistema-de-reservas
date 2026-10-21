@@ -54,6 +54,12 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  // "Cambios guardados" flota abajo un momento y se va solo (los errores se quedan hasta reintentar)
+  useEffect(() => {
+    if (saveState !== 'saved') return
+    const timer = window.setTimeout(() => setSaveState(current => current === 'saved' ? 'idle' : current), 2500)
+    return () => window.clearTimeout(timer)
+  }, [saveState])
   const [saveError, setSaveError] = useState<string | null>(null)
   const { confirm, dialog } = useConfirm()
   const pickerGroup = useId()
@@ -275,7 +281,7 @@ export function TeamSection({ businessId, days, professionals, onChanged }: {
     : ''
 
   return <section className="agenda-card">
-    <div className="card-heading"><div><h2>Profesionales y horarios</h2></div></div>
+    <div className="card-heading"><div><h2>Profesionales y horarios</h2><p className="autosave-hint">Los cambios se guardan solos: no hace falta tocar ningún botón.</p></div></div>
 
     <div className="calendar-mode team-picker" role="group" aria-label="Profesionales">
       {professionals.map(p => <button

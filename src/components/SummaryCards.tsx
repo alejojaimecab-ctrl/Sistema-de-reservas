@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Download, MessageCircle, QrCode, X } from 'lucide-react'
 import { updateReservationStatus, type Reservation } from '../lib/db'
 import { copyText } from '../lib/clipboard'
@@ -32,6 +32,13 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
 }) {
   const [busy, setBusy] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
+  // Lo último que marcaste, con "Deshacer": la fila se va de "Para marcar" y así se puede volver atrás
+  const [lastMarked, setLastMarked] = useState<{ reservation: Reservation; status: MarkStatus } | null>(null)
+  useEffect(() => {
+    if (!lastMarked) return
+    const timer = window.setTimeout(() => setLastMarked(null), 8000)
+    return () => window.clearTimeout(timer)
+  }, [lastMarked])
   const now = new Date()
   const time = (r: Reservation) => new Date(r.starts_at).getTime()
   const today = reservations.filter(r => sameDay(new Date(r.starts_at), now))
@@ -50,6 +57,7 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
     setBusy(current => { const next = new Set(current); next.delete(reservation.id); return next })
     if (markError) { setError(`No pudimos marcar el turno de ${name}: ${markError}`); return }
     onStatusChanged(reservation.id, status)
+    setLastMarked(status === 'confirmed' ? null : { reservation, status })
   }
 
   const newCount = [...pending, ...laterToday].filter(isNew).length
@@ -64,6 +72,10 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
       </span>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
+    {lastMarked && <p className="today-undo" role="status">
+      <span>{lastMarked.reservation.clients?.name ?? 'El cliente'}: {lastMarked.status === 'completed' ? 'atendido' : 'no vino'}.</span>
+      <button type="button" className="link-button" disabled={busy.has(lastMarked.reservation.id)} onClick={() => void mark(lastMarked.reservation, 'confirmed')}>Deshacer</button>
+    </p>}
 
     {loading ? <div className="today-skeleton" role="status" aria-label="Cargando tus turnos">{[0, 1, 2].map(i => <span key={i} />)}</div> : <>
       {pending.length > 0 && <div className="today-group">
@@ -96,7 +108,11 @@ export function TodayCard({ reservations, loading, showProfessional, onStatusCha
               <div className="today-row-info">{isNew(r) && <NewDot />}<strong>{r.clients?.name ?? 'Cliente'}</strong><span>{detail(r)}</span></div>
             </li>)}
           </ul>
-          : <p className="today-empty">{today.length === 0 ? 'Hoy no tenés turnos.' : 'No quedan más turnos por hoy.'}</p>}
+          : <p className="today-empty">{today.length === 0
+            ? 'Hoy no tenés turnos.'
+            : pending.length === 0
+              ? (today.length === 1 ? 'Ya pasó el único turno de hoy y está marcado.' : `Ya pasaron los ${today.length} turnos de hoy y están todos marcados.`)
+              : 'No quedan más turnos por hoy.'}</p>}
       </div>
     </>}
   </section>

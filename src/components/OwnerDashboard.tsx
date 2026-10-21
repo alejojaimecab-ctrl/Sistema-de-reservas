@@ -67,7 +67,7 @@ const days: AvailabilityDay[] = [
 
 // "alejo" → "Alejo": el saludo usa el primer nombre con mayúscula, como lo escribiría una persona
 function firstNameCapitalized(fullName: string | null | undefined) {
-  const first = fullName?.trim().split(/s+/)[0]
+  const first = fullName?.trim().split(/\s+/)[0]
   return first ? first.charAt(0).toLocaleUpperCase('es-AR') + first.slice(1) : null
 }
 
@@ -288,11 +288,6 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         reservation={profileReservation}
         showProfessional={activeProfessionals.length > 1}
         onClose={() => setProfileReservation(null)}
-        onCancel={async reservation => {
-          const cancelled = await cancelReservation(reservation)
-          if (cancelled) setHistoryVersion(version => version + 1)
-          return cancelled
-        }}
       />
 
       {/* Si una sección falla, solo ella muestra el error: el menú y el resto del panel siguen funcionando */}
@@ -312,8 +307,8 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         </section>
         <section className="dashboard-stats">
           <Metric icon={<CalendarDays size={19} />} label="Próximos 7 días" value={agendaLoading ? '…' : String(upcomingReservations.filter(r => { const time = new Date(r.starts_at).getTime(); return r.status === 'confirmed' && time >= Date.now() && time < Date.now() + 7 * 86_400_000 }).length)} detail="Turnos confirmados por delante" />
-          <Metric icon={<UsersRound size={19} />} label="Clientes este mes" value={String(stats?.monthClients ?? 0)} detail="Clientes únicos con turno" />
-          <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={stats?.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Sobre los turnos que marcaste" />
+          <Metric icon={<UsersRound size={19} />} label="Clientes este mes" value={stats ? String(stats.monthClients) : '…'} detail="Clientes únicos con turno" />
+          <Metric icon={<CheckCircle2 size={19} />} label="Tasa de asistencia" value={!stats ? '…' : stats.attendanceRate == null ? '—' : `${stats.attendanceRate}%`} detail="Sobre los turnos que marcaste" />
         </section>
         {/* Los de hoy ya están en "Hoy": acá van los de los próximos días */}
         <section className="agenda-card">
@@ -344,7 +339,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
       {active === 'Reservas' && (
         <section className="agenda-card">
-          <div className="card-heading"><div><h2>Todas tus reservas</h2></div>{!showNewReservation && <button type="button" className="button button--primary button--small" onClick={() => { setReservationNotice(null); setShowNewReservation(true) }}><Plus size={15} /> Nueva reserva</button>}</div>
+          <div className="card-heading"><div><h2 className="sr-only">Todas tus reservas</h2></div>{!showNewReservation && <button type="button" className="button button--primary button--small" onClick={() => { setReservationNotice(null); setShowNewReservation(true) }}><Plus size={15} /> Nueva reserva</button>}</div>
           {showNewReservation && <ManualReservationForm
             businessId={business.id}
             businessSlug={business.slug}
@@ -353,7 +348,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
             onCancel={() => setShowNewReservation(false)}
             onCreated={reservation => {
               addCreatedReservation(reservation)
-              setReservationNotice('La reserva se agregó correctamente.')
+              setReservationNotice(`Anotaste a ${reservation.clients?.name ?? 'tu cliente'} el ${new Date(reservation.starts_at).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${new Date(reservation.starts_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}.`)
               setShowNewReservation(false)
             }}
           />}
@@ -1045,11 +1040,16 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
     }
   }
 
+  // Semana (de lunes a domingo) del día elegido, para la tira de días del celular
+  const stripStart = addDays(selectedDate, -((selectedDate.getDay() + 6) % 7))
+  const stripDays = Array.from({ length: 7 }, (_, index) => addDays(stripStart, index))
+  const isTodaySelected = selectedKey === dateKey(today)
+
   return (<div className="agenda-stack">
     <section className="agenda-card calendar-card">
       <div className="calendar-heading">
         <div>
-          <h2>{mode === 'week' ? 'Tu semana, de un vistazo' : 'Tu mes, de un vistazo'}</h2>
+          <h2>{heading}</h2>
         </div>
         <div className="calendar-mode" role="group" aria-label="Vista del calendario">
           <button type="button" aria-pressed={mode === 'week'} className={mode === 'week' ? 'is-active' : ''} onClick={() => setMode('week')}>{mode === 'week' && <SegmentIndicator group={modeGroup} />}Semana</button>
@@ -1061,7 +1061,6 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
         <div className="calendar-navigation">
           <button type="button" aria-label={mode === 'week' ? 'Semana anterior' : 'Mes anterior'} onClick={() => shiftCalendar(-1)}><ChevronLeft size={18} /></button>
           <button type="button" aria-label={mode === 'week' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => shiftCalendar(1)}><ChevronRight size={18} /></button>
-          <h3>{heading}</h3>
         </div>
         <button type="button" className="calendar-today" onClick={() => setSelectedDate(new Date())}>Hoy</button>
       </div>
@@ -1126,11 +1125,29 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
     </section>
 
     {/* Los turnos del día elegido van en su propia tarjeta: una fila compacta por turno */}
-    {!error && <section ref={detailRef} className="agenda-card calendar-day-detail" aria-live="polite">
+    {!error && <section ref={detailRef} className="agenda-card calendar-day-detail">
+      {/* En el celular: la semana del día elegido en una tira, para cambiar de día sin bajar hasta el calendario */}
+      <div className="day-strip" role="group" aria-label="Elegí el día">
+        {stripDays.map(date => {
+          const key = dateKey(date)
+          const count = reservationsByDate.get(key)?.length ?? 0
+          const isSelected = key === selectedKey
+          return <button type="button" key={key} className={`${isSelected ? 'is-selected' : ''}${key === dateKey(today) ? ' is-today' : ''}`} aria-pressed={isSelected} aria-label={`${date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${count} ${count === 1 ? 'turno' : 'turnos'}`} onClick={() => setSelectedDate(date)}>
+            <small>{date.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '')}</small>
+            <strong>{date.getDate()}</strong>
+            <span className={`day-strip-dot${count ? ' has-turns' : ''}`} aria-hidden="true" />
+          </button>
+        })}
+      </div>
       <div className="calendar-detail-heading">
-        <div>
+        <div className="calendar-detail-nav">
+          <button type="button" className="calendar-detail-arrow" aria-label="Día anterior" onClick={() => setSelectedDate(current => addDays(current, -1))}><ChevronLeft size={17} /></button>
+          <div>
           <h3>{selectedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
-          <p className="calendar-detail-count">{loading ? 'Cargando agenda…' : selectedReservations.length === 0 ? 'Sin turnos' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
+          <p className="calendar-detail-count" aria-live="polite">{loading ? 'Cargando agenda…' : selectedReservations.length === 0 ? 'Sin turnos' : `${selectedReservations.length} ${selectedReservations.length === 1 ? 'turno' : 'turnos'}`}</p>
+          </div>
+          <button type="button" className="calendar-detail-arrow" aria-label="Día siguiente" onClick={() => setSelectedDate(current => addDays(current, 1))}><ChevronRight size={17} /></button>
+          {!isTodaySelected && <button type="button" className="calendar-today calendar-detail-today" onClick={() => setSelectedDate(new Date())}>Hoy</button>}
         </div>
         <div className="calendar-detail-actions">
           {visibleReservations > 0 && <span>{visibleReservations} en {mode === 'week' ? 'la semana' : 'el mes'}</span>}

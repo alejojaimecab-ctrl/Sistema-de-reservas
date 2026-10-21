@@ -214,6 +214,12 @@ export type ClientProfile = {
   error: string | null
 }
 
+// Un turno recién anotado a mano llega sin client_id: se averigua por el id del turno
+export async function getReservationClientId(reservationId: string): Promise<string | null> {
+  const { data } = await supabase.from('reservations').select('client_id').eq('id', reservationId).maybeSingle()
+  return (data as { client_id?: string } | null)?.client_id ?? null
+}
+
 export async function getClientProfile(businessId: string, clientId: string): Promise<ClientProfile> {
   if (!(await canUseBusiness(businessId))) return { client: null, reservations: [], error: 'No se pudo validar el acceso al negocio.' }
   const [clientResult, reservationsResult] = await Promise.all([

@@ -292,7 +292,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
   }, [completed, service, time, business, cancelToken])
 
   if (loadingServices) return <section className="booking-shell booking-shell--success">
-    <div className="booking-success"><p className="eyebrow">Cargando…</p></div>
+    <div className="booking-success" role="status"><p className="eyebrow">Cargando…</p></div>
   </section>
 
   if (loadFailed) return <section className="booking-shell booking-shell--success">
