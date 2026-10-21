@@ -87,7 +87,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
         title: '9. Planes y precios',
         body: [
           'RESER tiene un plan Gratis, sin costo y sin vencimiento, con límites de uso (cantidad de profesionales y de turnos por mes), y planes pagos (Básico y Pro) con más funciones. Lo que incluye cada plan y su precio están publicados en la página de precios.',
-          'Cada negocio nuevo puede usar el plan Pro sin costo durante 14 días. Al terminar la prueba sigue en el plan Gratis, salvo que elija un plan pago. Nunca te vamos a cobrar sin tu aceptación expresa.',
+          'La primera vez que un negocio contrata el plan Básico, puede usar el plan Pro sin costo adicional durante 14 días. Al terminar la prueba sigue en el plan Básico, salvo que elija otro. La prueba se da una sola vez por negocio. Nunca te vamos a cobrar sin tu aceptación expresa.',
           'Si un negocio pasa a un plan con menos funciones, sus datos se conservan, pero lo que excede el plan deja de estar disponible: por ejemplo, los profesionales que superan el límite dejan de recibir turnos.',
           'Las promociones (como el descuento del plan anual o del Pro semestral) valen en las condiciones publicadas al momento de contratarlas. Si cambiamos los precios, te avisamos con anticipación.',
         ],

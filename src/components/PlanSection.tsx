@@ -37,7 +37,7 @@ export function PlanSection({ business, professionals }: { business: Business; p
   function choose(target: Plan) {
     setNotice(target === 'gratis'
       ? daysLeft !== null ? 'Cuando termine la prueba seguís en el plan Gratis: no tenés que hacer nada.' : 'Ya estás en el plan Gratis.'
-      : `Todavía no se puede pagar desde RESER: el pago con Mercado Pago llega muy pronto. Te avisamos por email para que puedas pasarte al ${PLANS[target].name}.`)
+      : `Todavía no se puede pagar desde RESER: el pago con Mercado Pago llega muy pronto. Te avisamos por email para que puedas pasarte al ${PLANS[target].name}${target === 'basico' && !business.trial_ends_at ? ` (y te regalamos ${TRIAL_DAYS} días del Pro)` : ''}.`)
   }
 
   return <div className="plan-page">
@@ -70,6 +70,7 @@ export function PlanSection({ business, professionals }: { business: Business; p
       <PlanCards
         billing={billing}
         current={daysLeft !== null ? null : contracted}
+        trialGift={!business.trial_ends_at}
         action={target => target === contracted && daysLeft === null
           ? { label: 'Tu plan actual', onClick: () => undefined, disabled: true }
           : { label: target === 'gratis' ? 'Seguir en Gratis' : `Pasarme al ${PLANS[target].name}`, onClick: () => choose(target) }}

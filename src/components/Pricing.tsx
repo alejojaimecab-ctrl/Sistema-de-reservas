@@ -25,13 +25,14 @@ export function BillingToggle({ billing, onChange }: { billing: Billing; onChang
   </div>
 }
 
-export function PlanCards({ billing, current, action }: { billing: Billing; current?: Plan | null; action: (plan: Plan) => PlanAction }) {
+// trialGift: si mostrar en el Básico los días del Pro de regalo (no, si ese negocio ya usó la prueba)
+export function PlanCards({ billing, current, action, trialGift = true }: { billing: Billing; current?: Plan | null; action: (plan: Plan) => PlanAction; trialGift?: boolean }) {
   return <div className="plan-cards">
-    {PLAN_ORDER.map(key => <PlanCard key={key} plan={PLANS[key]} billing={billing} current={current === key} action={action(key)} />)}
+    {PLAN_ORDER.map(key => <PlanCard key={key} plan={PLANS[key]} billing={billing} current={current === key} action={action(key)} trialGift={trialGift} />)}
   </div>
 }
 
-function PlanCard({ plan, billing, current, action }: { plan: PlanInfo; billing: Billing; current: boolean; action: PlanAction }) {
+function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInfo; billing: Billing; current: boolean; action: PlanAction; trialGift: boolean }) {
   const featured = plan.key === 'pro'
   const free = plan.monthly === 0
   const price = perMonth(plan, billing)
@@ -66,6 +67,7 @@ function PlanCard({ plan, billing, current, action }: { plan: PlanInfo; billing:
       {action.label}{featured && !action.disabled && <ArrowRight size={16} aria-hidden="true" />}
     </button>
     {featured && <p className="plan-upsell">Por {formatPrice(extra)} más por mes que el Básico, tenés todo.</p>}
+    {plan.key === 'basico' && trialGift && <p className="plan-upsell">Te regalamos {TRIAL_DAYS} días del Pro para que lo pruebes.</p>}
     <ul className="plan-list">
       {plan.highlights.map(item => <li key={item}><Check size={15} aria-hidden="true" />{item}</li>)}
     </ul>
@@ -120,11 +122,11 @@ export function PlanComparison({ current }: { current?: Plan | null }) {
 // La sección de la portada
 export function PricingSection({ onStart }: { onStart: () => void }) {
   const [billing, setBilling] = useState<Billing>('mensual')
-  const labels: Record<Plan, string> = { gratis: 'Empezar gratis', basico: 'Empezar con el Básico', pro: `Probar el Pro ${TRIAL_DAYS} días gratis` }
+  const labels: Record<Plan, string> = { gratis: 'Empezar gratis', basico: 'Empezar con el Básico', pro: 'Empezar con el Pro' }
   return <section id="precios" className="pricing-section" aria-labelledby="pricing-title">
     <Reveal>
       <h2 id="pricing-title">Empezá gratis.<br /><em>Crecé cuando quieras.</em></h2>
-      <p className="pricing-lead">Todos los negocios arrancan con {TRIAL_DAYS} días del plan Pro, sin tarjeta. Después elegís con cuál seguir.</p>
+      <p className="pricing-lead">Arrancá gratis, sin tarjeta. Cuando te pases al Básico, te regalamos {TRIAL_DAYS} días del Pro para que lo pruebes.</p>
     </Reveal>
     <BillingToggle billing={billing} onChange={setBilling} />
     <PlanCards billing={billing} action={plan => ({ label: labels[plan], onClick: onStart })} />

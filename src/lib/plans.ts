@@ -1,7 +1,8 @@
 // Planes de RESER: qué trae cada uno, cuánto sale y qué plan vale ahora para un negocio.
 // Es el único lugar que lo decide del lado de la app: la landing, el panel y los avisos solo preguntan.
 // La base valida lo mismo (supabase/migrations/036_planes.sql): si cambiás un límite acá, cambialo también en private.plan_limits.
-// Todavía no hay cobro: el plan lo cambia el servidor. Cada negocio nuevo arranca con TRIAL_DAYS días de Pro.
+// Todavía no hay cobro: el plan lo cambia el servidor. La primera vez que un negocio pasa al Básico recibe
+// TRIAL_DAYS días de Pro de regalo (migración 040); los negocios nuevos arrancan en Gratis, sin prueba.
 
 export type Plan = 'gratis' | 'basico' | 'pro'
 export type Feature =
