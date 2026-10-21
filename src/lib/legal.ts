@@ -8,7 +8,7 @@ export const LEGAL = {
   domicilio: 'COMPLETAR: domicilio legal',
   email: 'COMPLETAR: email de contacto legal',
   hosting: 'COMPLETAR: proveedor de hosting de la web',
-  actualizado: '17 de octubre de 2026',
+  actualizado: '21 de octubre de 2026',
 }
 
 export type LegalSection = { title: string; body: Array<string | string[]> } // string[] = lista con viñetas
@@ -54,6 +54,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
           [
             'Configurar bien tus servicios, horarios, días libres y política de cancelación, y atender los turnos que se reserven.',
             'Tratar los datos de tus clientes (nombre, email, teléfono, historial de turnos) conforme a la Ley 25.326 de Protección de los Datos Personales y usarlos solo para gestionar sus turnos.',
+            'Cuidar los archivos que descargues con datos de tus clientes (por ejemplo, las exportaciones a Excel o PDF) como cualquier otro dato personal.',
             'Subir solo contenido propio o que tengas derecho a usar (por ejemplo, tu logo), sin infringir derechos de terceros.',
             'No usar RESER para enviar publicidad no solicitada ni para fines ilícitos.',
           ],
@@ -148,8 +149,9 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
         body: [
           [
             'Dueños de negocio: nombre, email y contraseña de la cuenta (nunca la conocemos en texto plano); datos del negocio como nombre, enlace, servicios, precios, horarios, días libres, teléfono, dirección y logo.',
+            'Profesionales del equipo: el nombre y, si se carga, su WhatsApp. Si entran con su propia cuenta, también su email y su contraseña (que nunca conocemos en texto plano).',
             'Clientes que reservan: nombre y email (obligatorios), teléfono (opcional) y el historial de turnos con ese negocio.',
-            'Datos técnicos: para evitar reservas masivas falsas, guardamos de forma temporal el email y la dirección IP desde donde se reserva. Se eliminan automáticamente en pocos días.',
+            'Datos técnicos: para evitar reservas masivas falsas, guardamos de forma temporal el email y la dirección IP desde donde se reserva. Se eliminan automáticamente a los dos días.',
             'En tu navegador: guardamos un identificador de sesión para mantener la cuenta iniciada y, durante el alta de un negocio, un borrador de la configuración. No usamos cookies publicitarias ni herramientas de seguimiento.',
           ],
         ],
@@ -170,7 +172,8 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
         title: '4. Con quién los compartimos',
         body: [
           [
-            'Con el negocio: cada negocio ve los datos de sus propios clientes y solo de ellos.',
+            'Con el negocio: cada negocio ve los datos de sus propios clientes y solo de ellos, y puede descargarlos (en Excel o PDF) desde su panel.',
+            'En la página de reservas del negocio, visible para cualquiera: su nombre, dirección, teléfono y logo, y el nombre y el WhatsApp de cada profesional que lo tenga cargado.',
             `Con proveedores que nos permiten funcionar: Supabase (base de datos, autenticación y archivos), Resend (envío de emails) y ${LEGAL.hosting} (publicación de la web). Solo reciben lo necesario para cumplir su función.`,
             'Con Google, únicamente si tocás "Agendar en Google Calendar": tu navegador le envía el nombre del servicio, el negocio y el horario.',
             'Con WhatsApp (Meta), únicamente si tocás "Escribir por WhatsApp" en un servicio que se coordina por ese medio: tu navegador abre WhatsApp con un mensaje ya escrito y, desde ahí, la conversación es entre vos y el negocio, bajo las condiciones de WhatsApp.',
@@ -182,7 +185,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
       {
         title: '5. Cuánto tiempo los conservamos',
         body: [
-          'Conservamos los datos mientras la cuenta del negocio esté activa y el tiempo necesario para cumplir obligaciones legales. Los datos técnicos antiabuso se eliminan automáticamente en pocos días. Si pedís la eliminación de tu cuenta, borramos los datos que no tengamos obligación de conservar.',
+          'Conservamos los datos mientras la cuenta del negocio esté activa y el tiempo necesario para cumplir obligaciones legales. Los datos técnicos antiabuso se eliminan automáticamente a los dos días. Si pedís la eliminación de tu cuenta, borramos los datos que no tengamos obligación de conservar.',
         ],
       },
       {
