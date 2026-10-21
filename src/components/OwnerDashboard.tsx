@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, CalendarX, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, LayoutDashboard, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, ChartColumn, CalendarX, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, LayoutDashboard, Lock, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
@@ -21,6 +21,8 @@ import { NewDot, ShareLinkCard, TodayCard } from './SummaryCards'
 import { isNewReservation, useNewSince } from '../lib/newReservations'
 import { ErrorBoundary } from './ErrorBoundary'
 import { ClientProfile } from './ClientProfile'
+import { StatsLocked, StatsSection } from './StatsSection'
+import { businessPlan, hasFeature } from '../lib/plans'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -30,13 +32,16 @@ import {
 
 type OwnerDashboardProps = { onExit: () => void }
 
-type SectionKey = 'Resumen' | 'Agenda' | 'Reservas' | 'Servicios' | 'Equipo' | 'Días libres' | 'Configuración' | 'Mis horarios'
-type SectionItem = { key: SectionKey; label: string; icon: typeof LayoutDashboard }
+type SectionKey = 'Resumen' | 'Agenda' | 'Reservas' | 'Estadísticas' | 'Servicios' | 'Equipo' | 'Días libres' | 'Configuración' | 'Mis horarios'
+// locked: la sección se ve pero su contenido es de un plan más alto (lleva un candado)
+type SectionItem = { key: SectionKey; label: string; icon: typeof LayoutDashboard; locked?: boolean }
 
 const OWNER_SECTIONS: SectionItem[] = [
   { key: 'Resumen', label: 'Resumen', icon: LayoutDashboard },
   { key: 'Agenda', label: 'Agenda', icon: CalendarDays },
   { key: 'Reservas', label: 'Reservas', icon: UsersRound },
+  // Del plan más alto: sin él se ve igual, bloqueada y contando qué trae (ver hasFeature)
+  { key: 'Estadísticas', label: 'Estadísticas', icon: ChartColumn },
   { key: 'Servicios', label: 'Servicios', icon: Sparkles },
   { key: 'Equipo', label: 'Equipo', icon: UserRound },
   { key: 'Días libres', label: 'Días libres', icon: CalendarOff },
@@ -51,7 +56,7 @@ const STAFF_SECTIONS: SectionItem[] = [
 
 // Cada sección tiene su dirección: /panel, /panel/agenda, /panel/dias-libres…
 const SECTION_PATHS: Record<SectionKey, string> = {
-  Resumen: '', Agenda: 'agenda', Reservas: 'reservas', Servicios: 'servicios', Equipo: 'equipo',
+  Resumen: '', Agenda: 'agenda', Reservas: 'reservas', Estadísticas: 'estadisticas', Servicios: 'servicios', Equipo: 'equipo',
   'Días libres': 'dias-libres', Configuración: 'configuracion', 'Mis horarios': 'mis-horarios',
 }
 function sectionFromPath(): SectionKey | null {
@@ -89,7 +94,10 @@ function initials(name: string) {
 export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
   const isStaff = role === 'staff'
-  const sections = isStaff ? STAFF_SECTIONS : OWNER_SECTIONS
+  const statsUnlocked = hasFeature({ isOwner: !isStaff, plan: businessPlan() }, 'advanced-stats')
+  const sections = isStaff
+    ? STAFF_SECTIONS
+    : OWNER_SECTIONS.map(section => section.key === 'Estadísticas' && !statsUnlocked ? { ...section, locked: true } : section)
   const [selectedSection, setSelectedSection] = useState<SectionKey>(() => sectionFromPath() ?? (isStaff ? 'Agenda' : 'Resumen'))
   // Si cambia el rol (por ejemplo, al aceptar una invitación) se muestra una sección que exista para ese rol
   const active = sections.some(section => section.key === selectedSection) ? selectedSection : sections[0].key
@@ -263,7 +271,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 
   return <div className="dashboard">
     <aside className="dashboard-sidebar"><Brand />
-      <nav>{sections.map(({ key, label, icon: Icon }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}</button>)}</nav>
+      <nav>{sections.map(({ key, label, icon: Icon, locked }) => <button className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{active === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}{locked && <PlanLock />}</button>)}</nav>
       <button className="sidebar-exit" onClick={() => void requestSignOut()}><LogOut size={17} /> Cerrar sesión</button>
     </aside>
     <main className="dashboard-main">
@@ -366,6 +374,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         </section>
       )}
 
+      {active === 'Estadísticas' && (statsUnlocked
+        ? <StatsSection businessId={business.id} onOpenUnmarked={() => void setActive('Reservas', 'unmarked')} />
+        : <StatsLocked />)}
       {active === 'Servicios' && <ServicesSection businessId={business.id} onOpenTeam={() => void setActive('Equipo')} />}
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
       {active === 'Equipo' && <TeamSection businessId={business.id} days={days} professionals={professionals} onChanged={reloadProfessionals} />}
@@ -398,6 +409,11 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
 }
 
 // Hoja que sube desde abajo en el celular: las secciones que no entran en la barra y Cerrar sesión
+// Candado de las secciones de un plan más alto; el lector de pantalla lo dice
+function PlanLock() {
+  return <span className="nav-lock"><Lock size={13} aria-hidden="true" /><span className="sr-only"> (plan Pro)</span></span>
+}
+
 function MoreSheet({ sections, active, onPick, onClose, onSignOut }: {
   sections: SectionItem[]
   active: SectionKey
@@ -439,7 +455,7 @@ function MoreSheet({ sections, active, onPick, onClose, onSignOut }: {
       onClick={event => event.stopPropagation()}
     >
       <span className="sheet-handle" aria-hidden="true" />
-      <nav>{sections.map(({ key, label, icon: Icon }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => onPick(key)}><Icon size={18} />{label}</button>)}</nav>
+      <nav>{sections.map(({ key, label, icon: Icon, locked }) => <button type="button" key={key} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined} onClick={() => onPick(key)}><Icon size={18} />{label}{locked && <PlanLock />}</button>)}</nav>
       <button type="button" className="sheet-exit" onClick={onSignOut}><LogOut size={17} /> Cerrar sesión</button>
     </motion.div>
   </motion.div>

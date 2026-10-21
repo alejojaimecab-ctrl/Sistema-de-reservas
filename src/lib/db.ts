@@ -241,6 +241,100 @@ export async function getClientProfile(businessId: string, clientId: string): Pr
   }
 }
 
+// Turnos de un período para la sección Estadísticas (incluye cancelados: también se cuentan).
+// Solo el dueño: un profesional con cuenta no ve estadísticas del negocio.
+export type StatsReservation = {
+  id: string
+  starts_at: string
+  ends_at: string | null
+  created_at: string | null
+  status: Reservation['status']
+  cancelled_by: 'client' | 'owner' | null
+  source: 'public' | 'manual' | null
+  client_id: string | null
+  service_id: string | null
+  resource_id: string | null
+  services: { name: string; price: number; price_mode?: 'fixed' | 'from' | 'ask' } | null
+  resources: { name: string } | null
+  clients?: { name: string } | null
+}
+
+export async function listStatsReservations(
+  businessId: string,
+  from: Date,
+  to: Date,
+): Promise<{ reservations: StatsReservation[]; error: string | null }> {
+  if (!(await ownsBusiness(businessId))) return { reservations: [], error: 'No se pudo validar el acceso al negocio.' }
+  const reservations: StatsReservation[] = []
+  const pageSize = 500
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, starts_at, ends_at, created_at, status, cancelled_by, source, client_id, service_id, resource_id, clients(name), services(name, price, price_mode), resources(name)')
+      .eq('business_id', businessId)
+      .gte('starts_at', from.toISOString())
+      .lt('starts_at', to.toISOString())
+      .order('starts_at', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+    if (error) return { reservations: [], error: friendlyError(error) }
+    const page = (data ?? []) as unknown as StatsReservation[]
+    reservations.push(...page)
+    if (page.length < pageSize) break
+  }
+  return { reservations, error: null }
+}
+
+// Horarios de atención de todos los profesionales (medias horas por día) y días libres de un período:
+// con eso se calcula cuánta agenda había abierta para medir la ocupación
+export type OpenSlot = { resource_id: string; day_of_week: number; slot_index: number }
+
+export async function listBusinessAvailability(businessId: string): Promise<OpenSlot[]> {
+  if (!(await ownsBusiness(businessId))) return []
+  const slots: OpenSlot[] = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from('availability').select('resource_id, day_of_week, slot_index')
+      .eq('business_id', businessId).range(offset, offset + 999)
+    if (error) break
+    slots.push(...((data ?? []) as OpenSlot[]))
+    if ((data ?? []).length < 1000) break
+  }
+  return slots
+}
+
+export async function listTimeOffBetween(businessId: string, from: Date, to: Date): Promise<TimeOff[]> {
+  if (!(await ownsBusiness(businessId))) return []
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const { data } = await supabase.from('time_off').select('id, resource_id, starts_on, ends_on, reason')
+    .eq('business_id', businessId).lte('starts_on', key(to)).gte('ends_on', key(from))
+  return data ?? []
+}
+
+// Meta de ganancias del mes (Estadísticas). null la quita.
+export async function updateMonthlyGoal(businessId: string, goal: number | null): Promise<string | null> {
+  if (!(await ownsBusiness(businessId))) return 'No tenés permiso sobre este negocio.'
+  const { error } = await supabase.from('businesses').update({ monthly_goal: goal }).eq('id', businessId)
+  return error ? friendlyError(error) : null
+}
+
+// Primera vez que cada cliente tuvo un turno (no cancelado) en el negocio: separa clientes nuevos de los que vuelven
+export async function listClientFirstVisits(businessId: string, clientIds: string[]): Promise<Map<string, string>> {
+  const first = new Map<string, string>()
+  if (clientIds.length === 0 || !(await ownsBusiness(businessId))) return first
+  for (let i = 0; i < clientIds.length; i += 200) {
+    const { data } = await supabase
+      .from('reservations')
+      .select('client_id, starts_at')
+      .eq('business_id', businessId)
+      .in('client_id', clientIds.slice(i, i + 200))
+      .neq('status', 'cancelled')
+      .order('starts_at', { ascending: true })
+    for (const row of (data ?? []) as { client_id: string; starts_at: string }[]) {
+      if (!first.has(row.client_id)) first.set(row.client_id, row.starts_at)
+    }
+  }
+  return first
+}
+
 // Historial completo de reservas del negocio (pasadas, futuras y canceladas) para la sección Reservas.
 export type HistoryReservation = Reservation & {
   ends_at: string

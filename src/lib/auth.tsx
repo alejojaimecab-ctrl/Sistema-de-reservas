@@ -13,6 +13,7 @@ export type Business = {
   phone: string | null
   address: string | null
   logo_path: string | null
+  monthly_goal: number | null // meta de ganancias por mes (Estadísticas, migración 035)
 }
 // owner: el dueño del negocio (ve todo). staff: un profesional con cuenta (solo su agenda; migración 029).
 export type Role = 'owner' | 'staff'
@@ -37,7 +38,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const BUSINESS_COLUMNS = 'id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path'
+const BUSINESS_COLUMNS = 'id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, monthly_goal'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
