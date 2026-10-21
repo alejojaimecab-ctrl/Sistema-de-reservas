@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import type { Plan } from './plans'
@@ -53,14 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // true mientras la persona llegó desde el mail de "olvidé mi contraseña" y falta elegir la nueva
   const [recovering, setRecovering] = useState(() => window.location.hash.includes('type=recovery'))
 
+  // Persona cuyos datos ya se pidieron (undefined: ninguna todavía). Supabase avisa de la sesión varias veces
+  // (al abrir, al renovar el acceso cada hora, al volver a la pestaña) y perfil y negocio solo cambian con la persona.
+  const loadedUserRef = useRef<string | null | undefined>(undefined)
+
   async function loadUserData(userId: string) {
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles').select('id, full_name').eq('id', userId).single()
     setProfile(profileData)
 
-    const { data: businessData } = await supabase
+    const { data: businessData, error: businessError } = await supabase
       .from('businesses').select(BUSINESS_COLUMNS).eq('owner_id', userId)
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
+    // Si algo falló, el próximo aviso de la sesión lo vuelve a intentar
+    if (profileError || businessError) loadedUserRef.current = undefined
     if (businessData) {
       setBusiness(businessData)
       setRole('owner')
@@ -69,28 +75,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Sin negocio propio: puede ser un profesional que se sumó con una invitación
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from('staff_members').select(`resources(id, name), businesses(${BUSINESS_COLUMNS})`)
       .eq('user_id', userId).maybeSingle()
+    if (membershipError) loadedUserRef.current = undefined
     const staff = membership as { resources: StaffResource | null; businesses: Business | null } | null
     setBusiness(staff?.businesses ?? null)
     setRole(staff?.businesses ? 'staff' : null)
     setStaffResource(staff?.businesses ? staff.resources : null)
   }
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session)
-      if (data.session) await loadUserData(data.session.user.id)
+  // La sesión siempre se actualiza; perfil y negocio se piden solo si cambió la persona (si no, el panel
+  // recibiría un negocio "nuevo" y volvería a pedir todo)
+  function syncUser(newSession: Session | null) {
+    setSession(newSession)
+    const userId = newSession?.user.id ?? null
+    if (userId === loadedUserRef.current) return
+    loadedUserRef.current = userId
+    if (!userId) {
+      setProfile(null); setBusiness(null); setRole(null); setStaffResource(null)
       setLoading(false)
-    })
+      return
+    }
+    void loadUserData(userId).finally(() => setLoading(false))
+  }
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => syncUser(data.session))
+
+    // Sin await adentro: esperar otra llamada a Supabase dentro de este aviso puede trabarlo (lo advierte su documentación)
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (event === 'PASSWORD_RECOVERY') setRecovering(true)
-      setSession(newSession)
-      if (newSession) await loadUserData(newSession.user.id)
-      else { setProfile(null); setBusiness(null); setRole(null); setStaffResource(null) }
-      setLoading(false)
+      syncUser(newSession)
     })
 
     return () => listener.subscription.unsubscribe()
