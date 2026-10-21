@@ -415,7 +415,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       )}
 
       {active === 'Estadísticas' && (statsUnlocked
-        ? <StatsSection businessId={business.id} onOpenUnmarked={() => void setActive('Reservas', 'unmarked')} />
+        ? <StatsSection businessId={business.id} onOpenUnmarked={() => void setActive('Reservas', 'unmarked')}
+            // Desde Estadísticas no hay un turno puntual: el perfil se abre solo con el cliente (sin "Este turno")
+            onOpenClient={(clientId, name) => setProfileReservation({ id: `cliente-${clientId}`, client_id: clientId, starts_at: '', status: 'confirmed', clients: { name }, services: null, resources: null })} />
         : <StatsLocked onSeePlans={() => void setActive('Tu plan')} />)}
       {active === 'Servicios' && <ServicesSection businessId={business.id} onOpenTeam={() => void setActive('Equipo')} />}
       {active === 'Días libres' && <TimeOffSection businessId={business.id} professionals={professionals} />}
@@ -524,10 +526,15 @@ function AlertsToggle({ alerts }: { alerts: ReturnType<typeof useReservationAler
 
 function NewReservationBanner({ reservation, onView, onClose }: { reservation: Reservation; onView: () => void; onClose: () => void }) {
   const { who, when } = describeReservation(reservation)
+  // El mismo aviso sirve cuando el cliente cancela con el link del mail: el turno ya salió de la Agenda
+  const cancelled = reservation.status === 'cancelled'
   return <div className="new-reservation" role="status">
-    <span className="new-reservation-icon" aria-hidden="true"><CalendarPlus size={17} /></span>
-    <span className="new-reservation-text"><strong>Nueva reserva: {who}</strong><small>{when}</small></span>
-    <button type="button" className="button button--secondary button--small" onClick={onView}>Ver en la agenda</button>
+    <span className="new-reservation-icon" aria-hidden="true">{cancelled ? <CalendarX size={17} /> : <CalendarPlus size={17} />}</span>
+    <span className="new-reservation-text">
+      <strong>{cancelled ? 'Canceló el cliente' : 'Nueva reserva'}: {who}</strong>
+      <small>{when}{cancelled ? ' · el horario quedó libre' : ''}</small>
+    </span>
+    {!cancelled && <button type="button" className="button button--secondary button--small" onClick={onView}>Ver en la agenda</button>}
     <button type="button" className="new-reservation-close" aria-label="Cerrar aviso" onClick={onClose}><X size={15} /></button>
   </div>
 }
@@ -1311,7 +1318,11 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
         </p>
       )}
 
-      {!isPastDay && freeServices.length > 0 && <div className="agenda-free">
+    </section>}
+
+    {/* Horarios libres en su propia tarjeta: en el celular van al final, después del calendario */}
+    {!error && !isPastDay && freeServices.length > 0 && <section className="agenda-card agenda-free-card">
+      <div className="agenda-free">
         <h4 className="agenda-free-title">Horarios libres</h4>
         {/* Con varios profesionales un horario está libre si al menos uno puede: por eso puede coincidir con otro turno */}
         {!fixedResourceId && professionals.filter(p => p.is_active).length > 1 && <p className="agenda-free-hint">Con al menos un profesional libre, aunque otro ya tenga turno a esa hora.</p>}
@@ -1339,7 +1350,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
             >
               {freeSlots.map(slot => <button type="button" key={slot} aria-label={`Anotar un turno a las ${clockLabel(new Date(slot))}`} onClick={() => { setCreatedNotice(null); setNewTurn({ date: selectedKey, startsAt: slot, serviceId: freeServiceId }) }}><Plus size={13} aria-hidden="true" />{clockLabel(new Date(slot))}</button>)}
             </motion.div>}
-      </div>}
+      </div>
     </section>}
   </div>)
 }

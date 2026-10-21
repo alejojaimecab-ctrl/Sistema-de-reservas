@@ -140,7 +140,8 @@ function ProfilePanel({ businessId, reservation, showProfessional, onClose, redu
         {phone && <a href={telHref(phone)}><Phone size={15} aria-hidden="true" /> {phone}</a>}
       </div>}
 
-      <section className="profile-section" aria-labelledby="profile-turn">
+      {/* Abierto desde Estadísticas no hay un turno puntual (starts_at vacío): solo el cliente */}
+      {reservation.starts_at && <section className="profile-section" aria-labelledby="profile-turn">
         <h3 id="profile-turn">Este turno</h3>
         <dl className="profile-facts">
           <div><dt>Día y hora</dt><dd className="is-capitalized">{dayTime(reservation.starts_at)}</dd></div>
@@ -149,7 +150,7 @@ function ProfilePanel({ businessId, reservation, showProfessional, onClose, redu
           {reservation.services && <div><dt>Precio</dt><dd>{priceLabel(Number(reservation.services.price), reservation.services.price_mode ?? 'fixed')}</dd></div>}
           {reservation.source && <div><dt>Cómo llegó</dt><dd>{reservation.source === 'public' ? 'Reservó por tu enlace' : 'Lo anotaste vos'}</dd></div>}
         </dl>
-      </section>
+      </section>}
 
       <section className="profile-section" aria-labelledby="profile-stats" aria-busy={!profile}>
         <h3 id="profile-stats">Con tu negocio</h3>

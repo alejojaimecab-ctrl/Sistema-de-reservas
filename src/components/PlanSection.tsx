@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Lock, Sparkles } from 'lucide-react'
+import { ArrowRight, Lock, Sparkles } from 'lucide-react'
 import { BillingToggle, PlanCards, PlanComparison, ProSemesterOffer } from './Pricing'
 import { formatPrice } from '../data/demo'
 import { countMonthReservations, type Professional } from '../lib/db'
@@ -74,8 +74,8 @@ export function PlanSection({ business, professionals }: { business: Business; p
           ? { label: 'Tu plan actual', onClick: () => undefined, disabled: true }
           : { label: target === 'gratis' ? 'Seguir en Gratis' : `Pasarme al ${PLANS[target].name}`, onClick: () => choose(target) }}
       />
+      <ProSemesterOffer><button type="button" className="button button--secondary" onClick={() => choose('pro')}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
       {notice && <p className="plan-notice" role="status">{notice}</p>}
-      <ProSemesterOffer><button type="button" className="button button--secondary" onClick={() => choose('pro')}>Quiero el Pro semestral</button></ProSemesterOffer>
       <details className="plan-compare">
         <summary>Comparar todo lo que trae cada plan</summary>
         <PlanComparison current={plan} />

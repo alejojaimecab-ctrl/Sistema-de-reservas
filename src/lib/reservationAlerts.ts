@@ -174,8 +174,12 @@ export function useReservationAlerts(businessId: string | null, handlers: {
       })
       // Un turno que cambia (por ejemplo, lo cancela el cliente) también se ve al instante, sin sonido
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservations', filter: `business_id=eq.${businessId}` }, payload => {
-        const id = (payload.new as { id?: string }).id
-        if (id) void readChanged(id)
+        const row = payload.new as { id?: string; status?: string; cancelled_by?: string }
+        if (!row.id) return
+        // Si la canceló el cliente (con el link del mail), se avisa en el panel, sin sonido
+        void readChanged(row.id).then(reservation => {
+          if (reservation && row.status === 'cancelled' && row.cancelled_by === 'client') setLatest(reservation)
+        })
       })
       .subscribe(status => {
         if (status !== 'SUBSCRIBED') return

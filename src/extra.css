@@ -688,6 +688,10 @@ a.button { text-decoration: none; }
 .address-fields legend { margin-bottom: 10px; padding: 0; color: var(--text); font-size: 13px; font-weight: 500; }
 .address-fields legend small { color: var(--text-3); font-size: 11px; font-weight: 400; }
 .address-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+/* Un fieldset y un select no se achican solos más allá de su opción más larga ("Sin mínimo (hasta último momento)"):
+   en un celular de 320 px ensanchaban toda la página de Configuración */
+.address-fields { min-inline-size: 0; }
+.onboarding-field select { width: 100%; min-width: 0; }
 .address-fields .form-error { margin: -4px 0 10px; }
 .address-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .address-check small { flex: 1 1 220px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
@@ -699,7 +703,8 @@ a.button { text-decoration: none; }
 .agenda-notice { margin: 0 22px 14px; }
 .agenda-new { padding: 0 22px 18px; }
 .agenda-new .manual-reservation-form { margin: 0; background: var(--surface-2); border-color: transparent; border-radius: var(--r-item); }
-.agenda-free { padding: 16px 22px 20px; border-top: 1px solid var(--border); }
+.agenda-free { padding: 16px 22px 20px; }
+.agenda-card.agenda-free-card { margin-top: 16px; padding: 0; overflow: hidden; container-type: inline-size; }
 .agenda-free-empty { margin: 0; color: var(--text-2); font-size: 13px; }
 .agenda-free-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
 .agenda-free-grid button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; color: var(--text-2); background: transparent; border: 1px dashed var(--border-hover); border-radius: var(--r-sm); cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; transition: color .16s ease, background .16s ease, border-color .16s ease; }

@@ -63,7 +63,7 @@ type PeriodData = { current: StatsReservation[]; previous: StatsReservation[]; a
 
 // Estadísticas del negocio (plan Pro): cómo le fue en un período, cómo viene contra el anterior,
 // cuánto se llenó la agenda, la meta del mes y qué clientes conviene recuperar.
-export function StatsSection({ businessId, onOpenUnmarked }: { businessId: string; onOpenUnmarked: () => void }) {
+export function StatsSection({ businessId, onOpenUnmarked, onOpenClient }: { businessId: string; onOpenUnmarked: () => void; onOpenClient: (clientId: string, name: string) => void }) {
   const { business, refreshBusiness } = useAuth()
   const [range, setRange] = useState<StatsRange>(() => buildRange('month', new Date()))
   const [data, setData] = useState<PeriodData | null>(null)
@@ -171,7 +171,7 @@ export function StatsSection({ businessId, onOpenUnmarked }: { businessId: strin
         <StatsBody stats={stats} occupancy={occupancy} previousOccupancy={previousOccupancy} kind={range.kind} isCurrent={isCurrent} onOpenUnmarked={onOpenUnmarked} />
       </Fragment>}
 
-    <ClientsCard clients={clients} />
+    <ClientsCard clients={clients} onOpenClient={onOpenClient} />
   </div>
 }
 
@@ -383,7 +383,10 @@ function HeatmapCard({ occupancy, stats, index }: { occupancy: Occupancy; stats:
 
 // ── Clientes: cada cuánto vuelven y a quién conviene escribirle ───────────
 
-function ClientsCard({ clients }: { clients: ClientsOverview | null }) {
+// Tocar el nombre abre el perfil del cliente (el mismo de la Agenda y Reservas)
+type OpenClient = (clientId: string, name: string) => void
+
+function ClientsCard({ clients, onOpenClient }: { clients: ClientsOverview | null; onOpenClient: OpenClient }) {
   const [showAll, setShowAll] = useState(false)
   if (!clients) return <div className="stats-loading stats-loading--single" role="status"><span className="sr-only">Cargando clientes</span><span aria-hidden="true" /></div>
   const risk = showAll ? clients.atRisk : clients.atRisk.slice(0, 5)
@@ -400,7 +403,7 @@ function ClientsCard({ clients }: { clients: ClientsOverview | null }) {
       <h4>Para recuperar <span>{clients.atRisk.length}</span></h4>
       <p className="stats-muted">Clientes que ya pasaron bastante más de lo que suelen tardar en volver y no tienen turno reservado.</p>
       {clients.atRisk.length === 0 ? <p className="stats-ok">Nadie se está alejando: todos tus clientes habituales vienen a tiempo.</p>
-        : <ul className="stats-people">{risk.map(client => <ClientRow key={client.id} client={client} detail={`Venía cada ${count(client.everyDays ?? 0, 'día', 'días')} · hace ${count(client.daysSince ?? 0, 'día', 'días')} que no viene`} withMail />)}</ul>}
+        : <ul className="stats-people">{risk.map(client => <ClientRow key={client.id} client={client} onOpen={onOpenClient} detail={`Venía cada ${count(client.everyDays ?? 0, 'día', 'días')} · hace ${count(client.daysSince ?? 0, 'día', 'días')} que no viene`} withMail />)}</ul>}
       {clients.atRisk.length > 5 && <button type="button" className="link-button" onClick={() => setShowAll(value => !value)}>{showAll ? 'Ver menos' : `Ver los ${clients.atRisk.length}`}</button>}
     </div>
 
@@ -408,21 +411,21 @@ function ClientsCard({ clients }: { clients: ClientsOverview | null }) {
       <div className="stats-clients-block">
         <h4>Los que más vienen</h4>
         {clients.best.length === 0 ? <p className="stats-muted">Todavía no hay turnos atendidos.</p>
-          : <ul className="stats-people">{clients.best.map(client => <ClientRow key={client.id} client={client} detail={`${count(client.visits, 'visita', 'visitas')}${client.revenue > 0 ? ` · ${formatPrice(client.revenue)}` : ''}`} />)}</ul>}
+          : <ul className="stats-people">{clients.best.map(client => <ClientRow key={client.id} client={client} onOpen={onOpenClient} detail={`${count(client.visits, 'visita', 'visitas')}${client.revenue > 0 ? ` · ${formatPrice(client.revenue)}` : ''}`} />)}</ul>}
       </div>
       <div className="stats-clients-block">
         <h4>Los que más faltan</h4>
         {clients.frequentNoShows.length === 0 ? <p className="stats-muted">Ningún cliente faltó más de una vez.</p>
-          : <ul className="stats-people">{clients.frequentNoShows.map(client => <ClientRow key={client.id} client={client} detail={`No vino ${count(client.noShows, 'vez', 'veces')}`} />)}</ul>}
+          : <ul className="stats-people">{clients.frequentNoShows.map(client => <ClientRow key={client.id} client={client} onOpen={onOpenClient} detail={`No vino ${count(client.noShows, 'vez', 'veces')}`} />)}</ul>}
       </div>
     </div>
   </section>
 }
 
-function ClientRow({ client, detail, withMail = false }: { client: ClientInsight; detail: string; withMail?: boolean }) {
+function ClientRow({ client, detail, withMail = false, onOpen }: { client: ClientInsight; detail: string; withMail?: boolean; onOpen: OpenClient }) {
   return <li>
     <span className="avatar" aria-hidden="true">{client.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('')}</span>
-    <div className="stats-people-info"><strong>{client.name}</strong><small>{detail}{client.lastVisit && !withMail ? ` · última vez el ${shortDate(client.lastVisit)}` : ''}</small></div>
+    <div className="stats-people-info"><strong><button type="button" className="client-link" aria-haspopup="dialog" aria-label={`Ver el perfil de ${client.name}`} onClick={() => onOpen(client.id, client.name)}>{client.name}</button></strong><small>{detail}{client.lastVisit && !withMail ? ` · última vez el ${shortDate(client.lastVisit)}` : ''}</small></div>
     {withMail && client.email && <a className="stats-people-mail" href={`mailto:${client.email}?subject=${encodeURIComponent('¡Te extrañamos!')}`} aria-label={`Escribirle a ${client.name}`}><Mail size={15} aria-hidden="true" /><span>Escribirle</span></a>}
   </li>
 }

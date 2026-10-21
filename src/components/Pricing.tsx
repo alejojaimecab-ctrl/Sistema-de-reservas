@@ -77,9 +77,14 @@ export function ProSemesterOffer({ children }: { children: ReactNode }) {
   const full = PLANS.pro.monthly * PRO_SEMESTER.months
   const price = proSemesterPrice()
   return <div className="plan-offer">
-    <div>
-      <strong>Pro semestral: los {PRO_SEMESTER.halfPriceMonths} primeros meses a mitad de precio</strong>
-      <p>Pagás los {PRO_SEMESTER.months} meses juntos: <b>{formatPrice(price)}</b> en vez de <s>{formatPrice(full)}</s>. Te ahorrás {formatPrice(full - price)}.</p>
+    <div className="plan-offer-copy">
+      <span className="plan-tag">Pro semestral · Te ahorrás {formatPrice(full - price)}</span>
+      <strong className="plan-offer-title">Los {PRO_SEMESTER.halfPriceMonths} primeros meses a mitad de precio</strong>
+      <p>Pagás los {PRO_SEMESTER.months} meses juntos y tenés todo el Pro desde el primer día.</p>
+    </div>
+    <div className="plan-offer-price">
+      <strong>{formatPrice(price)}</strong>
+      <span><s aria-label={`Antes ${formatPrice(full)}`}>{formatPrice(full)}</s> · {formatPrice(Math.round(price / PRO_SEMESTER.months))} por mes</span>
     </div>
     {children}
   </div>
@@ -123,7 +128,7 @@ export function PricingSection({ onStart }: { onStart: () => void }) {
     </Reveal>
     <BillingToggle billing={billing} onChange={setBilling} />
     <PlanCards billing={billing} action={plan => ({ label: labels[plan], onClick: onStart })} />
-    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral</button></ProSemesterOffer>
+    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
     <details className="plan-compare">
       <summary>Comparar todo lo que trae cada plan</summary>
       <PlanComparison />

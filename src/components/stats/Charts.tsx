@@ -166,10 +166,13 @@ export function TrendChart({ points, format, formatAxis, ariaLabel }: { points: 
         <strong>{format(points[shown].value)}</strong>
       </div>}
     </div>
-    {/* Los mismos datos como tabla, para lectores de pantalla */}
-    <table className="sr-only">
-      <caption>{ariaLabel}</caption>
-      <tbody>{points.map(point => <tr key={point.key}><th scope="row">{point.detail}</th><td>{format(point.value)}</td></tr>)}</tbody>
-    </table>
+    {/* Los mismos datos como tabla, para lectores de pantalla. Va dentro de un div: una tabla no achica su ancho
+        con width 1px y empujaba la página de costado en el celular */}
+    <div className="sr-only">
+      <table>
+        <caption>{ariaLabel}</caption>
+        <tbody>{points.map(point => <tr key={point.key}><th scope="row">{point.detail}</th><td>{format(point.value)}</td></tr>)}</tbody>
+      </table>
+    </div>
   </div>
 }
