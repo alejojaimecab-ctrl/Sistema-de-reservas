@@ -935,10 +935,11 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
     radial-gradient(60% 40% at 100% 0%, rgb(255 255 255 / .05), transparent 70%),
     linear-gradient(180deg, #18171b, #111113);
 }
-/* Luces cálidas de fondo (se mueven despacio con motion) */
-.auth-aurora { position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%; filter: blur(60px); pointer-events: none; }
-.auth-aurora--a { left: -10%; bottom: -25%; background: rgb(212 169 78 / .55); }
-.auth-aurora--b { right: -20%; bottom: 5%; background: rgb(226 124 70 / .35); }
+/* Luces cálidas de fondo (se mueven despacio con motion). Degradados que ya vienen suaves en vez de un círculo
+   con blur(60px): moverlos casi no cuesta nada (el blur se recalculaba en cada cuadro y trababa en algunos navegadores) */
+.auth-aurora { position: absolute; width: 100%; aspect-ratio: 1; border-radius: 50%; pointer-events: none; will-change: transform; }
+.auth-aurora--a { left: -25%; bottom: -40%; background: radial-gradient(closest-side, rgb(212 169 78 / .62), rgb(212 169 78 / .45) 45%, rgb(212 169 78 / .15) 75%, transparent); }
+.auth-aurora--b { right: -35%; bottom: -10%; background: radial-gradient(closest-side, rgb(226 124 70 / .35), rgb(226 124 70 / .24) 45%, rgb(226 124 70 / .08) 75%, transparent); }
 /* El reloj de líneas que reserva el turno */
 .auth-scene { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 360px; }
 .auth-scene svg { width: min(100%, 400px); height: auto; overflow: visible; }
