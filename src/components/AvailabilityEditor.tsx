@@ -1,5 +1,6 @@
-import { Check, Copy, Plus, X } from 'lucide-react'
+import { Copy, Plus, X } from 'lucide-react'
 import { useConfirm } from './ConfirmDialog'
+import { TimeSelect } from './TimeSelect'
 
 export type AvailabilityDay = { id: string; name: string }
 export type AvailabilityMap = Record<string, boolean[]>
@@ -19,6 +20,9 @@ function formatTime(slot: number) {
   const minutes = slot * 30
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
+
+const startOptions = timeSlots.map(slot => ({ value: slot, label: formatTime(slot) }))
+const endOptions = endSlots.map(slot => ({ value: slot, label: formatTime(slot) }))
 
 function rangesFromSlots(daySlots: boolean[] = []): TimeRange[] {
   const ranges: TimeRange[] = []
@@ -66,6 +70,9 @@ function defaultAvailability(days: AvailabilityDay[], weekdaysOnly: boolean): Av
 }
 
 function findAdditionalRange(ranges: TimeRange[]): TimeRange | null {
+  // Primero, media hora después de la última franja (no a las 00:00); si no entra, el hueco libre más largo
+  const after = Math.max(...ranges.map(range => range.end)) + 1
+  if (after + 2 <= timeSlots.length) return { start: after, end: Math.min(after + 8, timeSlots.length) }
   const occupied = timeSlots.map(slot => ranges.some(range => slot >= range.start && slot < range.end))
   let bestRange: TimeRange | null = null
   let slot = 0
@@ -143,117 +150,93 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
     total + (availability[day.id] ?? []).filter(Boolean).length, 0)
   const openHours = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(openHalfHourCount / 2)
 
+  // Compacto: arriba la semana como botones (tocar abre o cierra el día) y abajo una sola línea por día abierto,
+  // con sus franjas en la misma línea. Los días cerrados no ocupan lugar.
+  const timeSelect = (day: AvailabilityDay, ranges: TimeRange[], index: number, edge: 'start' | 'end') => {
+    const range = ranges[index]
+    return <TimeSelect
+      label={`${day.name}, franja ${index + 1}, ${edge === 'start' ? 'desde' : 'hasta'}`}
+      value={range[edge]}
+      options={edge === 'start' ? startOptions : endOptions}
+      onChange={value => {
+        const nextRanges = [...ranges]
+        nextRanges[index] = edge === 'start'
+          ? { start: value, end: Math.max(value + 1, range.end) }
+          : { start: Math.min(range.start, value - 1), end: value }
+        setDayRanges(day.id, nextRanges)
+      }}
+    />
+  }
+
   const renderEditor = () => (
     <div className="availability-editor">
+      <div className="availability-week" role="group" aria-label="Días que atendés">
+        {days.map(day => {
+          const isOpen = rangesFromSlots(availability[day.id]).length > 0
+          return <button
+            type="button"
+            key={day.id}
+            aria-pressed={isOpen}
+            aria-label={`${day.name}: ${isOpen ? 'abierto' : 'cerrado'}`}
+            onClick={() => setDayRanges(day.id, isOpen ? [] : [{ start: 18, end: 36 }])}
+          >
+            {day.name.slice(0, 3)}
+          </button>
+        })}
+      </div>
+
       <div className="availability-presets" aria-label="Plantillas de horario">
-        <button type="button" onClick={() => void applyPreset(true, 'Lun a vie · 9 a 18')}>
-          Lun a vie · 9 a 18
-        </button>
-        <button type="button" onClick={() => void applyPreset(false, 'Todos los días · 9 a 18')}>
-          Todos los días · 9 a 18
-        </button>
+        <button type="button" onClick={() => void applyPreset(true, 'Lun a vie · 9 a 18')}>Lun a vie · 9 a 18</button>
+        <button type="button" onClick={() => void applyPreset(false, 'Todos los días · 9 a 18')}>Todos · 9 a 18</button>
         <button
           type="button"
-          className="availability-copy"
           disabled={rangesFromSlots(availability[days[0]?.id]).length === 0}
           onClick={() => void copyFirstDayToWeekdays()}
         >
-          <Copy size={14} /> Copiar lunes a días hábiles
+          <Copy size={13} /> Copiar lunes a días hábiles
         </button>
       </div>
 
-      <div className="availability-days">
-        {days.map(day => {
-          const ranges = rangesFromSlots(availability[day.id])
-          const isOpen = ranges.length > 0
-
-          return (
-            <section className={`availability-day${isOpen ? ' is-open' : ''}`} key={day.id}>
-              <label className="availability-day-toggle">
-                <input
-                  type="checkbox"
-                  checked={isOpen}
-                  aria-label={`${isOpen ? 'Cerrar' : 'Abrir'} ${day.name}`}
-                  onChange={event => setDayRanges(
-                    day.id,
-                    event.target.checked ? [{ start: 18, end: 36 }] : [],
-                  )}
-                />
-                <span className="availability-day-check" aria-hidden="true">
-                  <Check size={15} strokeWidth={3} />
-                </span>
-                <span>{day.name}</span>
-              </label>
-
-              {isOpen ? (
-                <div className="availability-ranges">
-                  {ranges.map((range, index) => (
-                    <div className="availability-range" key={`${day.id}-${index}`}>
-                      <label>
-                        <span>Desde</span>
-                        <select
-                          aria-label={`${day.name}, franja ${index + 1}, desde`}
-                          value={range.start}
-                          onChange={event => {
-                            const start = Number(event.target.value)
-                            const nextRanges = [...ranges]
-                            nextRanges[index] = { start, end: Math.max(start + 1, range.end) }
-                            setDayRanges(day.id, nextRanges)
-                          }}
-                        >
-                          {timeSlots.map(slot => (
-                            <option key={slot} value={slot}>{formatTime(slot)}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span>Hasta</span>
-                        <select
-                          aria-label={`${day.name}, franja ${index + 1}, hasta`}
-                          value={range.end}
-                          onChange={event => {
-                            const end = Number(event.target.value)
-                            const nextRanges = [...ranges]
-                            nextRanges[index] = { start: Math.min(range.start, end - 1), end }
-                            setDayRanges(day.id, nextRanges)
-                          }}
-                        >
-                          {endSlots.map(slot => (
-                            <option key={slot} value={slot}>{formatTime(slot)}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        className="availability-remove"
-                        aria-label={`Quitar franja ${index + 1} de ${day.name}`}
-                        onClick={() => setDayRanges(day.id, ranges.filter((_, rangeIndex) => rangeIndex !== index))}
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  ))}
-                  {ranges.length < 3 && (
-                    <button
-                      type="button"
-                      className="availability-add"
-                      disabled={!findAdditionalRange(ranges)}
-                      onClick={() => {
-                        const nextRange = findAdditionalRange(ranges)
-                        if (nextRange) setDayRanges(day.id, [...ranges, nextRange])
-                      }}
-                    >
-                      <Plus size={14} /> Agregar otra franja
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <span className="availability-closed">Cerrado</span>
-              )}
-            </section>
-          )
-        })}
-      </div>
+      {openDayCount === 0
+        ? <p className="availability-empty">Tocá arriba los días que atendés.</p>
+        : <div className="availability-days">
+          {days.map(day => {
+            const ranges = rangesFromSlots(availability[day.id])
+            if (ranges.length === 0) return null
+            return <div className="availability-row" key={day.id}>
+              <span className="availability-row-day">{day.name.slice(0, 3)}</span>
+              <div className="availability-ranges">
+                {ranges.map((_, index) => <div className="availability-range" key={`${day.id}-${index}`}>
+                  {timeSelect(day, ranges, index, 'start')}
+                  <span aria-hidden="true">–</span>
+                  {timeSelect(day, ranges, index, 'end')}
+                  {/* Con una sola franja el lugar de la X queda vacío, así los horarios no se corren del centro */}
+                  {ranges.length > 1 ? <button
+                    type="button"
+                    className="availability-remove"
+                    aria-label={`Quitar franja ${index + 1} de ${day.name}`}
+                    onClick={() => setDayRanges(day.id, ranges.filter((_, rangeIndex) => rangeIndex !== index))}
+                  >
+                    <X size={14} />
+                  </button> : <span className="availability-remove" aria-hidden="true" />}
+                </div>)}
+              </div>
+              {ranges.length < 3 && <button
+                type="button"
+                className="availability-add"
+                aria-label={`Agregar otra franja el ${day.name.toLowerCase()}`}
+                title="Agregar otra franja (por ejemplo, después del almuerzo)"
+                disabled={!findAdditionalRange(ranges)}
+                onClick={() => {
+                  const nextRange = findAdditionalRange(ranges)
+                  if (nextRange) setDayRanges(day.id, [...ranges, nextRange])
+                }}
+              >
+                <Plus size={15} />
+              </button>}
+            </div>
+          })}
+        </div>}
 
       <p className="availability-summary" aria-live="polite">
         {openDayCount === 0

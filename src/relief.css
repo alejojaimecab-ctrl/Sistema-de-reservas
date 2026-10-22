@@ -98,7 +98,7 @@ html { scrollbar-gutter: stable; }
 /* ── Campos: hundidos en la superficie, con un halo al enfocarlos ── */
 .onboarding-field input, .onboarding-field select, .onboarding-field textarea, .field > div, .url-field, .res-search,
 .manual-reservation-fields input, .manual-reservation-fields select, .manual-reservation-fields > label > div,
-.availability-range select, .res-selects select {
+.time-select, .res-selects select {
   background-color: var(--surface-inset);
   box-shadow: var(--inset);
   transition: border-color .18s ease-out, box-shadow .22s var(--ease-out), background-color .18s ease-out;
@@ -106,7 +106,7 @@ html { scrollbar-gutter: stable; }
 .manual-reservation-fields > label > div input { box-shadow: none; background: transparent; }
 .onboarding-field input:focus, .onboarding-field select:focus, .onboarding-field textarea:focus, .field > div:focus-within, .url-field:focus-within, .res-search:focus-within,
 .manual-reservation-fields input:focus, .manual-reservation-fields select:focus, .manual-reservation-fields > label > div:focus-within,
-.availability-range select:focus, .res-selects select:focus {
+.time-select:focus, .res-selects select:focus {
   background-color: var(--surface-inset);
   border-color: var(--border-strong);
   box-shadow: var(--inset), 0 0 0 4px rgb(255 255 255 / .06);
@@ -918,7 +918,8 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
    arma sola sobre un brillo cálido dorado (como el del plan Pro); a la derecha el formulario. En el celular,
    solo el formulario ── */
 .auth { min-height: 100dvh; display: flex; flex-direction: column; padding: 18px clamp(14px, 3vw, 32px) 32px; background: radial-gradient(circle at 20% 10%, var(--surface-sel), transparent 38%), var(--bg); }
-.auth-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1180px; margin: 0 auto 14px; }
+/* El logo y "Volver" arrancan donde arrancan los paneles de adentro (12 px de relleno + 1 px de borde de la tarjeta) */
+.auth-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1180px; margin: 0 auto 14px; padding: 0 13px; }
 .auth-card {
   flex: 1; display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); width: 100%; max-width: 1180px; min-height: 640px; margin: 0 auto; padding: 12px;
   border: 1px solid transparent; border-radius: 26px;
@@ -997,7 +998,7 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .auth-scene { min-height: 0; gap: 6px; }
   .auth-scene svg { width: auto; max-width: 100%; height: clamp(160px, 24vh, 220px); }
   .auth-scene-text { font-size: 13px; text-align: center; }
-  .auth-top { position: relative; padding-bottom: 14px; }
+  .auth-top { position: relative; padding: 0 0 14px; }
   .auth-top::after {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
     background: linear-gradient(90deg, transparent, rgb(212 169 78 / .75) 18%, #f6e4a6 50%, rgb(212 169 78 / .75) 82%, transparent);
