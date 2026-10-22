@@ -19,6 +19,8 @@ export function TwoFactorSection() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // La clave es el plan B: si se pierde el celular, se carga en el nuevo. No se activa sin confirmar que la guardó
+  const [keptKey, setKeptKey] = useState(false)
 
   useEffect(() => {
     void supabase.auth.mfa.listFactors().then(({ data }) =>
@@ -37,6 +39,7 @@ export function TwoFactorSection() {
     const { data, error: enrollError } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'RESER' })
     setBusy(false)
     if (enrollError || !data) { setError(authErrorMessage(enrollError?.message ?? 'No pudimos empezar la activación.')); return }
+    setKeptKey(false)
     setSetup({ factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret })
   }
 
@@ -109,19 +112,24 @@ export function TwoFactorSection() {
       <ol className="two-factor-steps">
         <li>Instalá una app autenticadora en tu celular: Google Authenticator, Microsoft Authenticator o la que prefieras.</li>
         <li>En la app, tocá "Agregar" y escaneá este código QR.</li>
+        <li>Guardá la clave de abajo en un lugar seguro (por ejemplo, en tus notas o en tu mail). Si perdés o cambiás el celular, la cargás en el nuevo y entrás igual.</li>
         <li>Escribí acá abajo los 6 números que te muestra la app.</li>
       </ol>
       <div className="two-factor-qr">
         <img src={setup.qr} alt="Código QR para la app autenticadora" width={168} height={168} />
         <div>
-          <p className="form-note">¿No podés escanearlo? Cargá esta clave a mano:</p>
-          <button type="button" className="two-factor-secret" onClick={() => void copyText(setup.secret).then(ok => ok && setNotice('Clave copiada.'))}>
+          <p className="form-note">Tu clave (también sirve si no podés escanear el QR). Tocala para copiarla:</p>
+          <button type="button" className="two-factor-secret" onClick={() => void copyText(setup.secret).then(ok => ok && setNotice('Clave copiada. Guardala en un lugar seguro.'))}>
             {setup.secret.match(/.{1,4}/g)?.join(' ')}
           </button>
+          <label className="two-factor-kept">
+            <input type="checkbox" checked={keptKey} onChange={event => setKeptKey(event.target.checked)} />
+            Guardé la clave en un lugar seguro
+          </label>
         </div>
       </div>
       <OtpInput length={6} value={code} onChange={value => { setCode(value); setError(null); setStatus(undefined) }}
-        onComplete={value => void confirmCode(value)} disabled={busy || status === 'ok'} status={status} />
+        onComplete={value => void confirmCode(value)} disabled={!keptKey || busy || status === 'ok'} status={status} />
       <button type="button" className="text-button" onClick={() => void cancelSetup()}>Cancelar</button>
     </div>}
 

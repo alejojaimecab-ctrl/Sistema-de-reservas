@@ -8,6 +8,7 @@ import { PricingSection } from './components/Pricing'
 import { AuthProvider, useAuth } from './lib/auth'
 import { cancelTokenFromPath, GO_HOME_EVENT, goTo, joinTokenFromPath, legalDocFromPath, panelSectionFromPath, slugFromPath } from './lib/routes'
 import { HOME_TITLE, usePageMeta, type PageMeta } from './lib/pageMeta'
+import { effectivePlan } from './lib/plans'
 
 type View = 'home' | 'public-booking' | 'cancel' | 'join' | 'legal' | 'demo-booking' | 'dashboard' | 'onboarding' | 'login'
 
@@ -54,7 +55,7 @@ const MfaChallenge = lazy(() =>
 // Funciones de la portada, según el diseño del dueño: etiqueta, título con serif, texto y un fragmento de la interfaz
 const features = [
   { label: 'Agenda', title: 'Agenda sin cruces', text: 'RESER muestra únicamente horarios realmente disponibles.', fragment: 'agenda' },
-  { label: 'Recordatorios', title: 'Recordatorios que llegan', text: 'Confirmaciones y avisos para que no se te escape ningún turno.', fragment: 'mail' },
+  { label: 'Recordatorios', title: 'Recordatorios que llegan', text: 'Confirmación por mail apenas reservan y, en Básico y Pro, un recordatorio 1 h antes.', fragment: 'mail' },
   { label: 'Mis turnos', title: 'Hecho para tu negocio', text: 'Servicios, precios y horarios con tu propia forma de trabajar.', fragment: 'services' },
 ] as const
 
@@ -120,7 +121,10 @@ function Root() {
   const [legalDoc, setLegalDoc] = useState(() => legalDocFromPath(window.location.pathname))
   const [joinToken, setJoinToken] = useState(() => joinTokenFromPath(window.location.pathname))
   const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : joinToken ? 'join' : publicSlug ? 'public-booking' : panelSectionFromPath(window.location.pathname) !== null ? 'dashboard' : 'home')
-  const { session, loading, recovering, mfaPending } = useAuth()
+  const { session, loading, recovering, mfaPending, business } = useAuth()
+  // Las líneas finas de la portada y del ingreso son doradas solo para un negocio en Pro (o en su prueba); grises para el resto
+  const isPro = Boolean(session && business && effectivePlan(business) === 'pro')
+  useEffect(() => { document.documentElement.classList.toggle('is-pro', isPro) }, [isPro])
   const prevSession = useRef<typeof session | undefined>(undefined)
   // Lo que se ve depende también de la sesión: "login" con sesión muestra el panel y "dashboard" sin sesión muestra el login
   const shownView: View = view === 'login' && session ? 'dashboard' : view === 'dashboard' && !session ? 'login' : view

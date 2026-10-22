@@ -9,14 +9,16 @@ import { preloadCaptcha } from '../lib/captcha'
 // stage: hasta qué paso se ve la reserva (1 a 4); 'loop' la repite sola.
 export type StoryStage = 1 | 2 | 3 | 4 | 'loop'
 
-export function AuthShell({ stage, onBack, backLabel, children }: {
+// compact: en el celular no se muestra la historia (pasos del alta donde la pregunta tiene que quedar a la vista)
+export function AuthShell({ stage, onBack, backLabel, compact, children }: {
   stage: StoryStage
+  compact?: boolean
   onBack: () => void
   backLabel: string
   children: ReactNode
 }) {
   useEffect(preloadCaptcha, [])
-  return <main className="auth">
+  return <main className={`auth${compact ? ' auth--compact' : ''}`}>
     <header className="auth-top"><Brand /><button type="button" className="text-button" onClick={onBack}>{backLabel}</button></header>
     <div className="auth-card">
       <BookingStory stage={stage} />
@@ -37,7 +39,8 @@ const LINES = [
   'Sin idas y vueltas por WhatsApp.',
   'Tus clientes eligen el horario desde tu enlace.',
   'La agenda se llena sola.',
-  'Turno confirmado y recordatorio 1 h antes.',
+  // El recordatorio 1 h antes es de Básico y Pro: acá se promete solo lo que trae todo plan
+  'Turno confirmado y aviso por mail al instante.',
 ]
 
 function BookingStory({ stage }: { stage: StoryStage }) {

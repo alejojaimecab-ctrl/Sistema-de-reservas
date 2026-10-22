@@ -42,7 +42,7 @@ function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInf
   return <article className={`plan-card plan-card--${plan.key}${featured ? ' plan-card--featured' : ''}${current ? ' is-current' : ''}`} aria-labelledby={titleId}>
     <div className="plan-card-head">
       <h3 id={titleId}>{plan.name}</h3>
-      {current ? <span className="plan-tag plan-tag--current">Tu plan</span> : featured && <span className="plan-tag">El más elegido</span>}
+      {current ? <span className="plan-tag plan-tag--current">Tu plan</span> : featured && <span className="plan-tag">Todo incluido</span>}
     </div>
     <p className="plan-tagline">{plan.tagline}</p>
     <div className="plan-price">
@@ -131,6 +131,7 @@ export function PricingSection({ onStart }: { onStart: () => void }) {
     <BillingToggle billing={billing} onChange={setBilling} />
     {/* Todos llevan a crear la cuenta (arranca en Gratis y el plan se elige después): los pagos dicen "Quiero…", no "gratis" */}
     <PlanCards billing={billing} action={plan => ({ label: plan === 'gratis' ? 'Empezar gratis' : `Quiero el ${PLANS[plan].name}`, onClick: onStart })} />
+    <p className="pricing-note">Cualquier botón crea tu cuenta en el plan Gratis. El plan pago lo elegís después, desde tu panel.</p>
     <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
     <details className="plan-compare">
       <summary>Comparar todo lo que trae cada plan</summary>

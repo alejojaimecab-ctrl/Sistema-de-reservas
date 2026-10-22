@@ -4,6 +4,10 @@ import { AuthShell } from './AuthShell'
 import { OtpInput, type OtpStatus } from './OtpInput'
 import { useAuth } from '../lib/auth'
 import { authErrorMessage } from '../lib/authMessages'
+import { LEGAL } from '../lib/legal'
+
+// Mientras el email de contacto esté sin definir ("COMPLETAR" en legal.ts) no se muestra una dirección falsa
+const SUPPORT_EMAIL = LEGAL.email.startsWith('COMPLETAR') ? null : LEGAL.email
 
 // Segundo paso del ingreso: la contraseña ya estaba bien, falta el código de la app autenticadora.
 // Hasta verificarlo la base no devuelve datos (migración 043).
@@ -42,7 +46,8 @@ export function MfaChallenge() {
       <button className="button button--primary button--full" type="submit" disabled={busy || code.length !== 6}>
         {status === 'ok' ? '¡Listo!' : busy ? 'Verificando…' : 'Verificar'}
       </button>
-      <p className="form-note auth-hint">¿Perdiste el celular? Escribinos desde el email de tu cuenta y te ayudamos a recuperarla.</p>
+      <p className="form-note auth-hint">¿Cambiaste de celular? Cargá en la app nueva la clave que guardaste al activarla.
+        {SUPPORT_EMAIL ? <> Si no la tenés, escribinos a <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> desde el email de tu cuenta.</> : ' Si no la tenés, escribinos desde el email de tu cuenta.'}</p>
     </form>
   </AuthShell>
 }

@@ -377,7 +377,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   }
 
   // La reserva de la izquierda avanza con los pasos: servicio, día, horario y, al crear la cuenta, confirmado
-  return <AuthShell stage={step as 1 | 2 | 3 | 4} onBack={onBack} backLabel="Salir">
+  return <AuthShell stage={step as 1 | 2 | 3 | 4} onBack={onBack} backLabel="Salir" compact={step < 4}>
     <div
       className="onboarding-progress"
       role="progressbar"
@@ -403,7 +403,8 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         <span>Unos minutos para dejar lista tu agenda</span>
       </div>
 
-      {draftRead.draft && (
+      {/* Un solo aviso: el de borrador recuperado se va cuando aparece el de guardado */}
+      {draftRead.draft && !draftStatus && (
         <p className="draft-notice" role="status">Retomamos el borrador que guardaste en este dispositivo.</p>
       )}
       {draftRead.error && (
