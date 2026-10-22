@@ -35,6 +35,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string, fullName: string, invite?: { token: string; redirectTo: string }) => Promise<string | null>
   resendConfirmation: (email: string) => Promise<string | null>
+  verifyEmailCode: (email: string, code: string) => Promise<string | null>
   signOut: () => Promise<void>
   refreshBusiness: () => Promise<void>
 }
@@ -141,6 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? error.message : null
   }
 
+  // El código de 6 dígitos del mail de alta (OTP): confirma el email y deja la sesión iniciada
+  async function verifyEmailCode(email: string, code: string) {
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'signup' })
+    return error ? error.message : null
+  }
+
   async function requestPasswordReset(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
     return error ? error.message : null
@@ -162,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, verifyEmailCode, signOut, refreshBusiness }}>
       {children}
     </AuthContext.Provider>
   )

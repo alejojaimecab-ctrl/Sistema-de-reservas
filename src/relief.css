@@ -911,3 +911,78 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .split-tab-label span { display: inline; }
   .split--tab-right .split-tab:hover, .split--tab-left .split-tab:hover { transform: none; }
 }
+
+/* ── Ingreso, alta y código del mail (AuthShell): una tarjeta partida en dos. A la izquierda una reserva que se
+   arma sola sobre un brillo cálido dorado (como el del plan Pro); a la derecha el formulario. En el celular,
+   solo el formulario ── */
+.auth { min-height: 100dvh; display: flex; flex-direction: column; padding: 18px clamp(14px, 3vw, 32px) 32px; background: radial-gradient(circle at 20% 10%, var(--surface-sel), transparent 38%), var(--bg); }
+.auth-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1180px; margin: 0 auto 14px; }
+.auth-card {
+  flex: 1; display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); width: 100%; max-width: 1180px; min-height: 640px; margin: 0 auto; padding: 12px;
+  border: 1px solid transparent; border-radius: 26px;
+  background: var(--sheen) padding-box, var(--grain) padding-box, linear-gradient(var(--surface), var(--surface)) padding-box, var(--edge) border-box, linear-gradient(var(--border), var(--border)) border-box;
+  box-shadow: var(--hl), var(--elev-2);
+}
+.auth-story {
+  position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 28px; overflow: hidden; border-radius: 18px;
+  border: 1px solid rgb(255 255 255 / .06);
+  background:
+    radial-gradient(120% 78% at 55% 115%, rgb(212 169 78 / .62), transparent 64%),
+    radial-gradient(80% 60% at -8% 108%, rgb(226 124 70 / .40), transparent 62%),
+    radial-gradient(60% 40% at 100% 0%, rgb(255 255 255 / .05), transparent 70%),
+    linear-gradient(180deg, #18171b, #111113);
+}
+/* Luces cálidas de fondo (se mueven despacio con motion) */
+.auth-aurora { position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%; filter: blur(60px); pointer-events: none; }
+.auth-aurora--a { left: -10%; bottom: -25%; background: rgb(212 169 78 / .55); }
+.auth-aurora--b { right: -20%; bottom: 5%; background: rgb(226 124 70 / .35); }
+/* El reloj de líneas que reserva el turno */
+.auth-scene { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 360px; }
+.auth-scene svg { width: min(100%, 400px); height: auto; overflow: visible; }
+.auth-check { filter: drop-shadow(0 0 14px rgb(212 169 78 / .65)); }
+/* Textos dentro del dibujo (globos, celular, agenda) */
+.auth-svg-text { fill: rgb(250 250 250 / .82); font-family: inherit; font-size: 14px; font-weight: 500; }
+.auth-svg-text--small { font-size: 11px; fill: rgb(250 250 250 / .55); }
+.auth-svg-text--big { font-size: 22px; font-weight: 600; fill: var(--text); }
+.auth-svg-text.is-dark { fill: #17130b; font-weight: 600; }
+.auth-spark-dot { filter: drop-shadow(0 0 10px rgb(246 228 166 / .9)); }
+.auth-scene-text { min-height: 22px; margin: 0; color: var(--text-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.auth-scene-text strong { color: var(--text); font-weight: 600; }
+.auth-story-caption { position: relative; }
+.auth-story-caption .eyebrow { margin: 0 0 10px; }
+.auth-story-caption h2 { max-width: 380px; margin: 0; color: var(--text); font-size: clamp(24px, 2.3vw, 31px); font-weight: 700; line-height: 1.12; letter-spacing: -.025em; text-wrap: balance; }
+
+.auth-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px clamp(20px, 5vw, 64px); }
+.auth-main .onboarding-progress { width: 100%; max-width: 560px; margin: 0; }
+.auth-form { display: grid; gap: 14px; width: 100%; max-width: 420px; }
+.auth-onboarding { max-width: 560px; }
+.auth-form h1 { margin: 0; color: var(--text); font-size: clamp(28px, 3vw, 36px); font-weight: 700; line-height: 1.08; letter-spacing: -.03em; }
+.auth-onboarding h1 { margin: 14px 0 6px; }
+.auth-form .auth-lead, .auth-onboarding > div > p { margin: 0 0 6px; color: var(--text-2); font-size: 14px; line-height: 1.55; }
+.auth-spark { color: #d4a94e; font-size: 26px; line-height: 1; }
+.auth-badge { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: var(--text); background: var(--surface-2); border: 1px solid var(--border-hover); box-shadow: var(--hl); }
+.auth-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.auth-label-row .text-button { padding: 0; font-size: 12px; font-weight: 500; }
+.auth-switch { margin: 4px 0 0; color: var(--text-2); font-size: 13px; text-align: center; }
+.auth-switch .text-button { padding: 0; font-size: 13px; }
+.auth-hint { margin: 0; text-align: center; }
+.auth-cancel { justify-self: center; }
+
+/* Las casillas del código: hundidas como los campos, una por dígito */
+.otp { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 6px 0 2px; }
+.otp input {
+  width: 100%; height: 58px; padding: 0; color: var(--text); font: inherit; font-size: 24px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums;
+  background: var(--surface-inset); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--inset); caret-color: var(--text);
+  transition: border-color .16s ease-out, box-shadow .16s ease-out, transform .16s var(--ease-out);
+}
+.otp input:focus { outline: none; border-color: var(--border-strong); box-shadow: var(--inset), 0 0 0 3px rgb(255 255 255 / .08); }
+.otp input.is-filled { border-color: var(--border-hover); }
+.otp.is-invalid input { border-color: var(--danger); }
+.otp input:disabled { opacity: .6; }
+
+@media (max-width: 900px) {
+  .auth-card { grid-template-columns: 1fr; min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+  .auth-story { display: none; }
+  .auth-main { justify-content: flex-start; padding: 20px 4px 8px; }
+}
+@media (max-width: 420px) { .otp { gap: 6px; } .otp input { height: 50px; font-size: 20px; } }

@@ -1,43 +1,44 @@
 import { useState } from 'react'
-import { KeyRound, LogIn } from 'lucide-react'
-import { Brand } from './Brand'
+import { ArrowRight, KeyRound } from 'lucide-react'
+import { AuthShell } from './AuthShell'
+import { EmailCode } from './EmailCode'
 import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { authErrorMessage } from '../lib/authMessages'
 import { email as cleanEmail } from '../lib/fieldRules'
 
-const UNCONFIRMED = 'Todavía no confirmaste tu email. Abrí el mail de RESER que te mandamos y tocá el enlace; si no lo encontrás, te mandamos otro.'
+const UNCONFIRMED = 'Todavía no confirmaste tu email. Escribí el código que te mandamos por mail; si no lo encontrás, te mandamos otro.'
 
+// Ingreso: el formulario, recuperar la contraseña y, si la cuenta no está confirmada, el código del mail.
+// La reserva de la izquierda se repite sola y, al tocar "Ingresar", llega a "Turno confirmado" mientras entra.
 export function Login({ onBack, onCreateAccount }: { onBack: () => void; onCreateAccount: () => void }) {
   const { signIn, requestPasswordReset, resendConfirmation } = useAuth()
-  const [forgot, setForgot] = useState(false)
+  const [view, setView] = useState<'login' | 'forgot' | 'code'>('login')
   const [sent, setSent] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // Recién registrado y sin confirmar el mail: no es que la contraseña esté mal, falta el enlace del mail
+  // Recién registrado y sin confirmar el mail: no es que la contraseña esté mal, falta el código del mail
   const [unconfirmed, setUnconfirmed] = useState(false)
-  const [resend, setResend] = useState<'idle' | 'sending' | 'sent'>('idle')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
     setUnconfirmed(false)
-    setResend('idle')
     const err = await signIn(email, password)
+    if (!err) return // con la sesión iniciada, la app pasa sola al panel
     setBusy(false)
-    if (!err) return
     if (/email not confirmed/i.test(err)) { setUnconfirmed(true); setError(UNCONFIRMED); return }
     setError(authErrorMessage(err))
   }
 
-  async function resendEmail() {
-    setResend('sending')
+  async function openCode() {
+    setError(null)
     const err = await resendConfirmation(email)
-    if (err) { setResend('idle'); setError(authErrorMessage(err)); return }
-    setResend('sent')
+    if (err) { setError(authErrorMessage(err)); return }
+    setView('code')
   }
 
   async function handleReset(e: React.FormEvent) {
@@ -50,60 +51,48 @@ export function Login({ onBack, onCreateAccount }: { onBack: () => void; onCreat
     else setSent(true)
   }
 
-  if (forgot) return (
-    <main className="onboarding">
-      <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
-      <section className="onboarding-card">
-        <span className="onboarding-icon"><KeyRound size={25} /></span>
-        <h1>Recuperá tu contraseña.</h1>
-        {sent
-          ? <p>Si ese email tiene una cuenta, te enviamos un enlace para elegir una contraseña nueva. Revisá también la carpeta de spam.</p>
-          : <p>Escribí el email de tu cuenta y te mandamos un enlace para crear una contraseña nueva.</p>}
-        {!sent && <form onSubmit={handleReset}>
-          <label className="onboarding-field">Email
-            <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email}
-              onChange={e => setEmail(cleanEmail(e.target.value))} />
-          </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button button--primary button--full" type="submit" disabled={busy}>
-            {busy ? 'Enviando…' : 'Enviarme el enlace'}
-          </button>
-        </form>}
-        <button className="text-button" type="button" onClick={() => { setForgot(false); setSent(false); setError(null) }}>Volver a iniciar sesión</button>
-      </section>
-    </main>
-  )
+  if (view === 'code') return <AuthShell stage={3} onBack={onBack} backLabel="Volver al inicio">
+    <EmailCode email={email} onVerified={() => undefined} onCancel={() => { setView('login'); setUnconfirmed(false) }} cancelLabel="Volver a iniciar sesión" />
+  </AuthShell>
 
-  return (
-    <main className="onboarding">
-      <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
-      <section className="onboarding-card">
-        <span className="onboarding-icon"><LogIn size={25} /></span>
-        <h1>Bienvenido de nuevo.</h1>
-        <p>Ingresá con el email y la contraseña de tu cuenta.</p>
-        <form onSubmit={handleSubmit}>
-          <label className="onboarding-field">Email
-            <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email}
-              onChange={e => setEmail(cleanEmail(e.target.value))} />
-          </label>
-          <label className="onboarding-field">Contraseña
-            <PasswordInput required minLength={6} autoComplete="current-password" placeholder="••••••••" value={password}
-              onChange={e => setPassword(e.target.value)} />
-          </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          {unconfirmed && <div className="login-unconfirmed">
-            <button type="button" className="button button--secondary button--full" disabled={resend !== 'idle'} onClick={() => void resendEmail()}>
-              {resend === 'sending' ? 'Reenviando…' : resend === 'sent' ? 'Te mandamos otro mail' : 'Reenviar el mail de confirmación'}
-            </button>
-            {resend === 'sent' && <p className="form-note" role="status">Puede tardar unos minutos. Mirá también en spam o correo no deseado.</p>}
-          </div>}
-          <button className="button button--primary button--full" type="submit" disabled={busy}>
-            {busy ? 'Ingresando…' : 'Ingresar'}
-          </button>
-          <button className="text-button" type="button" onClick={() => { setForgot(true); setError(null); setUnconfirmed(false) }}>¿Olvidaste tu contraseña?</button>
-        </form>
-        <p className="login-signup">¿Todavía no tenés cuenta? <button type="button" className="text-button" onClick={onCreateAccount}>Creá tu negocio</button></p>
-      </section>
-    </main>
-  )
+  if (view === 'forgot') return <AuthShell stage="loop" onBack={onBack} backLabel="Volver al inicio">
+    <form className="auth-form" onSubmit={handleReset}>
+      <span className="auth-badge"><KeyRound size={20} /></span>
+      <h1>Recuperá tu contraseña.</h1>
+      <p className="auth-lead">{sent
+        ? 'Si ese email tiene una cuenta, te enviamos un enlace para elegir una contraseña nueva. Revisá también la carpeta de spam.'
+        : 'Escribí el email de tu cuenta y te mandamos un enlace para crear una contraseña nueva.'}</p>
+      {!sent && <>
+        <label className="onboarding-field">Email
+          <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} />
+        </label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <button className="button button--primary button--full" type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviarme el enlace'}</button>
+      </>}
+      <button className="text-button auth-cancel" type="button" onClick={() => { setView('login'); setSent(false); setError(null) }}>Volver a iniciar sesión</button>
+    </form>
+  </AuthShell>
+
+  return <AuthShell stage={busy ? 4 : 'loop'} onBack={onBack} backLabel="Volver al inicio">
+    <form className="auth-form" onSubmit={handleSubmit}>
+      <span className="auth-spark" aria-hidden="true">✳</span>
+      <h1>Bienvenido de nuevo.</h1>
+      <p className="auth-lead">Ingresá para ver tu agenda, tus reservas y tus clientes.</p>
+      <label className="onboarding-field">Email
+        <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} />
+      </label>
+      <label className="onboarding-field">
+        <span className="auth-label-row">Contraseña
+          <button className="text-button" type="button" onClick={() => { setView('forgot'); setError(null); setUnconfirmed(false) }}>¿Olvidaste tu contraseña?</button>
+        </span>
+        <PasswordInput required minLength={6} autoComplete="current-password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+      </label>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {unconfirmed && <button type="button" className="button button--secondary button--full" onClick={() => void openCode()}>Ingresar el código del mail</button>}
+      <button className="button button--primary button--full" type="submit" disabled={busy}>
+        {busy ? 'Ingresando…' : <>Ingresar <ArrowRight size={17} aria-hidden="true" /></>}
+      </button>
+      <p className="auth-switch">¿Todavía no tenés cuenta? <button type="button" className="text-button" onClick={onCreateAccount}>Creá tu negocio</button></p>
+    </form>
+  </AuthShell>
 }

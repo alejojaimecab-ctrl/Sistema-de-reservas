@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles, Us
 import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from './AvailabilityEditor'
 import { Brand } from './Brand'
 import { PasswordInput } from './PasswordInput'
+import { AuthShell } from './AuthShell'
+import { EmailCode } from './EmailCode'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
@@ -117,7 +119,7 @@ function removeLocalDraft() {
 }
 
 export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
-  const { signUp, session, resendConfirmation, role, business: staffBusiness } = useAuth()
+  const { signUp, session, role, business: staffBusiness } = useAuth()
   const [draftRead, setDraftRead] = useState(readOnboardingDraft)
   const restored = draftRead.draft
   const [step, setStep] = useState(restored?.step ?? 1)
@@ -129,7 +131,6 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   const [draftStatus, setDraftStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
-  const [resend, setResend] = useState<{ state: 'idle' | 'sending' | 'sent'; error: string | null }>({ state: 'idle', error: null })
   const [createdUserId, setCreatedUserId] = useState<string | null>(null)
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousStepRef = useRef(step)
@@ -351,12 +352,6 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     onFinish()
   }
 
-  async function resendEmail() {
-    setResend({ state: 'sending', error: null })
-    const resendError = await resendConfirmation(email)
-    setResend(resendError ? { state: 'idle', error: authErrorMessage(resendError) } : { state: 'sent', error: null })
-  }
-
   // El alta no termina en un callejón: dice qué falta, dónde abrir el enlace (lo cargado queda en este navegador) y deja pedir otro mail
   // Una cuenta de empleado no puede tener negocio propio (migración 042): si lo creara, dejaría de ver su agenda
   if (session && role === 'staff') {
@@ -371,25 +366,15 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
     </main>
   }
 
+  // Último paso: el código de 6 dígitos del mail. Al confirmarlo entra al panel, que retoma lo que cargó en este navegador
   if (awaitingConfirmation) {
-    return <main className="onboarding">
-      <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
-      <section className="onboarding-card">
-        <span className="onboarding-icon"><Mail size={25} /></span>
-        <h1>Último paso: confirmá tu correo.</h1>
-        <p>Te mandamos un enlace a <strong>{email}</strong>. Abrilo en este mismo navegador y entrás a tu panel con {businessName.trim() || 'tu negocio'} y lo que ya cargaste.</p>
-        <p className="onboarding-hint">Si lo abrís en otro dispositivo también entrás, pero vas a tener que cargar el negocio de nuevo. ¿No llegó? Mirá en spam o correo no deseado.</p>
-        <button type="button" className="button button--secondary" disabled={resend.state !== 'idle'} onClick={() => void resendEmail()}>
-          {resend.state === 'sending' ? 'Reenviando…' : resend.state === 'sent' ? 'Te mandamos otro mail' : 'Reenviar el mail'}
-        </button>
-        {resend.error && <p className="form-error" role="alert">{resend.error}</p>}
-        {resend.state === 'sent' && <p className="form-note" role="status">Puede tardar unos minutos en llegar.</p>}
-      </section>
-    </main>
+    return <AuthShell stage={4} onBack={onBack} backLabel="Volver al inicio">
+      <EmailCode email={email.trim()} onVerified={onFinish} />
+    </AuthShell>
   }
 
-  return <main className="onboarding">
-    <header><Brand /><button className="text-button" onClick={onBack}>Salir</button></header>
+  // La reserva de la izquierda avanza con los pasos: servicio, día, horario y, al crear la cuenta, confirmado
+  return <AuthShell stage={step as 1 | 2 | 3 | 4} onBack={onBack} backLabel="Salir">
     <div
       className="onboarding-progress"
       role="progressbar"
@@ -401,7 +386,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
       <span style={{ transform: `scaleX(${step / 4})` }} />
     </div>
     <form
-      className={`onboarding-card${step >= 2 ? ' onboarding-card--wide' : ''}`}
+      className="auth-form auth-onboarding"
       noValidate
       onSubmit={event => {
         event.preventDefault()
@@ -555,5 +540,5 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
         </button>
       </div>
     </form>
-  </main>
+  </AuthShell>
 }
