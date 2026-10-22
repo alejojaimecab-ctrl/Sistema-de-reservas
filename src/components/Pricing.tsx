@@ -129,8 +129,9 @@ export function PricingSection({ onStart }: { onStart: () => void }) {
       <p className="pricing-lead">Todos los negocios arrancan en el plan Gratis, sin tarjeta. El pago del Básico y del Pro se habilita muy pronto: vas a poder pasarte desde tu panel, y al pasarte al Básico te regalamos {TRIAL_DAYS} días del Pro.</p>
     </Reveal>
     <BillingToggle billing={billing} onChange={setBilling} />
-    <PlanCards billing={billing} action={() => ({ label: 'Empezar gratis', onClick: onStart })} />
-    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Empezar gratis <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
+    {/* Todos llevan a crear la cuenta (arranca en Gratis y el plan se elige después): los pagos dicen "Quiero…", no "gratis" */}
+    <PlanCards billing={billing} action={plan => ({ label: plan === 'gratis' ? 'Empezar gratis' : `Quiero el ${PLANS[plan].name}`, onClick: onStart })} />
+    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
     <details className="plan-compare">
       <summary>Comparar todo lo que trae cada plan</summary>
       <PlanComparison />
