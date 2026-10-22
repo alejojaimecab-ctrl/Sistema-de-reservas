@@ -15,6 +15,8 @@ import { slugify } from '../lib/routes'
 import * as field from '../lib/fieldRules'
 
 type SetupService = { name: string; duration: number; price: number }
+// Vacío queda como NaN (no 0) para poder borrar el número; required y la validación de abajo no dejan seguir así
+const toNumber = (value: string) => value === '' ? NaN : Number(value)
 type OnboardingDraft = {
   step: number
   ownerName: string
@@ -54,8 +56,8 @@ function isSetupService(value: unknown): value is SetupService {
   if (!value || typeof value !== 'object') return false
   const service = value as Record<string, unknown>
   return typeof service.name === 'string'
-    && typeof service.duration === 'number'
-    && typeof service.price === 'number'
+    && (typeof service.duration === 'number' || service.duration === null)
+    && (typeof service.price === 'number' || service.price === null)
 }
 
 function readOnboardingDraft(): { draft: OnboardingDraft | null; error: string | null } {
@@ -138,7 +140,8 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   const [businessName, setBusinessName] = useState(restored?.businessName ?? '')
   const [slug, setSlug] = useState(restored?.slug ?? '')
   const [services, setServices] = useState<SetupService[]>(
-    restored?.services ?? [{ name: '', duration: 30, price: 0 }],
+    // Un campo vacío se guarda como null (JSON no tiene NaN): vuelve vacío
+    restored?.services.map(service => ({ ...service, duration: service.duration ?? NaN, price: service.price ?? NaN })) ?? [{ name: '', duration: 30, price: 0 }],
   )
   const [availability, setAvailability] = useState<AvailabilityMap>(
     restored?.availability ?? emptyAvailability(),
@@ -455,10 +458,10 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
                     required
                     min={5}
                     step={5}
-                    value={service.duration}
+                    value={Number.isNaN(service.duration) ? '' : service.duration}
                     onKeyDown={field.digitsOnlyKeys}
                     onChange={event => setServices(current => current.map((item, itemIndex) =>
-                      itemIndex === index ? { ...item, duration: Number(event.target.value) } : item))}
+                      itemIndex === index ? { ...item, duration: toNumber(event.target.value) } : item))}
                   />
                 </label>
                 <label className="onboarding-field">Precio ($)
@@ -467,10 +470,10 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
                     required
                     min={0}
                     step={100}
-                    value={service.price}
+                    value={Number.isNaN(service.price) ? '' : service.price}
                     onKeyDown={field.digitsOnlyKeys}
                     onChange={event => setServices(current => current.map((item, itemIndex) =>
-                      itemIndex === index ? { ...item, price: Number(event.target.value) } : item))}
+                      itemIndex === index ? { ...item, price: toNumber(event.target.value) } : item))}
                   />
                 </label>
               </div>
