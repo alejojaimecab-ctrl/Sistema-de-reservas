@@ -981,7 +981,11 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 }
 .otp input:focus { outline: none; border-color: var(--border-strong); box-shadow: var(--inset), 0 0 0 3px rgb(255 255 255 / .08); }
 .otp input.is-filled { border-color: var(--border-hover); }
-.otp.is-invalid input { border-color: var(--danger); }
+.otp.is-invalid input { border-color: var(--danger); color: var(--danger); box-shadow: var(--inset), 0 0 14px -4px rgb(229 115 127 / .55); }
+/* Verificando: los dígitos saltan en ola (WAAPI en OtpInput) con el borde dorado; correcto: todo verde */
+.otp.is-checking input { border-color: rgb(212 169 78 / .8); box-shadow: var(--inset), 0 0 16px -4px rgb(246 228 166 / .55); }
+.otp.is-ok input { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); box-shadow: 0 0 18px -4px var(--ok); }
+.otp.is-checking input:disabled, .otp.is-ok input:disabled { opacity: 1; }
 .otp input:disabled { opacity: .6; }
 
 @media (max-width: 900px) {

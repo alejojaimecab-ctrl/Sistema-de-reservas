@@ -1,16 +1,35 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 // Casillas del código del mail: un dígito por casilla, salta sola a la siguiente, borra hacia atrás
 // y acepta pegar el código entero. Completo, avisa con onComplete.
-export function OtpInput({ length, value, onChange, onComplete, disabled, invalid }: {
+// status: 'checking' los dígitos saltan en ola mientras se verifica, 'ok' se ponen verdes con un golpe,
+// 'error' tiemblan en rojo (el mismo temblor que el chat del login).
+export type OtpStatus = 'checking' | 'ok' | 'error'
+
+export function OtpInput({ length, value, onChange, onComplete, disabled, status }: {
   length: number
   value: string
   onChange: (value: string) => void
   onComplete?: (value: string) => void
   disabled?: boolean
-  invalid?: boolean
+  status?: OtpStatus
 }) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
+  const groupRef = useRef<HTMLDivElement>(null)
+  // Con WAAPI y no con CSS: así corre aunque el sistema tenga "reducir movimiento" (lo pidió el dueño)
+  useEffect(() => {
+    const inputs = refs.current.filter((input): input is HTMLInputElement => Boolean(input))
+    let running: Animation[] = []
+    if (status === 'checking') running = inputs.map((input, index) => input.animate(
+      [{ transform: 'none' }, { transform: 'translateY(-8px) scale(1.06)', offset: .35 }, { transform: 'translateY(2px)', offset: .7 }, { transform: 'none' }],
+      { duration: 640, delay: index * 80, iterations: Infinity, easing: 'ease-in-out' }))
+    if (status === 'ok') running = inputs.map((input, index) => input.animate(
+      [{ transform: 'none' }, { transform: 'scale(1.14)', offset: .45 }, { transform: 'none' }],
+      { duration: 420, delay: index * 60, easing: 'cubic-bezier(.34,1.56,.64,1)' }))
+    if (status === 'error' && groupRef.current) running = [groupRef.current.animate(
+      [0, -12, 12, -9, 9, -5, 5, 0].map(x => ({ transform: `translateX(${x}px)` })), { duration: 520, easing: 'ease-out' })]
+    return () => running.forEach(animation => animation.cancel())
+  }, [status])
   const focus = (index: number) => refs.current[Math.max(0, Math.min(length - 1, index))]?.focus()
 
   function update(next: string) {
@@ -20,7 +39,7 @@ export function OtpInput({ length, value, onChange, onComplete, disabled, invali
     return clean
   }
 
-  return <div className={`otp${invalid ? ' is-invalid' : ''}`} role="group" aria-label={`Código de ${length} dígitos`}>
+  return <div ref={groupRef} className={`otp${status ? ` is-${status === 'error' ? 'invalid' : status}` : ''}`} role="group" aria-label={`Código de ${length} dígitos`}>
     {Array.from({ length }, (_, index) => <input
       key={index}
       ref={element => { refs.current[index] = element }}
