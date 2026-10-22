@@ -790,7 +790,6 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 @media (max-width: 900px) {
   .plan-cards { grid-template-columns: 1fr; }
-  .plan-card--featured { order: -1; }
   .plan-offer { grid-template-columns: 1fr; gap: 16px; padding: 22px; }
   .plan-offer-price { text-align: left; }
   .plan-offer .button { width: 100%; }
@@ -903,6 +902,9 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .split-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 @media (max-width: 800px) {
   .split--tab-right .split-stage, .split--tab-left .split-stage { margin: 0; }
+  /* En el celular cada panel mide lo suyo: igualarlos dejaba Días libres con 2000 px vacíos abajo */
+  .split-stage { align-items: start; }
+  .split-pane:not(.is-open):not(.is-leaving) { height: 0; overflow: hidden; }
   .split--tab-right .split-tab, .split--tab-left .split-tab {
     position: relative; flex-direction: row; align-items: center; width: 100%; min-height: 52px; margin: 0 0 12px; padding: 0 18px;
     box-shadow: var(--inset);
@@ -961,8 +963,10 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .auth-form .auth-lead, .auth-onboarding > div > p { margin: 0 0 6px; color: var(--text-2); font-size: 14px; line-height: 1.55; }
 .auth-spark { color: #d4a94e; font-size: 26px; line-height: 1; }
 .auth-badge { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: var(--text); background: var(--surface-2); border: 1px solid var(--border-hover); box-shadow: var(--hl); }
-.auth-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.auth-label-row .text-button { padding: 0; font-size: 12px; font-weight: 500; }
+.auth-password { position: relative; }
+.auth-forgot { position: absolute; top: 0; right: 0; padding: 0; font-size: 12px; font-weight: 500; }
+/* Sin relleno, el subrayado va al borde de abajo (a 5 px cruzaba el texto) */
+.auth-forgot, .auth-switch .text-button { background-position: 0 100%; }
 .auth-switch { margin: 4px 0 0; color: var(--text-2); font-size: 13px; text-align: center; }
 .auth-switch .text-button { padding: 0; font-size: 13px; }
 .auth-hint { margin: 0; text-align: center; }

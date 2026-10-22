@@ -81,12 +81,14 @@ export function Login({ onBack, onCreateAccount }: { onBack: () => void; onCreat
       <label className="onboarding-field">Email
         <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} />
       </label>
-      <label className="onboarding-field">
-        <span className="auth-label-row">Contraseña
-          <button className="text-button" type="button" onClick={() => { setView('forgot'); setError(null); setUnconfirmed(false) }}>¿Olvidaste tu contraseña?</button>
-        </span>
-        <PasswordInput required minLength={6} autoComplete="current-password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
-      </label>
+      {/* El enlace va afuera del label: adentro el navegador lo tomaba como parte del campo (se encendía al pasar
+          por la contraseña y tocar "Contraseña" lo abría) */}
+      <div className="auth-password">
+        <label className="onboarding-field">Contraseña
+          <PasswordInput required minLength={6} autoComplete="current-password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+        </label>
+        <button className="text-button auth-forgot" type="button" onClick={() => { setView('forgot'); setError(null); setUnconfirmed(false) }}>¿Olvidaste tu contraseña?</button>
+      </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       {unconfirmed && <button type="button" className="button button--secondary button--full" onClick={() => void openCode()}>Ingresar el código del mail</button>}
       <button className="button button--primary button--full" type="submit" disabled={busy}>
