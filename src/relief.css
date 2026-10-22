@@ -986,3 +986,18 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   .auth-main { justify-content: flex-start; padding: 20px 4px 8px; }
 }
 @media (max-width: 420px) { .otp { gap: 6px; } .otp input { height: 50px; font-size: 20px; } }
+
+/* ── Detalles dorados de la portada: el mismo oro del panel de ingreso y del plan Pro (#d4a94e, con un brillo
+   #f6e4a6 al centro). Franja de "Datos protegidos": líneas finas arriba y abajo que se apagan en las puntas ── */
+/* La misma línea dorada en la franja (arriba y abajo), debajo del menú y arriba del pie */
+.trust-strip { border-top-color: transparent; border-bottom-color: transparent; }
+.site-nav { border-bottom-color: transparent; }
+.site-shell > footer { border-top-color: transparent; }
+.trust-strip::before, .trust-strip::after, .site-nav::after, .site-shell > footer::before {
+  content: ''; position: absolute; left: 0; right: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(212 169 78 / .75) 18%, #f6e4a6 50%, rgb(212 169 78 / .75) 82%, transparent);
+}
+.trust-strip::before { top: -1px; }
+.trust-strip::after { bottom: -1px; }
+.site-nav::after { bottom: -1px; }
+.site-shell > footer::before { top: -1px; }
