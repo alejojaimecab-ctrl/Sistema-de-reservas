@@ -6,6 +6,7 @@ import { PasswordInput } from './PasswordInput'
 import { useAuth } from '../lib/auth'
 import { authLinkError, supabase } from '../lib/supabase'
 import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMessages'
+import { captchaToken } from '../lib/captcha'
 import { acceptStaffInvite, getStaffInvite, type StaffInviteInfo } from '../lib/db'
 import { joinUrl } from '../lib/routes'
 import { email as cleanEmail, personName } from '../lib/fieldRules'
@@ -171,7 +172,7 @@ function InviteAuth({ token, invite }: { token: string; invite: StaffInviteInfo 
       const loginError = await signIn(email.trim(), password)
       setBusy(false)
       if (loginError) {
-        setError(/not confirmed/i.test(loginError) ? authErrorMessage(loginError) : 'Email o contraseña incorrectos')
+        setError(authErrorMessage(loginError))
       }
       return
     }
@@ -242,10 +243,12 @@ function ResendConfirmation({ initialEmail = '' }: { initialEmail?: string }) {
     setBusy(true)
     setError(null)
     setSent(false)
+    let captcha: string | undefined
+    try { captcha = await captchaToken() } catch { setBusy(false); setError(authErrorMessage('captcha_failed')); return }
     const { error: resendError } = await supabase.auth.resend({
       type: 'signup',
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+      options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}`, captchaToken: captcha },
     })
     setBusy(false)
     if (resendError) setError(authErrorMessage(resendError.message))

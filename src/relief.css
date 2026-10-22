@@ -1023,3 +1023,25 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .trust-strip::after { bottom: -1px; }
 .site-nav::after { bottom: -1px; }
 .site-shell > footer::before { top: -1px; }
+
+/* Desafío del CAPTCHA (Turnstile): invisible salvo que Cloudflare pida tocarlo; aparece abajo al centro */
+.captcha-box { position: fixed; left: 50%; bottom: 24px; z-index: 500; transform: translateX(-50%); }
+.captcha-box:empty { display: none; }
+
+/* Verificación en dos pasos (Configuración) */
+.two-factor { display: grid; gap: 14px; justify-items: start; }
+.two-factor .card-heading { width: 100%; margin-bottom: 0; }
+.two-factor .form-note { margin: 0; text-align: left; font-size: 13px; line-height: 1.5; }
+.two-factor .card-heading .form-note { margin: 6px 0 0; max-width: 520px; color: var(--text-2); }
+.two-factor-on { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.two-factor-setup { display: grid; gap: 16px; width: 100%; max-width: 460px; }
+.two-factor-steps { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.two-factor-qr { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.two-factor-qr img { padding: 8px; background: #fff; border-radius: 12px; }
+.two-factor-qr > div { display: grid; gap: 6px; flex: 1; min-width: 180px; }
+.two-factor-qr .form-note { margin: 0; }
+.two-factor-secret { justify-self: start; padding: 8px 10px; color: var(--text); background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r-sm); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; letter-spacing: .04em; word-break: break-all; text-align: left; cursor: copy; }
+.two-factor-secret:hover { border-color: var(--border-hover); }
+.two-factor-setup .text-button { justify-self: start; }
+.password-change { display: grid; gap: 12px; width: 100%; max-width: 420px; }
+.password-change .button { justify-self: start; }

@@ -47,6 +47,9 @@ const Onboarding = lazy(() =>
 const Login = lazy(() =>
   import('./components/Login').then(module => ({ default: module.Login })),
 )
+const MfaChallenge = lazy(() =>
+  import('./components/MfaChallenge').then(module => ({ default: module.MfaChallenge })),
+)
 
 // Funciones de la portada, según el diseño del dueño: etiqueta, título con serif, texto y un fragmento de la interfaz
 const features = [
@@ -117,7 +120,7 @@ function Root() {
   const [legalDoc, setLegalDoc] = useState(() => legalDocFromPath(window.location.pathname))
   const [joinToken, setJoinToken] = useState(() => joinTokenFromPath(window.location.pathname))
   const [view, setView] = useState<View>(() => legalDoc ? 'legal' : cancelToken ? 'cancel' : joinToken ? 'join' : publicSlug ? 'public-booking' : panelSectionFromPath(window.location.pathname) !== null ? 'dashboard' : 'home')
-  const { session, loading, recovering } = useAuth()
+  const { session, loading, recovering, mfaPending } = useAuth()
   const prevSession = useRef<typeof session | undefined>(undefined)
   // Lo que se ve depende también de la sesión: "login" con sesión muestra el panel y "dashboard" sin sesión muestra el login
   const shownView: View = view === 'login' && session ? 'dashboard' : view === 'dashboard' && !session ? 'login' : view
@@ -178,6 +181,8 @@ function Root() {
 
   // Mientras se confirma la sesión: un aviso tranquilo que solo aparece si tarda (así no parpadea cuando es rápido)
   if (loading) return <div className="app-loading" role="status"><span className="app-loading-dot" aria-hidden="true" />Cargando…</div>
+  // Con la verificación en dos pasos activada, nada del panel (ni elegir contraseña nueva) antes del código
+  if (mfaPending && session && (recovering || ['dashboard', 'login', 'onboarding', 'join'].includes(view))) return <MfaChallenge />
   if (recovering && session) return <ResetPassword onDone={() => setView('dashboard')} />
   if (view === 'legal' && legalDoc) return <LegalPage doc={legalDoc} onBack={leavePublicBooking} onOpen={doc => { goTo(`/${doc}`); setLegalDoc(doc) }} />
   if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { Brand } from './Brand'
+import { preloadCaptcha } from '../lib/captcha'
 
 // Ingreso, alta y código del mail: una tarjeta partida en dos. A la izquierda una historia dibujada con líneas
 // (los mensajes de WhatsApp que se tachan, el cliente que reserva desde el enlace, la agenda que se llena sola y el
@@ -14,6 +15,7 @@ export function AuthShell({ stage, onBack, backLabel, children }: {
   backLabel: string
   children: ReactNode
 }) {
+  useEffect(preloadCaptcha, [])
   return <main className="auth">
     <header className="auth-top"><Brand /><button type="button" className="text-button" onClick={onBack}>{backLabel}</button></header>
     <div className="auth-card">

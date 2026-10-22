@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { captchaToken } from './captcha'
+import { isPasswordLeaked } from './pwned'
 import type { Plan } from './plans'
 
 export type Profile = { id: string; full_name: string }
@@ -30,6 +32,9 @@ type AuthContextValue = {
   staffResource: StaffResource | null
   loading: boolean
   recovering: boolean
+  // Entró con la contraseña pero tiene la verificación en dos pasos activada: falta el código de la app
+  mfaPending: boolean
+  verifyMfa: (code: string) => Promise<string | null>
   requestPasswordReset: (email: string) => Promise<string | null>
   updatePassword: (password: string) => Promise<string | null>
   signIn: (email: string, password: string) => Promise<string | null>
@@ -42,6 +47,13 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// Token del CAPTCHA, o null si no se pudo resolver (la función que llama devuelve el error)
+async function tryCaptcha(): Promise<string | undefined | null> {
+  try { return await captchaToken() } catch { return null }
+}
+const CAPTCHA_FAILED = 'captcha_failed'
+const LEAKED_PASSWORD = 'leaked_password'
+
 const BUSINESS_COLUMNS = 'id, name, slug, cancel_min_hours, min_notice_hours, max_advance_days, phone, address, logo_path, monthly_goal, plan, trial_ends_at'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -53,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   // true mientras la persona llegó desde el mail de "olvidé mi contraseña" y falta elegir la nueva
   const [recovering, setRecovering] = useState(() => window.location.hash.includes('type=recovery'))
+  const [mfaPending, setMfaPending] = useState(false)
 
   // Persona cuyos datos ya se pidieron (undefined: ninguna todavía). Supabase avisa de la sesión varias veces
   // (al abrir, al renovar el acceso cada hora, al volver a la pestaña) y perfil y negocio solo cambian con la persona.
@@ -94,11 +107,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userId === loadedUserRef.current) return
     loadedUserRef.current = userId
     if (!userId) {
-      setProfile(null); setBusiness(null); setRole(null); setStaffResource(null)
+      setProfile(null); setBusiness(null); setRole(null); setStaffResource(null); setMfaPending(false)
       setLoading(false)
       return
     }
-    void loadUserData(userId).finally(() => setLoading(false))
+    void (async () => {
+      // Con la verificación en dos pasos activada y sin el código todavía, la base no devuelve nada (migración 043):
+      // primero el código y recién después los datos. Al verificarlo llega otro aviso de sesión y se vuelve a pasar por acá.
+      const { data: level } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (level?.nextLevel === 'aal2' && level.currentLevel !== 'aal2') {
+        loadedUserRef.current = undefined
+        setMfaPending(true)
+        return
+      }
+      setMfaPending(false)
+      await loadUserData(userId)
+    })().finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -114,7 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const captcha = await tryCaptcha()
+    if (captcha === null) return CAPTCHA_FAILED
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captcha } })
     return error ? error.message : null
   }
 
@@ -122,10 +148,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // equipo sola apenas se confirma el email, desde cualquier dispositivo (migración 032). redirectTo es adónde vuelve
   // el enlace del mail (si Supabase no lo permite, usa la URL del sitio).
   async function signUp(email: string, password: string, fullName: string, invite?: { token: string; redirectTo: string }) {
+    if (await isPasswordLeaked(password)) return LEAKED_PASSWORD
+    const captcha = await tryCaptcha()
+    if (captcha === null) return CAPTCHA_FAILED
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        captchaToken: captcha,
         data: { full_name: fullName, ...(invite ? { join_token: invite.token } : {}) },
         ...(invite ? { emailRedirectTo: invite.redirectTo } : {}),
       },
@@ -138,7 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Vuelve a mandar el mail de "confirmá tu cuenta" del alta (Supabase limita cuántos se pueden pedir por hora)
   async function resendConfirmation(email: string) {
-    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() })
+    const captcha = await tryCaptcha()
+    if (captcha === null) return CAPTCHA_FAILED
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { captchaToken: captcha } })
     return error ? error.message : null
   }
 
@@ -149,15 +181,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function requestPasswordReset(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
+    const captcha = await tryCaptcha()
+    if (captcha === null) return CAPTCHA_FAILED
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin, captchaToken: captcha })
     return error ? error.message : null
   }
 
   async function updatePassword(password: string) {
+    if (await isPasswordLeaked(password)) return LEAKED_PASSWORD
     const { error } = await supabase.auth.updateUser({ password })
     if (error) return error.message
     setRecovering(false)
     return null
+  }
+
+  // El código de 6 dígitos de la app autenticadora (Google Authenticator, Microsoft Authenticator…)
+  async function verifyMfa(code: string) {
+    const { data, error: listError } = await supabase.auth.mfa.listFactors()
+    const factor = data?.totp.find(item => item.status === 'verified')
+    if (listError || !factor) return listError?.message ?? 'No encontramos la verificación en dos pasos de tu cuenta.'
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code })
+    return error ? error.message : null
   }
 
   async function signOut() {
@@ -169,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, verifyEmailCode, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, mfaPending, verifyMfa, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, verifyEmailCode, signOut, refreshBusiness }}>
       {children}
     </AuthContext.Provider>
   )

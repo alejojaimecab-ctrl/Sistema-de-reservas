@@ -26,6 +26,8 @@ import { ClientProfile } from './ClientProfile'
 import { StatsLocked, StatsSection } from './StatsSection'
 import { PLANS, effectivePlan, hasFeature } from '../lib/plans'
 import { PlanNote, PlanSection, TrialBadge } from './PlanSection'
+import { TwoFactorSection } from './TwoFactorSection'
+import { PasswordSection } from './PasswordSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
 import {
   cancelOwnerReservation, setServiceActive, createBusiness, createBusinessWithSetup, logoUrl, removeBusinessLogo, uploadBusinessLogo, createOwnerReservation, createService, deleteService, getDashboardStats, getPublicSlots,
@@ -430,6 +432,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       ]} />}
       {active === 'Configuración' && <ConfigSection businessId={business.id} onSaved={refreshBusiness} onLeaveGuard={guard => { leaveGuardRef.current = guard }}
         canBrand={hasFeature(plan, 'branding')} onSeePlans={() => void setActive('Tu plan')} />}
+      {active === 'Configuración' && <><PasswordSection /><TwoFactorSection /></>}
       {active === 'Tu plan' && <PlanSection business={business} professionals={professionals} />}
       {active === 'Mis horarios' && staffResource && <MyScheduleSection businessId={business.id} resourceId={staffResource.id} days={days} />}
       </motion.div>

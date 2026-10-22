@@ -13,6 +13,13 @@ export function passwordProblem(password: string): string | null {
 }
 
 export function authErrorMessage(message: string): string {
+  if (/leaked_password|pwned|known to be weak/i.test(message)) {
+    return 'Esa contraseña apareció en filtraciones de otros sitios y es fácil de adivinar. Elegí una distinta.'
+  }
+  if (/captcha/i.test(message)) return 'No pudimos comprobar que no seas un robot. Recargá la página y probá de nuevo.'
+  if (/invalid totp|totp code|mfa_verification_failed|invalid mfa|code.*(invalid|expired)/i.test(message)) {
+    return 'Ese código no es correcto o ya cambió. Abrí la app y escribí el que se ve ahora.'
+  }
   if (/already registered|already been registered/i.test(message)) return 'Ese email ya tiene una cuenta. Iniciá sesión.'
   if (/rate limit|too many requests|over_email_send_rate_limit/i.test(message)) {
     return 'Mandamos demasiados mails en poco tiempo. Esperá unos minutos y volvé a intentar.'
