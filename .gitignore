@@ -5,3 +5,8 @@ dist
 *.tsbuildinfo
 
 supabase/.temp/
+
+# Claves locales: nunca al repositorio
+.env
+.env.*
+!.env.example
