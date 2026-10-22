@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Clock3, Mail, Store, Trash2, Sparkles, UsersRound } from 'lucide-react'
 import { AvailabilityEditor, type AvailabilityDay, type AvailabilityMap } from './AvailabilityEditor'
 import { Brand } from './Brand'
 import { PasswordInput } from './PasswordInput'
@@ -117,7 +117,7 @@ function removeLocalDraft() {
 }
 
 export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
-  const { signUp, session, resendConfirmation } = useAuth()
+  const { signUp, session, resendConfirmation, role, business: staffBusiness } = useAuth()
   const [draftRead, setDraftRead] = useState(readOnboardingDraft)
   const restored = draftRead.draft
   const [step, setStep] = useState(restored?.step ?? 1)
@@ -358,6 +358,19 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   }
 
   // El alta no termina en un callejón: dice qué falta, dónde abrir el enlace (lo cargado queda en este navegador) y deja pedir otro mail
+  // Una cuenta de empleado no puede tener negocio propio (migración 042): si lo creara, dejaría de ver su agenda
+  if (session && role === 'staff') {
+    return <main className="onboarding">
+      <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>
+      <section className="onboarding-card">
+        <span className="onboarding-icon"><UsersRound size={25} /></span>
+        <h1>Esta cuenta ya es parte de un equipo.</h1>
+        <p>Entraste con la cuenta de profesional de <strong>{staffBusiness?.name ?? 'un negocio'}</strong>. Para crear tu propio negocio, cerrá sesión y registrate con otro email.</p>
+        <button type="button" className="button button--primary" onClick={onFinish}>Ir a mi agenda</button>
+      </section>
+    </main>
+  }
+
   if (awaitingConfirmation) {
     return <main className="onboarding">
       <header><Brand /><button className="text-button" onClick={onBack}>Volver al inicio</button></header>

@@ -122,15 +122,15 @@ export function PlanComparison({ current }: { current?: Plan | null }) {
 // La sección de la portada
 export function PricingSection({ onStart }: { onStart: () => void }) {
   const [billing, setBilling] = useState<Billing>('mensual')
-  const labels: Record<Plan, string> = { gratis: 'Empezar gratis', basico: 'Empezar con el Básico', pro: 'Empezar con el Pro' }
   return <section id="precios" className="pricing-section" aria-labelledby="pricing-title">
     <Reveal>
       <h2 id="pricing-title">Empezá gratis.<br /><em>Crecé cuando quieras.</em></h2>
-      <p className="pricing-lead">Arrancá gratis, sin tarjeta. Cuando te pases al Básico, te regalamos {TRIAL_DAYS} días del Pro para que lo pruebes.</p>
+      {/* Todavía no hay cobro: todos arrancan en Gratis y los botones lo dicen (cuando llegue Mercado Pago, cada plan lleva a pagar) */}
+      <p className="pricing-lead">Todos los negocios arrancan en el plan Gratis, sin tarjeta. El pago del Básico y del Pro se habilita muy pronto: vas a poder pasarte desde tu panel, y al pasarte al Básico te regalamos {TRIAL_DAYS} días del Pro.</p>
     </Reveal>
     <BillingToggle billing={billing} onChange={setBilling} />
-    <PlanCards billing={billing} action={plan => ({ label: labels[plan], onClick: onStart })} />
-    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
+    <PlanCards billing={billing} action={() => ({ label: 'Empezar gratis', onClick: onStart })} />
+    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Empezar gratis <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
     <details className="plan-compare">
       <summary>Comparar todo lo que trae cada plan</summary>
       <PlanComparison />
