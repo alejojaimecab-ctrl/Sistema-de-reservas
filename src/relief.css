@@ -986,8 +986,20 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 @media (max-width: 900px) {
   .auth-card { grid-template-columns: 1fr; min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; }
-  .auth-story { display: none; }
-  .auth-main { justify-content: flex-start; padding: 20px 4px 8px; }
+  /* En el celular va la misma historia de la reserva, compacta arriba del formulario: sin el título grande,
+     solo el dibujo y la frase de cada escena */
+  .auth-story { gap: 0; padding: 14px 16px 16px; border-radius: 20px; }
+  .auth-story-caption { display: none; }
+  .auth-scene { min-height: 0; gap: 6px; }
+  .auth-scene svg { width: auto; max-width: 100%; height: clamp(160px, 24vh, 220px); }
+  .auth-scene-text { font-size: 13px; text-align: center; }
+  .auth-top { position: relative; padding-bottom: 14px; }
+  .auth-top::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgb(212 169 78 / .75) 18%, #f6e4a6 50%, rgb(212 169 78 / .75) 82%, transparent);
+  }
+  .auth-spark { display: none; }
+  .auth-main { justify-content: flex-start; padding: 22px 4px 8px; }
 }
 @media (max-width: 420px) { .otp { gap: 6px; } .otp input { height: 50px; font-size: 20px; } }
 
