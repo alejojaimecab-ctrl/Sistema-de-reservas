@@ -1054,3 +1054,5 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .password-change .button { justify-self: start; }
 .two-factor-kept { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; }
 .two-factor-kept input { width: 16px; height: 16px; accent-color: var(--accent); }
+.password-forgot { margin: -4px 0 4px; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.password-forgot .text-button { padding: 0; font-size: 13px; background-position: 0 100%; }

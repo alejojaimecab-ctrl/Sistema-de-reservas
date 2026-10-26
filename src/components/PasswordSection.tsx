@@ -6,8 +6,11 @@ import { authErrorMessage, passwordProblem, PASSWORD_HINT } from '../lib/authMes
 
 // Cambiar la contraseña desde el panel (Configuración), sin pasar por el mail de "olvidé mi contraseña".
 // Pide la actual (la base la compara, migración 044) y updatePassword también rechaza las contraseñas filtradas.
+// Si no se acuerda de la actual, se verifica por el email: el mismo enlace de "olvidé mi contraseña" (ResetPassword).
 export function PasswordSection() {
-  const { updatePassword } = useAuth()
+  const { updatePassword, requestPasswordReset, session } = useAuth()
+  const email = session?.user.email ?? ''
+  const [mailSent, setMailSent] = useState(false)
   const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -38,6 +41,15 @@ export function PasswordSection() {
     setSaved(true)
   }
 
+  async function sendLink() {
+    setBusy(true)
+    setError(null)
+    const err = await requestPasswordReset(email)
+    setBusy(false)
+    if (err) { setError(authErrorMessage(err)); return }
+    setMailSent(true)
+  }
+
   return <section className="agenda-card two-factor">
     <div className="card-heading">
       <div>
@@ -50,6 +62,11 @@ export function PasswordSection() {
         <PasswordInput required autoComplete="current-password" placeholder="••••••••"
           value={current} onChange={event => { setCurrent(event.target.value); setSaved(false) }} />
       </label>
+      <p className="password-forgot">
+        {mailSent
+          ? <>Te mandamos un enlace a <strong>{email}</strong>. Abrilo en este navegador para elegir la contraseña nueva (mirá también en spam).</>
+          : <>¿No te acordás de la actual? <button type="button" className="text-button" disabled={busy || !email} onClick={() => void sendLink()}>Te mandamos un enlace a tu email</button></>}
+      </p>
       <label className="onboarding-field">Contraseña nueva
         <PasswordInput required minLength={6} autoComplete="new-password" placeholder="••••••••"
           value={password} onChange={event => { setPassword(event.target.value); setSaved(false) }} />
