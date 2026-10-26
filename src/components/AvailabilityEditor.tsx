@@ -122,17 +122,20 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
   }
 
   // Igual que las plantillas: si martes a viernes ya tenían horarios distintos, primero se pregunta
-  async function copyFirstDayToWeekdays() {
-    const sourceRanges = rangesFromSlots(availability[days[0]?.id])
-    if (sourceRanges.length === 0) return
+  // El horario del primer día abierto pasa a los demás días abiertos (sirve para lun a vie, mar a sáb, etc.)
+  const openDays = days.filter(day => rangesFromSlots(availability[day.id]).length > 0)
+  const firstOpen = openDays[0]
+  async function copyFirstOpenDay() {
+    if (!firstOpen) return
+    const sourceRanges = rangesFromSlots(availability[firstOpen.id])
     const source = slotsFromRanges(sourceRanges)
-    const targets = days.slice(1, 5)
+    const targets = openDays.slice(1)
     const differs = (day: AvailabilityDay) => timeSlots.some(slot => Boolean(availability[day.id]?.[slot]) !== source[slot])
     if (!targets.some(differs)) return
     const overwritten = targets.filter(day => (availability[day.id] ?? []).some(Boolean) && differs(day))
     if (overwritten.length > 0) {
       const accepted = await confirm({
-        title: `¿Copiar el horario del ${days[0].name.toLowerCase()}?`,
+        title: `¿Copiar el horario del ${firstOpen.name.toLowerCase()}?`,
         message: `Se reemplazan los horarios que ya tenías el ${overwritten.map(day => day.name.toLowerCase()).join(', ')}. Lo que habías armado esos días se pierde.`,
         confirmLabel: 'Copiar horario',
         cancelLabel: 'Mantener los míos',
@@ -145,7 +148,7 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
     onChange(next)
   }
 
-  const openDayCount = days.filter(day => rangesFromSlots(availability[day.id]).length > 0).length
+  const openDayCount = openDays.length
   const openHalfHourCount = days.reduce((total, day) =>
     total + (availability[day.id] ?? []).filter(Boolean).length, 0)
   const openHours = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(openHalfHourCount / 2)
@@ -190,10 +193,10 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
         <button type="button" onClick={() => void applyPreset(false, 'Todos los días · 9 a 18')}>Todos · 9 a 18</button>
         <button
           type="button"
-          disabled={rangesFromSlots(availability[days[0]?.id]).length === 0}
-          onClick={() => void copyFirstDayToWeekdays()}
+          disabled={openDays.length < 2}
+          onClick={() => void copyFirstOpenDay()}
         >
-          <Copy size={13} /> Copiar lunes a días hábiles
+          <Copy size={13} /> {firstOpen && openDays.length > 1 ? `Copiar ${firstOpen.name.toLowerCase()} a los demás días` : 'Copiar el horario a los demás días'}
         </button>
       </div>
 
@@ -238,10 +241,9 @@ export function AvailabilityEditor({ days, availability, onChange }: Availabilit
           })}
         </div>}
 
+      {/* Sin días abiertos ya lo dice el aviso de arriba ("Tocá arriba…"): un solo mensaje de vacío */}
       <p className="availability-summary" aria-live="polite">
-        {openDayCount === 0
-          ? 'Todavía no hay días ni horarios habilitados.'
-          : `${openDayCount} ${openDayCount === 1 ? 'día abierto' : 'días abiertos'} · ${openHours} ${openHalfHourCount === 2 ? 'hora disponible' : 'horas disponibles'} por semana`}
+        {openDayCount > 0 && `${openDayCount} ${openDayCount === 1 ? 'día abierto' : 'días abiertos'} · ${openHours} ${openHalfHourCount === 2 ? 'hora disponible' : 'horas disponibles'} por semana`}
       </p>
     </div>
   )

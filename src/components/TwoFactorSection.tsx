@@ -104,7 +104,7 @@ export function TwoFactorSection() {
 
     {factorId === undefined && <p className="form-note">Cargando…</p>}
 
-    {factorId === null && !setup && <button type="button" className="button button--primary button--small" disabled={busy} onClick={() => void start()}>
+    {factorId === null && !setup && <button type="button" className="button button--secondary button--small" disabled={busy} onClick={() => void start()}>
       {busy ? 'Preparando…' : 'Activar'}
     </button>}
 

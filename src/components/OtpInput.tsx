@@ -25,7 +25,7 @@ export function OtpInput({ length, value, onChange, onComplete, disabled, status
       { duration: 640, delay: index * 80, iterations: Infinity, easing: 'ease-in-out' }))
     if (status === 'ok') running = inputs.map((input, index) => input.animate(
       [{ transform: 'none' }, { transform: 'scale(1.14)', offset: .45 }, { transform: 'none' }],
-      { duration: 420, delay: index * 60, easing: 'cubic-bezier(.34,1.56,.64,1)' }))
+      { duration: 420, delay: index * 60, easing: 'cubic-bezier(.16,1,.3,1)' }))
     if (status === 'error' && groupRef.current) running = [groupRef.current.animate(
       [0, -12, 12, -9, 9, -5, 5, 0].map(x => ({ transform: `translateX(${x}px)` })), { duration: 520, easing: 'ease-out' })]
     return () => running.forEach(animation => animation.cancel())

@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
+import { matchTime } from '../lib/timeMatch'
 
 // Desplegable de horas con el estilo de RESER (el <select> nativo abre una lista cuadrada del sistema).
 // La lista va en un portal con posición fija: así los paneles con overflow no la cortan. Teclado: flechas,
@@ -16,7 +17,9 @@ export function TimeSelect({ value, options, onChange, label }: {
   const [place, setPlace] = useState<{ left: number; top: number; width: number; up: boolean } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const id = useRef(`time-${Math.random().toString(36).slice(2)}`).current
+  const id = useId()
+  // Lo que se va tecleando ("1", "18"…): salta a la hora que empieza así, como un <select> nativo
+  const typed = useRef({ text: '', at: 0 })
   const current = options.find(option => option.value === value)
 
   function measure() {
@@ -68,6 +71,16 @@ export function TimeSelect({ value, options, onChange, label }: {
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault()
+      const now = Date.now()
+      typed.current = { text: (now - typed.current.at < 900 ? typed.current.text : '') + event.key, at: now }
+      const match = matchTime(options, typed.current.text)
+      if (match === undefined) return
+      if (open) setActive(match)
+      else if (match !== value) onChange(match)
+      return
+    }
     const index = options.findIndex(option => option.value === active)
     const move = (to: number) => { event.preventDefault(); setActive(options[Math.max(0, Math.min(options.length - 1, to))].value) }
     if (!open) {

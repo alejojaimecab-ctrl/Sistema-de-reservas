@@ -76,7 +76,7 @@ export function Login({ onBack, onCreateAccount }: { onBack: () => void; onCreat
   return <AuthShell stage={busy ? 4 : 'loop'} onBack={onBack} backLabel="Volver al inicio">
     <form className="auth-form" onSubmit={handleSubmit}>
       <span className="auth-spark" aria-hidden="true">✳</span>
-      <h1>Bienvenido de nuevo.</h1>
+      <h1>Hola de nuevo.</h1>
       <p className="auth-lead">Ingresá para ver tu agenda, tus reservas y tus clientes.</p>
       <label className="onboarding-field">Email
         <input type="email" required autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(cleanEmail(e.target.value))} />

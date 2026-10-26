@@ -142,7 +142,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         setServices(previewServices)
         setProfessionals(demoProfessionals)
         setOffers(demoProfessionals.flatMap(p => previewServices.map(s => ({ resource_id: p.id, service_id: s.id }))))
-        setService(previewServices[0] ?? null)
+        setService(previewServices.length === 1 ? previewServices[0] : null)
         setLoadingServices(false)
         return
       }
@@ -153,7 +153,8 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
       setBusiness(page.business)
       setOffers(page.offers)
       setServices(page.services)
-      setService(page.services[0] ?? null)
+      // Con un solo servicio no hay nada que elegir; con varios, el cliente elige (antes se marcaba el primero y se podía avanzar sin mirar)
+      setService(page.services.length === 1 ? page.services[0] : null)
       setProfessionals(page.professionals)
       setLoadingServices(false)
     })()

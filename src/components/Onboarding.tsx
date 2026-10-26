@@ -377,7 +377,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
   }
 
   // La reserva de la izquierda avanza con los pasos: servicio, día, horario y, al crear la cuenta, confirmado
-  return <AuthShell stage={step as 1 | 2 | 3 | 4} onBack={onBack} backLabel="Salir" compact={step < 4}>
+  return <AuthShell stage={step as 1 | 2 | 3 | 4} onBack={onBack} backLabel="Volver al inicio" compact={step < 4}>
     <div
       className="onboarding-progress"
       role="progressbar"
@@ -516,7 +516,7 @@ export function Onboarding({ onFinish, onBack }: { onFinish: () => void; onBack:
           <input required type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(field.email(e.target.value))} />
         </label>
         <label className="onboarding-field">Contraseña
-          <PasswordInput required minLength={6} autoComplete="new-password" placeholder="Ej: Turnos2026" value={password} onChange={e => setPassword(e.target.value)} />
+          <PasswordInput required minLength={6} autoComplete="new-password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
         </label>
         <p className="form-note" style={{ margin: '-4px 0 10px' }}>{PASSWORD_HINT}</p>
         <label className="legal-consent">

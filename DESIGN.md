@@ -125,6 +125,21 @@ typography:
     fontFamily: "Inter, system-ui, sans-serif"
     fontSize: "22px"
     fontWeight: 600
+  # Pantallas de cuenta (ingreso, alta, código): título del formulario y frase grande de la historia
+  auth-title:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(28px, 3vw, 36px)"
+    fontWeight: 700
+    letterSpacing: "-0.03em"
+  auth-caption:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(24px, 2.3vw, 31px)"
+    fontWeight: 700
+  # Precio de cada plan: se ajusta al ancho de la tarjeta (container query)
+  plan-price:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "clamp(30px, 17cqi, 44px)"
+    fontWeight: 700
   # Único caso de 10px: el calendario mensual denso
   calendar-dense:
     fontFamily: "Inter, system-ui, sans-serif"

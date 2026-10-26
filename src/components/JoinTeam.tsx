@@ -217,7 +217,7 @@ function InviteAuth({ token, invite }: { token: string; invite: StaffInviteInfo 
         <PasswordInput
           required minLength={6}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-          placeholder={mode === 'signup' ? 'Ej: Turnos2026' : '••••••••'}
+          placeholder="••••••••"
           value={password} onChange={e => setPassword(e.target.value)}
         />
       </label>
