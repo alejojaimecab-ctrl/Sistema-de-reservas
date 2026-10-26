@@ -1030,6 +1030,12 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 .trust-strip::after { bottom: -1px; }
 .site-nav::after { bottom: -1px; }
 .site-shell > footer::before { top: -1px; }
+/* La misma línea dorada, vertical, en el borde de la barra lateral del panel (solo Pro) */
+:root.is-pro .dashboard-sidebar { border-right-color: transparent; }
+:root.is-pro .dashboard-sidebar::after {
+  content: ''; position: absolute; top: 0; bottom: 0; right: -1px; width: 1px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgb(212 169 78 / .75) 18%, #f6e4a6 50%, rgb(212 169 78 / .75) 82%, transparent);
+}
 
 /* Desafío del CAPTCHA (Turnstile): invisible salvo que Cloudflare pida tocarlo; aparece abajo al centro */
 .captcha-box { position: fixed; left: 50%; bottom: 24px; z-index: 500; transform: translateX(-50%); }
