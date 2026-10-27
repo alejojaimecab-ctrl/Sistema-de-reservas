@@ -1037,6 +1037,87 @@ input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
   background: linear-gradient(180deg, transparent, rgb(212 169 78 / .75) 18%, #f6e4a6 50%, rgb(212 169 78 / .75) 82%, transparent);
 }
 
+/* Barra lateral minimizable. Abierta: el panel de siempre. Minimizada: una cápsula flotante con solo los íconos,
+   el activo en un círculo que se desliza con una muesca en el borde, y el nombre en una etiqueta al pasar el mouse.
+   El cambio dura ~0,55 s: más lento, el contenido de la derecha se reacomoda a tirones. */
+.dashboard { --ease-rail: cubic-bezier(.32, .72, 0, 1); }
+/* Flecha entre el logo y el menú: pegada a la derecha, así al angostarse la barra queda centrada sola */
+.sidebar-toggle {
+  position: relative; display: grid; place-items: center; width: 42px; height: 34px; margin: 0 0 0 auto; padding: 0;
+  color: var(--text-3); background: transparent; border: 0; border-radius: var(--r-sm);
+  transition: color .18s ease-out, background-color .18s ease-out;
+}
+.sidebar-toggle:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-toggle svg { transition: rotate .55s var(--ease-rail); }
+.dashboard.is-collapsed .sidebar-toggle svg { rotate: 180deg; }
+.sidebar-toggle + nav { margin-top: 8px; }
+.dashboard-sidebar nav { grid-template-columns: minmax(0, 1fr); }
+.dashboard-sidebar nav button, .sidebar-exit { min-width: 0; }
+.dashboard-sidebar nav button svg, .sidebar-exit svg { flex-shrink: 0; }
+.sidebar-exit { left: 17px; right: 17px; }
+.nav-label { min-width: 0; overflow: hidden; white-space: nowrap; }
+.dashboard-sidebar .brand { display: grid; overflow: hidden; }
+.dashboard-sidebar .brand img { grid-area: 1 / 1; }
+.dashboard-sidebar .brand-mark { opacity: 0; }
+@media (min-width: 801px) {
+  .dashboard { transition: grid-template-columns .55s var(--ease-rail); }
+  .dashboard.is-collapsed { grid-template-columns: 72px 1fr; }
+  /* La barra queda fija a la vista mientras se baja por la página */
+  .dashboard-sidebar {
+    position: sticky; top: 0; z-index: 20; align-self: start; height: 100vh; min-height: 0;
+    transition: margin .55s var(--ease-rail), padding .55s var(--ease-rail), height .55s var(--ease-rail), border-radius .55s var(--ease-rail), box-shadow .3s ease-out;
+  }
+  .dashboard.is-collapsed .dashboard-sidebar {
+    height: calc(100vh - 28px); margin: 14px 0 14px 14px; padding: 20px 8px; border-radius: 30px; border-right-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--border), 0 12px 32px -14px rgb(0 0 0 / .9);
+  }
+  :root.is-pro .dashboard-sidebar::after { transition: opacity .3s ease-out; }
+  :root.is-pro .dashboard.is-collapsed .dashboard-sidebar::after { opacity: 0; }
+  .sidebar-exit { transition: left .55s var(--ease-rail), right .55s var(--ease-rail), color .18s ease-out; }
+  .dashboard.is-collapsed .sidebar-exit { left: 8px; right: 8px; }
+  /* Logo e isotipo se funden a la vez, sin hueco; el logo se achica para entrar en la barra (mide ~200px a 60px de alto) */
+  .dashboard-sidebar .brand { margin: 0 0 14px; }
+  .dashboard-sidebar .brand-full { width: 190px; height: auto; }
+  .dashboard-sidebar .brand-full { transition: opacity .3s ease-out .12s; }
+  .dashboard-sidebar .brand-mark { transition: opacity .15s ease-in; }
+  .dashboard.is-collapsed .brand-full { opacity: 0; transition: opacity .15s ease-in; }
+  .dashboard.is-collapsed .brand-mark { opacity: 1; transition: opacity .3s ease-out .12s; }
+  /* Textos: se apagan apenas arranca y vuelven cuando ya hay lugar */
+  .nav-label { transition: opacity .35s ease-out .15s; }
+  .dashboard.is-collapsed .nav-label { opacity: 0; transition: opacity .18s ease-in; }
+  /* Ítems: minimizada, cada uno es un círculo; el indicador (border-radius: inherit) se vuelve círculo también */
+  .dashboard-sidebar nav button { transition: border-radius .55s var(--ease-rail), color .18s ease-out, background-color .18s ease-out; }
+  .dashboard.is-collapsed .dashboard-sidebar nav button { min-height: 42px; border-radius: var(--r-full); }
+  .dashboard.is-collapsed .dashboard-sidebar nav .segment-indicator { background: var(--text); box-shadow: 0 4px 14px -4px rgb(255 255 255 / .35); }
+  .dashboard.is-collapsed .dashboard-sidebar nav button.is-active { color: var(--bg); }
+  /* Muesca en el borde de la cápsula: viaja con el indicador */
+  .dashboard-sidebar nav .segment-indicator::after {
+    content: ''; position: absolute; top: 50%; right: -11px; width: 4px; height: 16px; border-radius: var(--r-full);
+    background: var(--text); translate: 0 -50%; opacity: 0; transition: opacity .2s ease-out;
+  }
+  .dashboard.is-collapsed .dashboard-sidebar nav .segment-indicator::after { opacity: 1; transition: opacity .3s ease-out .3s; }
+  /* Etiqueta al pasar el mouse: entra desenfocada y se enfoca */
+  .dashboard.is-collapsed .dashboard-sidebar nav button::after, .dashboard.is-collapsed .sidebar-exit::after, .dashboard.is-collapsed .sidebar-toggle::after {
+    /* "/ ''": la etiqueta es solo visual; sin eso el lector de pantalla lee el nombre dos veces */
+    content: attr(data-label); content: attr(data-label) / ''; position: absolute; top: 50%; left: calc(100% + 22px); z-index: 10; padding: 6px 10px;
+    color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: none;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: 0 8px 20px -8px rgb(0 0 0 / .8);
+    opacity: 0; filter: blur(4px); translate: -6px -50%;
+    transition: opacity .2s ease-out, filter .25s ease-out, translate .3s var(--ease-rail);
+  }
+  .dashboard.is-collapsed .dashboard-sidebar nav button:is(:hover, :focus-visible)::after,
+  .dashboard.is-collapsed .sidebar-exit:is(:hover, :focus-visible)::after,
+  .dashboard.is-collapsed .sidebar-toggle:is(:hover, :focus-visible)::after { opacity: 1; filter: none; translate: 0 -50%; }
+  /* En ventanas bajas el menú no entra en una barra fija: vuelve a crecer con la página, como antes */
+  @media (max-height: 660px) {
+    .dashboard-sidebar { position: relative; align-self: stretch; height: auto; min-height: 100vh; }
+    .dashboard.is-collapsed .dashboard-sidebar { height: auto; min-height: calc(100vh - 28px); }
+  }
+  /* El candado de Pro queda chico en la esquina del ícono, así no se pierde el aviso */
+  .dashboard.is-collapsed .nav-lock { position: absolute; top: 3px; right: 3px; }
+  .dashboard.is-collapsed .nav-lock svg { width: 10px; height: 10px; }
+}
+
 /* Desafío del CAPTCHA (Turnstile): invisible salvo que Cloudflare pida tocarlo; aparece abajo al centro */
 .captcha-box { position: fixed; left: 50%; bottom: 24px; z-index: 500; transform: translateX(-50%); }
 .captcha-box:empty { display: none; }

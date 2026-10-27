@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { CalendarDays, CalendarOff, ChartColumn, CalendarX, CalendarPlus, Check, CheckCircle2, Ellipsis, ChevronLeft, ChevronRight, Clock3, Gem, LayoutDashboard, Lock, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
+import { CalendarDays, CalendarOff, ChartColumn, CalendarX, CalendarPlus, Check, CheckCircle2, ChevronsLeft, Ellipsis, ChevronLeft, ChevronRight, Clock3, Gem, LayoutDashboard, Lock, LogOut, Mail, MapPin, Pencil, Phone, Plus, Settings2, Sparkles, Trash2, TriangleAlert, UserRound, UsersRound, Volume2, VolumeX, X } from 'lucide-react'
 import { Brand } from './Brand'
 import { formatPrice, priceLabel } from '../data/demo'
 import { useAuth } from '../lib/auth'
@@ -60,6 +60,8 @@ const STAFF_SECTIONS: SectionItem[] = [
 ]
 
 // Cada sección tiene su dirección: /panel, /panel/agenda, /panel/dias-libres…
+const SIDEBAR_KEY = 'reser.sidebarCollapsed'
+
 const SECTION_PATHS: Record<SectionKey, string> = {
   Resumen: '', Agenda: 'agenda', Reservas: 'reservas', Estadísticas: 'estadisticas', Servicios: 'servicios', Equipo: 'equipo',
   'Días libres': 'dias-libres', Configuración: 'configuracion', 'Tu plan': 'plan', 'Mis horarios': 'mis-horarios',
@@ -130,6 +132,13 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     if (key !== activeRef.current && !await canLeave()) return
     setReservationsPreset(preset)
     setSelectedSection(key)
+  }
+  // Menú minimizado (solo íconos): se recuerda en este navegador
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(SIDEBAR_KEY) === '1' } catch { return false } })
+  function toggleSidebar() {
+    const next = !collapsed
+    setCollapsed(next)
+    try { localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0') } catch { /* sin almacenamiento vuelve abierto al recargar */ }
   }
   const navGroup = useId()
   const tabGroup = useId()
@@ -308,10 +317,11 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     </div>
   }
 
-  return <div className="dashboard">
-    <aside className="dashboard-sidebar"><Brand />
-      <nav>{sections.map(({ key, label, icon: Icon, locked }) => <button className={navActive === key ? 'is-active' : ''} aria-current={navActive === key ? 'page' : undefined} key={key} onClick={() => setActive(key)}>{navActive === key && <SegmentIndicator group={navGroup} />}<Icon size={18} />{label}{locked && <PlanLock />}</button>)}</nav>
-      <button className="sidebar-exit" onClick={() => void requestSignOut()}><LogOut size={17} /> Cerrar sesión</button>
+  return <div className={collapsed ? 'dashboard is-collapsed' : 'dashboard'}>
+    <aside className="dashboard-sidebar"><Brand sidebar />
+      <button type="button" className="sidebar-toggle" aria-label="Menú lateral" aria-expanded={!collapsed} aria-controls="panel-nav" title={collapsed ? undefined : 'Minimizar el menú'} data-label="Expandir el menú" onClick={toggleSidebar}><ChevronsLeft size={17} /></button>
+      <nav id="panel-nav">{sections.map(({ key, label, icon: Icon, locked }) => <button className={navActive === key ? 'is-active' : ''} aria-current={navActive === key ? 'page' : undefined} key={key} data-label={label} onClick={() => setActive(key)}>{navActive === key && <SegmentIndicator group={navGroup} />}<Icon size={18} /><span className="nav-label">{label}</span>{locked && <PlanLock />}</button>)}</nav>
+      <button className="sidebar-exit" data-label="Cerrar sesión" onClick={() => void requestSignOut()}><LogOut size={17} /><span className="nav-label">Cerrar sesión</span></button>
     </aside>
     <main className="dashboard-main">
       <header className="dashboard-header">
@@ -345,9 +355,10 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={navActive}
-        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0, transition: { duration: 0.26, ease: [0.16, 1, 0.3, 1] } }}
-        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, transition: { duration: 0.12, ease: 'easeIn' } }}
+        initial={reduceMotion ? false : { opacity: 0, y: 8, filter: 'blur(6px)' }}
+        // filter vuelve a none al terminar: un filter puesto rompe los diálogos con position: fixed de adentro
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' }, transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } }}
+        exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, filter: 'blur(4px)', transition: { duration: 0.12, ease: 'easeIn' } }}
       >
       {active === 'Resumen' && <>
         {/* Arriba lo que se hace hoy: marcar los turnos que ya pasaron y compartir el enlace para que lleguen reservas */}

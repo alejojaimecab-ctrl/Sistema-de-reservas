@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-19T16:54:03.431Z",
+        "reason": "RESER Noir: DESIGN_UX.md (linea 93) define Inter como unica familia, tomada de la captura de diseno del usuario"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sfmono-regular",
+        "createdAt": "2026-10-26T23:04:31.550Z",
+        "reason": "Claude: fuente monoespaciada solo para el código secreto de la verificación en dos pasos, para leer caracteres sin confundirlos"
+      }
+    ]
+  }
+}
