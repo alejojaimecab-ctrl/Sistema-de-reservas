@@ -1,14 +1,10 @@
 // Textos legales de RESER. Son una BASE para revisar con un/a abogado/a antes del lanzamiento oficial.
-// Los datos del titular todavía no están definidos: quedan como "COMPLETAR: ..." y la página los
-// resalta para que no se puedan pasar por alto. Completalos acá y se actualizan en los dos documentos.
+// Como otros servicios similares, se identifica por la marca y un email de contacto, sin datos personales del titular.
+// Lo que falte definir queda como "COMPLETAR: ..." y la página lo resalta para que no se pase por alto.
 
 export const LEGAL = {
-  titular: 'COMPLETAR: nombre o razón social del titular de RESER',
-  cuit: 'COMPLETAR: CUIT',
-  domicilio: 'COMPLETAR: domicilio legal',
   email: 'COMPLETAR: email de contacto legal',
-  hosting: 'COMPLETAR: proveedor de hosting de la web',
-  actualizado: '21 de octubre de 2026',
+  actualizado: '27 de octubre de 2026',
 }
 
 export type LegalSection = { title: string; body: Array<string | string[]> } // string[] = lista con viñetas
@@ -23,7 +19,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
       {
         title: '1. Quiénes somos y qué es RESER',
         body: [
-          `RESER es un servicio en línea que permite a negocios organizar sus turnos y a sus clientes reservarlos desde un enlace público. Lo ofrece ${LEGAL.titular} (CUIT ${LEGAL.cuit}), con domicilio en ${LEGAL.domicilio}.`,
+          `RESER es un servicio en línea que permite a negocios organizar sus turnos y a sus clientes reservarlos desde un enlace público. Lo desarrolla y opera RESER, con domicilio en la República Argentina.`,
           `Para consultas sobre estos términos podés escribir a ${LEGAL.email}.`,
         ],
       },
@@ -140,7 +136,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
       {
         title: '1. Quién es responsable de tus datos',
         body: [
-          `Hay dos situaciones distintas. Si tenés una cuenta de negocio, el responsable de esos datos es ${LEGAL.titular} (CUIT ${LEGAL.cuit}, domicilio ${LEGAL.domicilio}).`,
+          `Hay dos situaciones distintas. Si tenés una cuenta de negocio, el responsable de esos datos es RESER, con domicilio en la República Argentina, y podés contactarnos en ${LEGAL.email}.`,
           'Si reservaste un turno, el responsable de tus datos de cliente es el negocio donde reservaste. RESER los trata por cuenta de ese negocio, solo para prestarle el servicio de agenda.',
         ],
       },
@@ -174,7 +170,7 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
           [
             'Con el negocio: cada negocio ve los datos de sus propios clientes y solo de ellos, y puede descargarlos (en Excel o PDF) desde su panel.',
             'En la página de reservas del negocio, visible para cualquiera: su nombre, dirección, teléfono y logo, y el nombre y el WhatsApp de cada profesional que lo tenga cargado.',
-            `Con proveedores que nos permiten funcionar: Supabase (base de datos, autenticación y archivos), Resend (envío de emails) y ${LEGAL.hosting} (publicación de la web). Solo reciben lo necesario para cumplir su función.`,
+            `Con proveedores que nos permiten funcionar: Supabase (base de datos, autenticación y archivos), Resend (envío de emails) y Vercel (publicación de la web). Solo reciben lo necesario para cumplir su función.`,
             'Con Google, únicamente si tocás "Agendar en Google Calendar": tu navegador le envía el nombre del servicio, el negocio y el horario.',
             'Con WhatsApp (Meta), únicamente si tocás "Escribir por WhatsApp" en un servicio que se coordina por ese medio: tu navegador abre WhatsApp con un mensaje ya escrito y, desde ahí, la conversación es entre vos y el negocio, bajo las condiciones de WhatsApp.',
             'Con autoridades, cuando una norma o una orden judicial lo exija.',

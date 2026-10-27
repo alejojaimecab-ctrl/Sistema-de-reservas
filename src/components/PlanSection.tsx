@@ -41,7 +41,7 @@ export function PlanSection({ business, professionals }: { business: Business; p
   }
 
   return <div className="plan-page">
-    <section className="agenda-card plan-current" aria-labelledby="plan-current-title">
+    <section className={`agenda-card plan-current${contracted === 'pro' ? ' plan-current--pro' : ''}`} aria-labelledby="plan-current-title">
       <div className="plan-current-copy">
         <h2 id="plan-current-title">{daysLeft !== null ? 'Estás probando el plan Pro' : `Estás en el plan ${PLANS[contracted].name}`}</h2>
         <p>{daysLeft !== null && trialEnd
