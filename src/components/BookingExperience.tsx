@@ -32,7 +32,7 @@ const successRise = {
 }
 
 const demoBusiness: PublicBusiness = { slug: 'demo', name: 'Tu Negocio', cancel_min_hours: 2, min_notice_hours: 1, max_advance_days: 60, phone: null, address: null, logo_path: null }
-const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín', whatsapp: null }, { id: 'demo-2', name: 'Sofía', whatsapp: null }]
+const demoProfessionals: PublicProfessional[] = [{ id: 'demo-1', name: 'Martín', whatsapp: null }, { id: 'demo-2', name: 'Daira', whatsapp: null }]
 const previewServices: PublicService[] = demoServices.map(({ id, name, duration, price }) => ({
   id,
   business_slug: demoBusiness.slug,
