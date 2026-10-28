@@ -359,7 +359,7 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
             </div></>}
             {/* Un solo profesional para este servicio: es un dato, no una opción, así que no se dibuja como una elegida */}
             {professionals.length > 1 && serviceProfessionals.length === 1 && <p className="booking-question booking-assigned"><UserRound size={16} aria-hidden="true" /> Te atiende {serviceProfessionals[0].name}.</p>}
-            {professionals.length > 0 && serviceProfessionals.length === 0 && <p className="section-description" role="status">Por ahora nadie atiende este servicio. Elegí otro o consultá directamente con el negocio.</p>}
+            {service && professionals.length > 0 && serviceProfessionals.length === 0 && <p className="section-description" role="status">Por ahora nadie atiende este servicio. Elegí otro o consultá directamente con el negocio.</p>}
             {isWhatsapp
               ? <>
                 <p className="section-description">Este servicio se coordina por WhatsApp: escribile directamente y acuerdan día y horario.</p>

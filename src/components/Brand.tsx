@@ -17,7 +17,7 @@ export function Brand({ compact = false, inverse = false, sidebar = false }: Bra
         window.dispatchEvent(new Event(GO_HOME_EVENT))
       }}
     >
-      <img className="brand-full" src="/brand/Reser-logo.png" alt="" height={compact ? 40 : 60} style={{ marginTop: 8 }} />
+      <img className="brand-full" src="/brand/Reser-logo.png" alt="" width={compact ? 134 : 201} height={compact ? 40 : 60} style={{ marginTop: 8 }} />
       {sidebar && <img className="brand-mark" src="/brand/reser-scroll-mark.png" alt="" width={42} height={42} style={{ marginTop: 8 }} />}
     </a>
   );

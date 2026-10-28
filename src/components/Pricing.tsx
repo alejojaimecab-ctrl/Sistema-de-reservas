@@ -26,13 +26,14 @@ export function BillingToggle({ billing, onChange }: { billing: Billing; onChang
 }
 
 // trialGift: si mostrar en el Básico los días del Pro de regalo (no, si ese negocio ya usó la prueba)
-export function PlanCards({ billing, current, action, trialGift = true }: { billing: Billing; current?: Plan | null; action: (plan: Plan) => PlanAction; trialGift?: boolean }) {
+// Sin action, las tarjetas son solo información (la portada, mientras no se pueda pagar)
+export function PlanCards({ billing, current, action, trialGift = true }: { billing: Billing; current?: Plan | null; action?: (plan: Plan) => PlanAction; trialGift?: boolean }) {
   return <div className="plan-cards">
-    {PLAN_ORDER.map(key => <PlanCard key={key} plan={PLANS[key]} billing={billing} current={current === key} action={action(key)} trialGift={trialGift} />)}
+    {PLAN_ORDER.map(key => <PlanCard key={key} plan={PLANS[key]} billing={billing} current={current === key} action={action?.(key)} trialGift={trialGift} />)}
   </div>
 }
 
-function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInfo; billing: Billing; current: boolean; action: PlanAction; trialGift: boolean }) {
+function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInfo; billing: Billing; current: boolean; action?: PlanAction; trialGift: boolean }) {
   const featured = plan.key === 'pro'
   const free = plan.monthly === 0
   const price = perMonth(plan, billing)
@@ -63,9 +64,9 @@ function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInf
         : billing === 'anual' ? <><s aria-label={`Antes ${formatPrice(plan.monthly)} por mes`}>{formatPrice(plan.monthly)}</s> · {formatPrice(annualPrice(plan.key))} por año</>
         : 'Se paga mes a mes, sin permanencia'}
     </p>
-    <button type="button" className={`button button--full ${featured ? 'button--primary' : 'button--secondary'}`} disabled={action.disabled} onClick={action.onClick}>
+    {action && <button type="button" className={`button button--full ${featured ? 'button--primary' : 'button--secondary'}`} disabled={action.disabled} onClick={action.onClick}>
       {action.label}{featured && !action.disabled && <ArrowRight size={16} aria-hidden="true" />}
-    </button>
+    </button>}
     {featured && <p className="plan-upsell">Por {formatPrice(extra)} más por mes que el Básico, tenés todo.</p>}
     {plan.key === 'basico' && trialGift && <p className="plan-upsell">Te regalamos {TRIAL_DAYS} días del Pro para que lo pruebes.</p>}
     <ul className="plan-list">
@@ -75,7 +76,7 @@ function PlanCard({ plan, billing, current, action, trialGift }: { plan: PlanInf
 }
 
 // La promo del Pro semestral: 6 meses juntos con los 3 primeros a mitad de precio
-export function ProSemesterOffer({ children }: { children: ReactNode }) {
+export function ProSemesterOffer({ children }: { children?: ReactNode }) {
   const full = PLANS.pro.monthly * PRO_SEMESTER.months
   const price = proSemesterPrice()
   return <div className="plan-offer">
@@ -129,10 +130,10 @@ export function PricingSection({ onStart }: { onStart: () => void }) {
       <p className="pricing-lead">Todos los negocios arrancan en el plan Gratis, sin tarjeta. El pago del Básico y del Pro se habilita muy pronto: vas a poder pasarte desde tu panel, y al pasarte al Básico te regalamos {TRIAL_DAYS} días del Pro.</p>
     </Reveal>
     <BillingToggle billing={billing} onChange={setBilling} />
-    {/* Todos llevan a crear la cuenta (arranca en Gratis y el plan se elige después): los pagos dicen "Quiero…", no "gratis" */}
-    <PlanCards billing={billing} action={plan => ({ label: plan === 'gratis' ? 'Empezar gratis' : `Quiero el ${PLANS[plan].name}`, onClick: onStart })} />
-    <p className="pricing-note">Cualquier botón crea tu cuenta en el plan Gratis. El plan pago lo elegís después, desde tu panel.</p>
-    <ProSemesterOffer><button type="button" className="button button--secondary" onClick={onStart}>Quiero el Pro semestral <ArrowRight size={16} aria-hidden="true" /></button></ProSemesterOffer>
+    {/* Mientras no hay cobro, las tarjetas informan y hay un solo botón: ninguno promete un plan pago que no se puede contratar */}
+    <PlanCards billing={billing} />
+    <div className="pricing-start"><button type="button" className="button button--primary button--large" onClick={onStart}>Empezar gratis <ArrowRight size={18} aria-hidden="true" /></button></div>
+    <ProSemesterOffer />
     <details className="plan-compare">
       <summary>Comparar todo lo que trae cada plan</summary>
       <PlanComparison />

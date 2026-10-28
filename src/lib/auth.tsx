@@ -34,6 +34,7 @@ type AuthContextValue = {
   recovering: boolean
   // Entró con la contraseña pero tiene la verificación en dos pasos activada: falta el código de la app
   mfaPending: boolean
+  loadFailed: boolean
   verifyMfa: (code: string) => Promise<string | null>
   requestPasswordReset: (email: string) => Promise<string | null>
   updatePassword: (password: string) => Promise<string | null>
@@ -66,12 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // true mientras la persona llegó desde el mail de "olvidé mi contraseña" y falta elegir la nueva
   const [recovering, setRecovering] = useState(() => window.location.hash.includes('type=recovery'))
   const [mfaPending, setMfaPending] = useState(false)
+  // No se pudo leer el negocio (red, base caída): el panel ofrece reintentar en vez de "creá tu negocio"
+  const [loadFailed, setLoadFailed] = useState(false)
 
   // Persona cuyos datos ya se pidieron (undefined: ninguna todavía). Supabase avisa de la sesión varias veces
   // (al abrir, al renovar el acceso cada hora, al volver a la pestaña) y perfil y negocio solo cambian con la persona.
   const loadedUserRef = useRef<string | null | undefined>(undefined)
+  // De quién es el negocio que está en pantalla: si falla la carga de otra persona, el de la anterior no se conserva
+  const businessUserRef = useRef<string | null>(null)
 
   async function loadUserData(userId: string) {
+    if (businessUserRef.current !== userId) { setBusiness(null); setRole(null); setStaffResource(null) }
+    businessUserRef.current = userId
     const { data: profileData, error: profileError } = await supabase
       .from('profiles').select('id, full_name').eq('id', userId).single()
     setProfile(profileData)
@@ -81,7 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
     // Si algo falló, el próximo aviso de la sesión lo vuelve a intentar
     if (profileError || businessError) loadedUserRef.current = undefined
+    // Sin pisar el negocio que ya había: con null el panel le ofrecería al dueño crear otro
+    if (businessError) { setLoadFailed(true); return }
     if (businessData) {
+      setLoadFailed(false)
       setBusiness(businessData)
       setRole('owner')
       setStaffResource(null)
@@ -92,7 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: membership, error: membershipError } = await supabase
       .from('staff_members').select(`resources(id, name), businesses(${BUSINESS_COLUMNS})`)
       .eq('user_id', userId).maybeSingle()
-    if (membershipError) loadedUserRef.current = undefined
+    if (membershipError) { loadedUserRef.current = undefined; setLoadFailed(true); return }
+    setLoadFailed(false)
     const staff = membership as { resources: StaffResource | null; businesses: Business | null } | null
     setBusiness(staff?.businesses ?? null)
     setRole(staff?.businesses ? 'staff' : null)
@@ -107,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userId === loadedUserRef.current) return
     loadedUserRef.current = userId
     if (!userId) {
-      setProfile(null); setBusiness(null); setRole(null); setStaffResource(null); setMfaPending(false)
+      setProfile(null); setBusiness(null); setRole(null); setStaffResource(null); setMfaPending(false); setLoadFailed(false)
       setLoading(false)
       return
     }
@@ -213,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, mfaPending, verifyMfa, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, verifyEmailCode, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ session, profile, business, role, staffResource, loading, recovering, mfaPending, loadFailed, verifyMfa, requestPasswordReset, updatePassword, signIn, signUp, resendConfirmation, verifyEmailCode, signOut, refreshBusiness }}>
       {children}
     </AuthContext.Provider>
   )

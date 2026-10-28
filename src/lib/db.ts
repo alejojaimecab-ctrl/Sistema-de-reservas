@@ -17,7 +17,9 @@ async function ownedBusinessIds(refresh = false): Promise<string[]> {
   const userId = await sessionUserId()
   if (!userId) return []
   if (refresh || ownedCache?.userId !== userId) {
-    const { data } = await supabase.from('businesses').select('id').eq('owner_id', userId)
+    const { data, error } = await supabase.from('businesses').select('id').eq('owner_id', userId)
+    // Sin cachear un [] por error: las escrituras filtradas por estos ids no harían nada y dirían que salió bien
+    if (error) return ownedCache?.userId === userId ? ownedCache.ids : []
     ownedCache = { userId, ids: (data ?? []).map(b => b.id as string) }
   }
   return ownedCache.ids
@@ -161,13 +163,16 @@ export async function getDashboardStats(businessId: string): Promise<DashboardSt
   return { todayCount: today.count ?? 0, monthClients, attendanceRate }
 }
 
+// Los próximos 10 a partir de mañana ("Próximos días" del Resumen): con los de hoy adentro, un día cargado los taparía
 export async function listReservations(businessId: string): Promise<Reservation[]> {
   if (!(await ownsBusiness(businessId))) return []
+  const tomorrow = new Date()
+  tomorrow.setHours(24, 0, 0, 0)
   const { data } = await supabase
     .from('reservations')
     .select('id, starts_at, created_at, source, status, client_id, clients(name), services(name, price, price_mode), resources(name)')
     .eq('business_id', businessId)
-    .gte('starts_at', new Date().toISOString())
+    .gte('starts_at', tomorrow.toISOString())
     .neq('status', 'cancelled')
     .order('starts_at', { ascending: true })
     .limit(10)
@@ -621,10 +626,15 @@ export async function cancelOwnerReservation(id: string): Promise<string | null>
   return error ? friendlyError(error) : null
 }
 
+// Estas tres lecturas alimentan el autoguardado de Equipo: sin permiso (o si falló comprobarlo) lanzan en vez de devolver vacío
+const NO_ACCESS = 'No pudimos comprobar el acceso a este negocio'
+
 export async function listServices(businessId: string): Promise<Service[]> {
-  if (!(await ownsBusiness(businessId))) return []
-  const { data } = await supabase
+  if (!(await ownsBusiness(businessId))) throw new Error(NO_ACCESS)
+  const { data, error } = await supabase
     .from('services').select('*').eq('business_id', businessId).order('name')
+  // Una lectura fallida no puede verse como "sin servicios": el autoguardado de Equipo borraría lo asignado
+  if (error) throw error
   return data ?? []
 }
 
@@ -837,8 +847,9 @@ export async function updateProfessional(
 export type ResourceService = { resource_id: string; service_id: string }
 
 export async function listResourceServices(businessId: string): Promise<ResourceService[]> {
-  if (!(await canUseBusiness(businessId))) return []
-  const { data } = await supabase.from('resource_services').select('resource_id, service_id').eq('business_id', businessId)
+  if (!(await canUseBusiness(businessId))) throw new Error(NO_ACCESS)
+  const { data, error } = await supabase.from('resource_services').select('resource_id, service_id').eq('business_id', businessId)
+  if (error) throw error
   return data ?? []
 }
 
@@ -864,10 +875,11 @@ export async function setProfessionalServices(businessId: string, resourceId: st
 }
 
 export async function getAvailability(businessId: string, resourceId: string): Promise<Set<string>> {
-  if (!(await canUseBusiness(businessId))) return new Set()
-  const { data } = await supabase
+  if (!(await canUseBusiness(businessId))) throw new Error(NO_ACCESS)
+  const { data, error } = await supabase
     .from('availability').select('day_of_week, slot_index')
     .eq('business_id', businessId).eq('resource_id', resourceId)
+  if (error) throw error
   return new Set((data ?? []).map(r => `${r.day_of_week}-${r.slot_index}`))
 }
 
@@ -875,7 +887,8 @@ export async function getAvailability(businessId: string, resourceId: string): P
 // un corte a mitad de camino no puede dejar a un profesional sin horarios.
 export async function setAvailability(businessId: string, resourceId: string, slots: Set<string>) {
   if (!(await canUseBusiness(businessId))) return 'No tenés permiso sobre este negocio'
-  const current = await getAvailability(businessId, resourceId)
+  let current: Set<string>
+  try { current = await getAvailability(businessId, resourceId) } catch (error) { return friendlyError(error as Error) }
   const toAdd = [...slots].filter(key => !current.has(key))
   const toRemove = [...current].filter(key => !slots.has(key))
 

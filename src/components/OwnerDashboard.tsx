@@ -99,7 +99,7 @@ function initials(name: string) {
 }
 
 export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
-  const { profile, business, role, staffResource, signOut, refreshBusiness } = useAuth()
+  const { profile, business, role, staffResource, loadFailed, signOut, refreshBusiness } = useAuth()
   const isStaff = role === 'staff'
   // El plan que vale ahora (durante la prueba, el Pro): decide qué secciones y funciones se abren
   const plan = effectivePlan(business)
@@ -171,6 +171,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   const [agendaError, setAgendaError] = useState<string | null>(null)
   // Semanas que la Agenda ya tiene cargadas (de from, inclusive, a to)
   const agendaRangeRef = useRef<DateRange | null>(null)
+  const agendaRetryRef = useRef<DateRange | null>(null)
   const [showNewReservation, setShowNewReservation] = useState(false)
   const [reservationNotice, setReservationNotice] = useState<string | null>(null)
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -230,15 +231,17 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
     setUpcomingReservations([])
     const range = initialAgendaRange(new Date())
     agendaRangeRef.current = range
+    agendaRetryRef.current = null
+    const fail = (message: string) => { agendaRangeRef.current = null; agendaRetryRef.current = range; setAgendaError(message) }
     listAgendaReservations(business.id, range.from, range.to)
       .then(result => {
         if (!active) return
         setUpcomingReservations(result.reservations)
-        setAgendaError(result.error)
+        if (result.error) fail(result.error)
       })
       .catch(loadError => {
         if (!active) return
-        setAgendaError(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los próximos turnos.')
+        fail(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los próximos turnos.')
       })
       .finally(() => {
         if (active) setAgendaLoading(false)
@@ -256,19 +259,31 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
   }
 
   // La Agenda se movió a semanas que no estaban cargadas: se traen solo esas
-  function extendAgenda(wanted: DateRange) {
+  // Si falla, queda anotado para "Reintentar" (sin eso, esas semanas nunca se volvían a pedir).
+  // Con una falla pendiente no se reintenta solo (el calendario lo llama en cada render): solo anota lo que se ve.
+  function extendAgenda(wanted: DateRange, retry = false) {
+    if (!business) return
+    if (agendaRetryRef.current && !retry) { agendaRetryRef.current = wanted; return }
     const loaded = agendaRangeRef.current
-    if (!business || !loaded) return
-    const missing = missingRanges(loaded, wanted)
-    if (missing.length === 0) return
-    agendaRangeRef.current = { from: wanted.from < loaded.from ? wanted.from : loaded.from, to: wanted.to > loaded.to ? wanted.to : loaded.to }
+    const missing = loaded ? missingRanges(loaded, wanted) : [wanted]
+    if (missing.length === 0) { agendaRetryRef.current = null; setAgendaError(null); return }
+    agendaRangeRef.current = loaded ? { from: wanted.from < loaded.from ? wanted.from : loaded.from, to: wanted.to > loaded.to ? wanted.to : loaded.to } : wanted
+    agendaRetryRef.current = null
+    setAgendaError(null)
     setAgendaLoading(true)
+    // Con varias cargas en vuelo no se sabe qué semanas llegaron: se olvida el rango y "Reintentar" vuelve a pedir lo que se ve
+    const fail = (message: string) => {
+      agendaRangeRef.current = null
+      agendaRetryRef.current = wanted
+      setAgendaError(message)
+    }
     void Promise.all(missing.map(part => listAgendaReservations(business.id, part.from, part.to)))
       .then(results => {
         const failed = results.find(result => result.error)
-        if (failed) setAgendaError(failed.error)
+        if (failed?.error) { fail(failed.error); return }
         setUpcomingReservations(current => mergeReservations(current, results.flatMap(result => result.reservations)))
       })
+      .catch(loadError => fail(loadError instanceof Error ? friendlyError(loadError.message) : 'No pudimos cargar los turnos.'))
       .finally(() => setAgendaLoading(false))
   }
 
@@ -302,7 +317,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
       <aside className="dashboard-sidebar"><Brand />
         <div className="business-switch">
           <span className="mini-logo">{profile ? initials(profile.full_name) : '…'}</span>
-          <span><strong>{profile?.full_name ?? 'Mi cuenta'}</strong><small>Sin negocio todavía</small></span>
+          <span><strong>{profile?.full_name ?? 'Mi cuenta'}</strong><small>{loadFailed ? 'No se pudo cargar' : 'Sin negocio todavía'}</small></span>
         </div>
         <button className="sidebar-exit" onClick={() => { void signOut(); onExit() }}><LogOut size={17} /> Cerrar sesión</button>
       </aside>
@@ -310,7 +325,9 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         <header className="dashboard-header">
           <div><p className="eyebrow">{todayLabel()}</p><h1>{greeting()}, {firstNameCapitalized(profile?.full_name) ?? 'bienvenido'}</h1></div>
         </header>
-        {pendingInvite
+        {loadFailed
+          ? <div className="form-error" role="alert"><p>No pudimos cargar tu negocio. Revisá tu internet y probá de nuevo.</p><button type="button" className="text-button" onClick={() => { void refreshBusiness() }}>Reintentar</button></div>
+          : pendingInvite
           ? <PendingInviteCard token={pendingInvite} onDiscard={() => setPendingInvite(null)} />
           : <CreateBusinessCard />}
       </main>
@@ -392,6 +409,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           onCreated={addCreatedReservation}
           loading={agendaLoading}
           error={agendaError}
+          onRetry={() => { if (agendaRetryRef.current) extendAgenda(agendaRetryRef.current, true) }}
           onRangeChange={extendAgenda}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
             current.map(reservation => reservation.id === id ? { ...reservation, status } : reservation),
@@ -1027,7 +1045,7 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onRangeChange, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onRetry, onRangeChange, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
@@ -1040,6 +1058,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
   onCreated: (reservation: Reservation) => void
   loading: boolean
   error: string | null
+  onRetry: () => void
   onRangeChange: (range: DateRange) => void
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
 }) {
@@ -1166,7 +1185,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
       </div>
 
       {error ? (
-        <p className="calendar-message calendar-message--error" role="alert">No pudimos cargar los turnos: {error}</p>
+        <div className="calendar-message calendar-message--error"><p role="alert">No pudimos cargar los turnos: {error}</p><button type="button" className="text-button" disabled={loading} onClick={onRetry}>Reintentar</button></div>
       ) : (
           <div className={`calendar-grid calendar-grid--${mode}`}>
             <div className="calendar-weekdays">
@@ -1409,17 +1428,23 @@ function ServicesSection({ businessId, onOpenTeam }: { businessId: string; onOpe
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const shouldReduceMotion = useReducedMotion()
   const { confirm, dialog } = useConfirm()
 
   async function reload() {
-    const [loadedServices, loadedTeam, loadedOffers] = await Promise.all([
-      listServices(businessId), listProfessionals(businessId), listResourceServices(businessId),
-    ])
-    setServices(loadedServices)
-    setTeam(loadedTeam)
-    setOffers(loadedOffers)
-    setLoaded(true)
+    try {
+      const [loadedServices, loadedTeam, loadedOffers] = await Promise.all([
+        listServices(businessId), listProfessionals(businessId), listResourceServices(businessId),
+      ])
+      setServices(loadedServices)
+      setTeam(loadedTeam)
+      setOffers(loadedOffers)
+      setLoaded(true)
+      setLoadFailed(false)
+    } catch {
+      setLoadFailed(true)
+    }
   }
   useEffect(() => { void reload() }, [businessId])
 
@@ -1584,6 +1609,7 @@ function ServicesSection({ businessId, onOpenTeam }: { businessId: string; onOpe
     </div>
 
     {notice && <p className="reservation-form-success services-notice" role="status">{notice}</p>}
+    {loadFailed && <p className="form-error" role="alert">No pudimos cargar los servicios. Recargá la página para volver a intentar.</p>}
 
     {editing === 'new' && <div className="services-new">{serviceForm(null)}</div>}
 

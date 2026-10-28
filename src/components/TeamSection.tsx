@@ -234,7 +234,7 @@ export function TeamSection({ businessId, days, professionals, onChanged, profes
     if (error || !id) { setBusy(false); setMessage(error); return }
     // Arranca con los mismos horarios del profesional que se estaba viendo; después se ajustan.
     const copyError = selected
-      ? await setAvailability(businessId, id, await getAvailability(businessId, selected.id))
+      ? await getAvailability(businessId, selected.id).then(slots => setAvailability(businessId, id, slots)).catch(() => 'no pudimos leer los horarios de origen')
       : null
     await onChanged()
     setBusy(false)
