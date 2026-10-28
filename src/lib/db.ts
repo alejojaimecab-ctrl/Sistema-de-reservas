@@ -590,6 +590,9 @@ export async function bookPublic(input: {
 
 export type ReservationByToken = {
   business_name: string
+  // Desde la migración 046 (opcionales hasta que esté aplicada)
+  business_slug?: string
+  business_phone?: string | null
   service_name: string
   professional_name: string
   starts_at: string

@@ -192,7 +192,7 @@ function Root() {
   if (view === 'cancel' && cancelToken) return <CancelBooking key={cancelToken} token={cancelToken} onBack={leavePublicBooking} />
   if (view === 'join' && joinToken) return <JoinTeam key={joinToken} token={joinToken} onBack={leavePublicBooking} onJoined={() => { goTo('/'); setJoinToken(null); setView('dashboard') }} />
   if (view === 'public-booking' && publicSlug) return <BookingExperience key={publicSlug} slug={publicSlug} onBack={leavePublicBooking} />
-  if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} />
+  if (view === 'demo-booking') return <BookingExperience demo onBack={() => setView('home')} onCreateBusiness={() => setView('onboarding')} />
   if (view === 'dashboard') {
     if (!session) return <Login onBack={() => setView('home')} onCreateAccount={() => { goTo('/'); setView('onboarding') }} />
     return <OwnerDashboard onExit={() => setView('home')} />

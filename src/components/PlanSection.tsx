@@ -104,6 +104,26 @@ export function PlanNote({ children, onSeePlans }: { children: ReactNode; onSeeP
   </p>
 }
 
+// En el Resumen, desde el 80 % de los turnos del mes que incluye el plan. Con el cupo lleno la página pública deja de
+// mostrar horarios, y sin este aviso el dueño no se enteraba. refreshKey: cambia cuando cambian las reservas.
+export function MonthLimitNotice({ business, refreshKey, onSeePlans }: { business: Business; refreshKey: unknown; onSeePlans: () => void }) {
+  const limit = PLANS[effectivePlan(business)].limits.monthlyBookings
+  const [count, setCount] = useState<number | null>(null)
+  useEffect(() => {
+    if (limit === null) return
+    const month = buildRange('month', new Date())
+    let active = true
+    void countMonthReservations(business.id, month.from, month.to).then(value => { if (active) setCount(value) })
+    return () => { active = false }
+  }, [business.id, limit, refreshKey])
+  if (limit === null || count === null || count < limit * 0.8) return null
+  return <PlanNote onSeePlans={onSeePlans}>
+    {count >= limit
+      ? `Llegaste a los ${limit} turnos del mes de tu plan: tu página no muestra más horarios hasta el mes que viene.`
+      : `Ya usaste ${count} de los ${limit} turnos del mes de tu plan.`}
+  </PlanNote>
+}
+
 // En el encabezado del panel mientras dura la prueba; los últimos 3 días se hace notar
 export function TrialBadge({ business, onOpen }: { business: Business; onOpen: () => void }) {
   const days = trialDaysLeft(business)

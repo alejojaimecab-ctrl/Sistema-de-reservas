@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CalendarX2, Check } from 'lucide-react'
 import { cancelReservationByToken, getReservationByToken, type ReservationByToken } from '../lib/db'
+import { whatsappHref } from '../lib/routes'
 
 const dateLabel = (iso: string) =>
   new Date(iso).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())
@@ -47,6 +48,13 @@ export function CancelBooking({ token, onBack }: { token: string; onBack: () => 
     <button className="button button--secondary" onClick={onBack}>Ir a RESER</button>
   </>)
 
+  // Salidas hacia el negocio (no a la portada de RESER): volver a reservar o escribirle
+  // Solo un slug con forma de slug: la base no valida los caracteres y "/evil.com" armaría un enlace a otro sitio
+  const bookAgain = reservation.business_slug && /^[a-z0-9-]+$/.test(reservation.business_slug) ? `/${reservation.business_slug}` : null
+  const whatsapp = reservation.business_phone
+    ? whatsappHref(reservation.business_phone, `Hola, tengo un turno en ${reservation.business_name} el ${dateLabel(reservation.starts_at).toLowerCase()} a las ${timeLabel(reservation.starts_at)}.`)
+    : null
+
   const summary = <div className="booking-receipt">
     <span>{reservation.service_name}</span><strong>{dateLabel(reservation.starts_at)}</strong>
     <span>{timeLabel(reservation.starts_at)}</span><span>Con {reservation.professional_name}</span>
@@ -57,19 +65,24 @@ export function CancelBooking({ token, onBack }: { token: string; onBack: () => 
     <p className="eyebrow">Turno cancelado</p><h1>Tu turno quedó cancelado.</h1>
     <p className="success-copy">El horario con {reservation.business_name} quedó libre para otra persona.</p>
     {summary}
-    <button className="button button--secondary" onClick={onBack}>Ir a RESER</button>
+    {bookAgain
+      ? <a className="button button--primary" href={bookAgain}>Reservar otro turno</a>
+      : <button className="button button--secondary" onClick={onBack}>Ir a RESER</button>}
   </>)
 
   if (reservation.status === 'completed' || new Date(reservation.starts_at).getTime() <= Date.now()) return shell(<>
     <p className="eyebrow">Cancelar turno</p><h1>Este turno ya pasó.</h1>
     <p className="success-copy">Ya no se puede cancelar un turno que se atendió o que ya empezó.</p>
     {summary}
+    {bookAgain && <a className="button button--secondary" href={bookAgain}>Reservar otro turno</a>}
   </>)
 
   if (!reservation.can_cancel) return shell(<>
     <p className="eyebrow">Cancelar turno</p><h1>Ya no se puede cancelar online.</h1>
     <p className="success-copy">{reservation.business_name} permite cancelar hasta {reservation.cancel_min_hours} hs antes del turno. Comunicate directamente con el negocio.</p>
     {summary}
+    {whatsapp && <a className="button button--primary" href={whatsapp} target="_blank" rel="noreferrer">Escribirle por WhatsApp</a>}
+    {bookAgain && <a className="button button--secondary" href={bookAgain}>Ver la página del negocio</a>}
   </>)
 
   return shell(<>

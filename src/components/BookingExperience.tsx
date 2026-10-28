@@ -51,7 +51,7 @@ function previewSlots(date: Date) {
   }).filter(slot => new Date(slot).getTime() > Date.now())
 }
 
-export function BookingExperience({ onBack, demo = false, slug }: { onBack: () => void; demo?: boolean; slug?: string }) {
+export function BookingExperience({ onBack, onCreateBusiness, demo = false, slug }: { onBack: () => void; onCreateBusiness?: () => void; demo?: boolean; slug?: string }) {
   const [step, setStep] = useState(1)
   const [business, setBusiness] = useState<PublicBusiness | null>(null)
   const [services, setServices] = useState<PublicService[]>([])
@@ -320,8 +320,9 @@ export function BookingExperience({ onBack, demo = false, slug }: { onBack: () =
         <motion.div variants={successRise} className="success-actions">
           {!demo && <a className="button button--primary" href={calendarUrl} target="_blank" rel="noreferrer">Agendar en Google Calendar <CalendarDays size={17} /></a>}
           {/* La reserva termina en el negocio, no en la portada de RESER: se puede sacar otro turno ahí mismo */}
+          {/* La demo termina invitando a crear el negocio: es el momento en que la dueña ya vio cómo reserva su cliente */}
           {demo
-            ? <button className="button button--secondary" onClick={onBack}>Volver a RESER</button>
+            ? <>{onCreateBusiness && <button className="button button--primary" onClick={onCreateBusiness}>Crear mi negocio <ArrowRight size={17} /></button>}<button className="button button--secondary" onClick={onBack}>Volver a RESER</button></>
             : <button className="button button--secondary" onClick={startOver}>Reservar otro turno</button>}
         </motion.div>
       </motion.div>

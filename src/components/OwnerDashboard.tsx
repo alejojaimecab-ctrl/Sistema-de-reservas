@@ -25,7 +25,7 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { ClientProfile } from './ClientProfile'
 import { StatsLocked, StatsSection } from './StatsSection'
 import { PLANS, effectivePlan, hasFeature } from '../lib/plans'
-import { PlanNote, PlanSection, TrialBadge } from './PlanSection'
+import { MonthLimitNotice, PlanNote, PlanSection, TrialBadge } from './PlanSection'
 import { TwoFactorSection } from './TwoFactorSection'
 import { PasswordSection } from './PasswordSection'
 import type { AvailabilityDay } from './AvailabilityEditor'
@@ -378,6 +378,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
         exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4, filter: 'blur(4px)', transition: { duration: 0.12, ease: 'easeIn' } }}
       >
       {active === 'Resumen' && <>
+        <MonthLimitNotice business={business} refreshKey={stats} onSeePlans={() => void setActive('Tu plan')} />
         {/* Arriba lo que se hace hoy: marcar los turnos que ya pasaron y compartir el enlace para que lleguen reservas */}
         <section className="dashboard-grid dashboard-top">
           <TodayCard reservations={upcomingReservations} loading={agendaLoading} showProfessional={activeProfessionals.length > 1} onStatusChanged={reservationStatusChanged} onSeeAll={() => void setActive('Reservas', 'unmarked')} isNew={isNew} />
@@ -410,6 +411,7 @@ export function OwnerDashboard({ onExit }: OwnerDashboardProps) {
           loading={agendaLoading}
           error={agendaError}
           onRetry={() => { if (agendaRetryRef.current) extendAgenda(agendaRetryRef.current, true) }}
+          onOpenTimeOff={isStaff ? undefined : () => void setActive('Días libres')}
           onRangeChange={extendAgenda}
           onStatusChange={(id, status) => setUpcomingReservations(current =>
             current.map(reservation => reservation.id === id ? { ...reservation, status } : reservation),
@@ -1045,7 +1047,7 @@ function calendarWeekLabel(dates: Date[]) {
     : `${first.getDate()} ${firstMonth} – ${last.getDate()} ${lastMonth} ${last.getFullYear()}`
 }
 
-function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onRetry, onRangeChange, onStatusChange }: {
+function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient, isNew, businessId, businessSlug, professionals, fixedResourceId, onCreated, loading, error, onRetry, onOpenTimeOff, onRangeChange, onStatusChange }: {
   reservations: Reservation[]
   showProfessional: boolean
   onCancel: (reservation: Reservation) => void
@@ -1059,6 +1061,7 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
   loading: boolean
   error: string | null
   onRetry: () => void
+  onOpenTimeOff?: () => void
   onRangeChange: (range: DateRange) => void
   onStatusChange: (id: string, status: Extract<Reservation['status'], 'confirmed' | 'completed' | 'no_show'>) => void
 }) {
@@ -1181,7 +1184,11 @@ function AgendaCalendar({ reservations, showProfessional, onCancel, onOpenClient
           <button type="button" aria-label={mode === 'week' ? 'Semana anterior' : 'Mes anterior'} onClick={() => shiftCalendar(-1)}><ChevronLeft size={18} /></button>
           <button type="button" aria-label={mode === 'week' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => shiftCalendar(1)}><ChevronRight size={18} /></button>
         </div>
-        <button type="button" className="calendar-today" onClick={() => setSelectedDate(new Date())}>Hoy</button>
+        <div className="calendar-toolbar-actions">
+          {/* Días libres vive en Equipo; desde la Agenda, que es donde se piensa "ese día no abro", queda a un toque */}
+          {onOpenTimeOff && <button type="button" className="calendar-today" onClick={onOpenTimeOff}>Días libres</button>}
+          <button type="button" className="calendar-today" onClick={() => setSelectedDate(new Date())}>Hoy</button>
+        </div>
       </div>
 
       {error ? (
