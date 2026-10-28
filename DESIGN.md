@@ -19,6 +19,11 @@ colors:
   ok: "#86c5a0"
   danger: "#e5737f"
   warn: "#d4a85a"
+  # Oro del plan Pro: solo tarjeta Pro, plan actual Pro y líneas finas con sesión Pro
+  gold-hi: "#f6e4a6"
+  gold: "#d4a94e"
+  gold-lo: "#9c6f24"
+  on-gold: "#17130d"
 typography:
   editorial:
     fontFamily: "Source Serif 4, Georgia, serif"
@@ -78,6 +83,12 @@ typography:
     fontSize: "18px"
     fontWeight: 600
     letterSpacing: "-0.01em"
+  # Título de página del panel y del alta, y el total grande de Estadísticas
+  page-title:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "28px"
+    fontWeight: 700
+    letterSpacing: "-0.02em"
   section-title:
     fontFamily: "Inter, system-ui, sans-serif"
     fontSize: "26px"
@@ -152,6 +163,8 @@ rounded:
   btn: "10px"
   item: "12px"
   card: "16px"
+  # Barra lateral del panel cuando se compacta y flota
+  rail: "30px"
   full: "999px"
 spacing:
   xs: "4px"
@@ -225,5 +238,6 @@ Nada de glows ni colores. Inter para todo, con a lo sumo tres pesos. La única e
   - el indicador activo se desliza;
   - los pasos y las secciones cambian sin saltos;
   - las duraciones van de 80 a 420 ms con `cubic-bezier(.16, 1, .3, 1)`;
+  - animan el ancho a propósito, porque son chicas y no empujan nada alrededor: las barras de progreso (meta de Estadísticas, uso del plan, 600 ms) y la tarjeta del alta cuando pasa a la versión ancha. La barra lateral del panel anima margen y alto en 550 ms al compactarse;
   - se respeta "reducir movimiento".
 - Foco visible con un anillo blanco de 2 px. Contraste AA. Texto legible de 11 px como mínimo; la única excepción es el calendario mensual denso, que usa 10 px.

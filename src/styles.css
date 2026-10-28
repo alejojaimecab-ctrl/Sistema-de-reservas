@@ -11,7 +11,9 @@
   --danger: #e5737f; --danger-bg: #241416; --danger-border: #4a2a2f;
   --warn: #d4a85a; --warn-bg: #231c10; --warn-border: #4a3b1e;
   --focus: #ffffff;
-  --r-card: 16px; --r-item: 12px; --r-btn: 10px; --r-sm: 8px; --r-full: 999px;
+  --r-card: 16px; --r-item: 12px; --r-btn: 10px; --r-sm: 8px; --r-xs: 4px; --r-hair: 2px; --r-full: 999px;
+  /* Oro del plan Pro (tarjeta, plan actual, líneas finas con sesión Pro): fuera de eso no se usa */
+  --gold-hi: #f6e4a6; --gold: #d4a94e; --gold-lo: #9c6f24; --on-gold: #17130d;
   /* Relieve "Noir con luz" (ver relief.css): una sola luz que viene de arriba */
   --surface-inset: #0e0e10;
   --hl: inset 0 1px 0 rgb(255 255 255 / .05); --hl-strong: inset 0 1px 0 rgb(255 255 255 / .09);
@@ -73,7 +75,7 @@ a:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px sol
 .booking-assigned svg { flex: none; color: var(--text-2); }
 .stepper > :first-child { flex: 0 0 12px; }
 .stepper > *::after { content: ''; position: absolute; right: 0; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--disabled); transition: background-color .2s ease-out, box-shadow .18s ease-out; }
-.stepper > :not(:first-child)::before { content: ''; position: absolute; left: 4px; right: 16px; top: 11px; height: 2px; border-radius: 2px; background: var(--disabled); transition: background-color .2s ease-out; }
+.stepper > :not(:first-child)::before { content: ''; position: absolute; left: 4px; right: 16px; top: 11px; height: 2px; border-radius: var(--r-hair); background: var(--disabled); transition: background-color .2s ease-out; }
 .stepper > .is-active::after, .stepper > .is-active::before { background: var(--accent); }
 .stepper button:hover::after { box-shadow: 0 0 0 4px var(--surface-sel); }
 .option-text { display: grid; gap: 3px; min-width: 0; }
